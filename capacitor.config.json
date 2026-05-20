@@ -1,0 +1,11 @@
+{
+  "appId": "com.chainreaction.incremental",
+  "appName": "Chain Reaction: Idle",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#050810"
+  }
+}
