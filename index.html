@@ -4,8 +4,53 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Chain Reaction: Idle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
-  <script type="module" src="/src/main.js"></script>
+
+<canvas id="c"></canvas>
+
+<!-- ── HUD ──────────────────────────────────────────────────────── -->
+<div id="hud">
+  <div class="hud-item">
+    <span class="hud-coin-icon">◆</span>
+    <span class="hud-value" id="hud-coins">0</span>
+  </div>
+  <div class="hud-item" id="hud-chain-wrap">
+    <span class="hud-label">Chain</span>
+    <span class="hud-value" id="hud-chain">×1.00</span>
+  </div>
+</div>
+
+<!-- ── Shop panel (slides up from bottom) ───────────────────────── -->
+<div id="shop-panel" class="hidden">
+  <div class="shop-header">
+    <span class="shop-title">Upgrades</span>
+    <button id="shop-close" aria-label="Close">&#215;</button>
+  </div>
+  <div id="shop-body"><!-- built by JS --></div>
+</div>
+
+<!-- ── Shop toggle (bottom-right) ───────────────────────────────── -->
+<button id="shop-toggle" aria-label="Upgrades">&#9650;</button>
+
+<!-- ── Dev panel ────────────────────────────────────────────────── -->
+<div id="dev-panel" class="hidden">
+  <div class="dev-header">
+    Dev
+    <button id="dev-close" aria-label="Close">&#215;</button>
+  </div>
+  <div class="dev-body">
+    <div class="dev-row-btns">
+      <button id="dev-add-coins" class="dev-small-btn">&#9670; +1 000</button>
+      <button id="dev-reset"     class="dev-small-btn">&#8635; Reset</button>
+    </div>
+  </div>
+</div>
+
+<button id="dev-toggle" aria-label="Dev">&#9881;</button>
+
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

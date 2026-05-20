@@ -1,0 +1,354 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #050810;
+  overflow: hidden;
+  width: 100dvw;
+  height: 100dvh;
+  font-family: 'Orbitron', monospace;
+  touch-action: none;
+  user-select: none;
+}
+
+canvas {
+  display: block;
+  width: 100dvw;
+  height: 100dvh;
+}
+
+/* ─── HUD ──────────────────────────────────────────────────── */
+
+#hud {
+  position: fixed;
+  top: max(1.5dvh, env(safe-area-inset-top, 12px));
+  left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 4vw;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hud-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: clamp(0.55rem, 2vmin, 0.85rem);
+  letter-spacing: 0.2em;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+}
+
+.hud-coin-icon {
+  color: #ffe566;
+  font-size: clamp(0.75rem, 2.6vmin, 1.05rem);
+  filter: drop-shadow(0 0 5px rgba(255, 229, 102, 0.65));
+}
+
+.hud-label {
+  color: rgba(255,255,255,0.3);
+}
+
+.hud-value {
+  color: rgba(255,255,255,0.88);
+  font-weight: 700;
+}
+
+/* ─── Shop toggle (bottom-right) ──────────────────────────── */
+
+#shop-toggle {
+  position: fixed;
+  bottom: max(2dvh, env(safe-area-inset-bottom, 16px));
+  right: 4vw;
+  z-index: 22;
+  width: clamp(36px, 9vmin, 48px);
+  height: clamp(36px, 9vmin, 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 229, 102, 0.08);
+  border: 1px solid rgba(255, 229, 102, 0.28);
+  border-radius: 50%;
+  font-size: clamp(0.9rem, 3vmin, 1.2rem);
+  color: rgba(255, 229, 102, 0.65);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#shop-toggle:active {
+  background: rgba(255, 229, 102, 0.2);
+  color: #ffe566;
+}
+
+/* ─── Shop panel (slides up from bottom) ──────────────────── */
+
+#shop-panel {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 15;
+  max-height: 72dvh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 10, 22, 0.97);
+  border-top: 1px solid rgba(255,255,255,0.09);
+  border-radius: 16px 16px 0 0;
+  backdrop-filter: blur(14px);
+  padding-bottom: max(2dvh, env(safe-area-inset-bottom, 16px));
+  transform: translateY(0);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity  0.35s ease;
+}
+
+#shop-panel.hidden {
+  transform: translateY(105%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+.shop-title {
+  font-size: clamp(0.62rem, 2.1vmin, 0.82rem);
+  letter-spacing: 0.3em;
+  color: rgba(255,255,255,0.38);
+  text-transform: uppercase;
+}
+
+#shop-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.35);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+#shop-close:active { color: rgba(255,255,255,0.9); }
+
+#shop-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ─── Upgrade card (one per ball slot) ────────────────────── */
+
+.upgrade-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 12px 14px 14px;
+}
+
+.upgrade-card-title {
+  font-size: clamp(0.58rem, 1.9vmin, 0.74rem);
+  letter-spacing: 0.25em;
+  color: rgba(255,255,255,0.32);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.upgrade-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.upgrade-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 9px 10px;
+  background: rgba(66, 212, 255, 0.055);
+  border: 1px solid rgba(66, 212, 255, 0.18);
+  border-radius: 7px;
+  font-family: 'Orbitron', monospace;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.upgrade-btn:active { background: rgba(66, 212, 255, 0.18); }
+
+.upgrade-btn:disabled {
+  opacity: 0.32;
+  cursor: default;
+  border-color: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.02);
+}
+
+.upgrade-btn-name {
+  font-size: clamp(0.58rem, 1.9vmin, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.82);
+}
+
+.upgrade-btn-cost {
+  font-size: clamp(0.55rem, 1.75vmin, 0.68rem);
+  letter-spacing: 0.06em;
+  color: #ffe566;
+}
+
+.upgrade-btn-level {
+  font-size: clamp(0.5rem, 1.6vmin, 0.62rem);
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.28);
+}
+
+/* ─── Unlock slot button ───────────────────────────────────── */
+
+.unlock-slot-btn {
+  width: 100%;
+  padding: 12px;
+  background: rgba(79, 255, 176, 0.055);
+  border: 1px solid rgba(79, 255, 176, 0.22);
+  border-radius: 8px;
+  color: #4fffb0;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.58rem, 1.9vmin, 0.72rem);
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.unlock-slot-btn:active   { background: rgba(79, 255, 176, 0.16); }
+.unlock-slot-btn:disabled { opacity: 0.3; cursor: default; }
+
+/* ─── Dev toggle (bottom-left) ────────────────────────────── */
+
+#dev-toggle {
+  position: fixed;
+  bottom: max(2dvh, env(safe-area-inset-bottom, 16px));
+  left: 4vw;
+  z-index: 22;
+  width: clamp(36px, 9vmin, 48px);
+  height: clamp(36px, 9vmin, 48px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 50%;
+  font-size: clamp(1rem, 3.5vmin, 1.4rem);
+  color: rgba(255,255,255,0.3);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#dev-toggle:active {
+  background: rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.9);
+}
+
+/* ─── Dev panel ────────────────────────────────────────────── */
+
+#dev-panel {
+  position: fixed;
+  bottom: calc(max(2dvh, env(safe-area-inset-bottom, 16px)) + clamp(36px, 9vmin, 48px) + 10px);
+  left: 4vw;
+  z-index: 22;
+  min-width: 180px;
+  background: rgba(8, 12, 24, 0.97);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 12px;
+  padding: 13px 15px 15px;
+  backdrop-filter: blur(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#dev-panel.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+}
+
+.dev-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 11px;
+  font-size: 0.62rem;
+  letter-spacing: 0.28em;
+  color: rgba(255,255,255,0.28);
+  text-transform: uppercase;
+}
+
+#dev-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.32);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+#dev-close:active { color: rgba(255,255,255,0.9); }
+
+.dev-body { display: flex; flex-direction: column; gap: 7px; }
+
+.dev-row-btns { display: flex; gap: 7px; }
+
+.dev-small-btn {
+  flex: 1;
+  padding: 7px 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.5);
+  font-family: 'Orbitron', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dev-small-btn:active {
+  background: rgba(255,255,255,0.11);
+  color: rgba(255,255,255,0.9);
+}
+
+/* ─── Floating coin label ──────────────────────────────────── */
+
+.coin-float {
+  position: fixed;
+  pointer-events: none;
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  font-size: clamp(0.62rem, 2.1vmin, 0.85rem);
+  letter-spacing: 0.06em;
+  color: #ffe566;
+  text-shadow: 0 0 10px rgba(255, 229, 102, 0.85);
+  z-index: 8;
+  transform: translateX(-50%);
+  animation: coin-float-up 1.15s ease-out forwards;
+}
+
+@keyframes coin-float-up {
+  0%   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+  65%  { transform: translateX(-50%) translateY(-36px); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-55px); opacity: 0; }
+}
+
+/* ─── Animations ───────────────────────────────────────────── */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
