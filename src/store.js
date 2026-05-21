@@ -91,14 +91,18 @@ function holdMs(durationLevel) {
   return                          1180 + (durationLevel - 15) * 25
 }
 
-// Front-loaded speed multiplier — early levels give big noticeable jumps,
-// later levels slow down so speed doesn't grow without bound.
-//   Lv0 → ×1.00   Lv1 → ×1.10   Lv2 → ×1.20   Lv3 → ×1.30
-//   Lv5 → ×1.50   Lv6 → ×1.54   Lv10 → ×1.70 …
+// Generic diminishing-returns multiplier.
+// Approaches (1 + maxBonus) asymptotically; curve controls how fast it gets there.
+// formula: 1 + maxBonus * (1 − e^(−level / curve))
+function diminishingUpgrade(level, maxBonus, curve) {
+  return 1 + maxBonus * (1 - Math.exp(-level / curve))
+}
+
+// Speed: maxBonus=2.0, curve=8 → big early gains, soft ceiling near ×3.
+//   Lv0  → ×1.00   Lv1  → ×1.24   Lv2  → ×1.44   Lv3  → ×1.63
+//   Lv5  → ×1.93   Lv10 → ×2.43   Lv20 → ×2.84
 function speedMult(level) {
-  if (level <= 0) return 1
-  if (level <= 5) return 1 + level * 0.10
-  return 1.50 + (level - 5) * 0.04
+  return diminishingUpgrade(level, 2.0, 8)
 }
 
 export function ballStats(ball) {
