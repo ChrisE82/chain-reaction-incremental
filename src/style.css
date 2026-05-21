@@ -232,18 +232,26 @@ canvas {
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-.upgrade-btn:active { background: rgba(66, 212, 255, 0.14); }
+/* Affordable — mild cyan glow so it feels tappable */
+.upgrade-btn:not(:disabled) {
+  background: rgba(66, 212, 255, 0.09);
+  border-color: rgba(66, 212, 255, 0.30);
+  box-shadow: 0 0 8px 0 rgba(66, 212, 255, 0.14);
+}
+
+.upgrade-btn:active { background: rgba(66, 212, 255, 0.18) !important; }
 
 .upgrade-btn:disabled {
   cursor: default;
   border-color: rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.006);
+  box-shadow: none;
 }
 
-/* Dim icon + label without touching cost text */
+/* Dim icon + label */
 .upgrade-btn:disabled .upgrade-btn-icon {
   opacity: 0.30;
   filter: saturate(0.2);
@@ -253,9 +261,9 @@ canvas {
 .upgrade-btn:disabled .upgrade-btn-stat {
   opacity: 0.38;
 }
-/* Cost stays bright — player must always see what they're saving toward */
+/* Cost in orange — clearly "can't afford yet" while still readable */
 .upgrade-btn:disabled .upgrade-btn-cost {
-  color: rgba(255, 210, 80, 0.82);
+  color: rgba(255, 130, 50, 0.90);
 }
 
 .upgrade-btn-icon {
@@ -336,9 +344,9 @@ canvas {
 .unlock-slot-btn:active   { background: rgba(79, 255, 176, 0.16); }
 .unlock-slot-btn:disabled {
   cursor: default;
-  color: rgba(79, 255, 176, 0.55);
-  border-color: rgba(79, 255, 176, 0.10);
-  background: rgba(79, 255, 176, 0.015);
+  color: rgba(255, 130, 50, 0.85);
+  border-color: rgba(255, 130, 50, 0.18);
+  background: rgba(255, 130, 50, 0.03);
 }
 
 /* ─── Dev toggle (bottom-left) ────────────────────────────── */
@@ -555,23 +563,31 @@ body.intro-completing #hud {
   font-family: 'Orbitron', monospace;
   cursor: pointer;
   padding: 0 4px;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-.qb-btn:active  { background: rgba(66, 212, 255, 0.15); }
+/* Affordable — mild glow so active buttons stand out from disabled ones */
+.qb-btn:not(:disabled):not(.qb-btn-store) {
+  background: rgba(66, 212, 255, 0.09);
+  border-color: rgba(66, 212, 255, 0.28);
+  box-shadow: 0 0 7px 0 rgba(66, 212, 255, 0.16);
+}
+
+.qb-btn:active  { background: rgba(66, 212, 255, 0.18) !important; }
 
 .qb-btn:disabled {
   cursor: default;
   border-color: rgba(255,255,255,0.06);
   background: rgba(255,255,255,0.008);
+  box-shadow: none;
 }
 
-/* Dim the action label; keep the cost readable */
+/* Dim the action label; cost in orange — clearly "saving toward" */
 .qb-btn:disabled .qb-btn-top {
   opacity: 0.36;
 }
 .qb-btn:disabled .qb-btn-sub {
-  color: rgba(255, 210, 80, 0.80);
+  color: rgba(255, 130, 50, 0.88);
 }
 
 /* Top row: the upgrade name / ball label */
