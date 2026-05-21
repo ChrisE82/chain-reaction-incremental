@@ -1612,10 +1612,6 @@ function updateQuickBuy() {
   const ballCost = slotCost(st.unlockedSlots)
   qbBallCostEl.textContent = `◆ ${fmt(ballCost)}`
   qbBallBtn.disabled = st.coins < ballCost
-  // Glow when the player is approaching the cost of Ball 2 (10 coins).
-  // ">= 8" lights up just before they can afford it without false-firing at 10.
-  qbBallBtn.classList.toggle('qb-btn-can-buy',
-    st.coins >= 8 && st.unlockedSlots === 1)
 
   // ── Cheapest upgrade ──
   const cheap = findCheapestUpgrade(st)
