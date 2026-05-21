@@ -1262,7 +1262,7 @@ function checkFirstBallCue() {
   const st = getState()
   if (st.firstBallCueShown) return
   if (st.unlockedSlots !== 1) return         // only for the very first extra ball
-  if (st.coins < slotCost(1)) return         // must be able to afford it (10 coins)
+  if (st.coins < 100) return                  // full animation fires only at 100+ coins
   fbCueState = 'waiting'
   fbCueTimer = 0
 }
@@ -1612,6 +1612,10 @@ function updateQuickBuy() {
   const ballCost = slotCost(st.unlockedSlots)
   qbBallCostEl.textContent = `◆ ${fmt(ballCost)}`
   qbBallBtn.disabled = st.coins < ballCost
+  // Glow as soon as Ball 2 is affordable; the full canvas cue fires separately at 100 coins.
+  // cancelFirstBallCue() removes the class (and sets firstBallCueShown) on purchase.
+  qbBallBtn.classList.toggle('qb-btn-cue-pulse',
+    st.unlockedSlots === 1 && st.coins >= ballCost && !st.firstBallCueShown)
 
   // ── Cheapest upgrade ──
   const cheap = findCheapestUpgrade(st)
