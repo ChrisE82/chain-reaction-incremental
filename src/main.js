@@ -1594,7 +1594,13 @@ function drawFirstBallCue() {
 // ─── Quick-buy helpers ────────────────────────────────────────────────────
 
 const QB_STAT_LABEL  = { speed: 'Speed', radius: 'Radius', duration: 'Duration', respawn: 'Respawn' }
-const QB_STAT_REASON = { speed: 'Reach circles', radius: 'Catch more', duration: 'Longer chains', respawn: 'More returns' }
+// Reason label shown on the Suggested button.
+// "Big gain" fires when the marginal improvement is ≥20%; otherwise stat-specific.
+function sugReason(stat, marginalGain) {
+  if (marginalGain >= 0.20) return 'Big gain'
+  return { duration: 'Longer chain', speed: 'Reach more',
+           radius: 'Wider catch',    respawn: 'More returns' }[stat] ?? 'Upgrade'
+}
 
 // Track last displayed target so we can flash the text when it changes
 let prevCheapKey   = ''
@@ -1615,70 +1621,70 @@ function findCheapestUpgrade(st) {
 }
 
 // ── Suggested upgrade scoring ─────────────────────────────────────────────
-// score = adjustedWeight / sqrt(cost)
-// Higher score = better recommendation.  When scores tie we fall back to
-// stat preference order (duration > radius > respawn > speed) then lower cost.
+// score = statWeight * marginalGainPercent / cost^0.65
+// where marginalGainPercent = (nextValue − currentValue) / currentValue
+//
+// Using actual next-level deltas means early big-gain upgrades score high
+// naturally, and any stat with diminishing returns falls in priority on its
+// own — no fixed target levels needed.
 
-const SUG_BASE_WEIGHT  = { duration: 6.0, speed: 5.0, radius: 4.0, respawn: 2.0 }
-const SUG_TIE_ORDER    = ['duration', 'speed', 'radius', 'respawn']
+const SUG_STAT_WEIGHT = { duration: 1.15, speed: 1.10, radius: 1.00, respawn: 0.45 }
+const SUG_TIE_ORDER   = ['duration', 'speed', 'radius', 'respawn']
 
-function sugWeight(stat, ball, ownedCount) {
-  let w = SUG_BASE_WEIGHT[stat]
-
-  if (stat === 'duration') {
-    // Front-loaded bonus — Duration is the biggest early chain unlock.
-    if (ball.durationLevel < 2) w *= 3.0
-    else if (ball.durationLevel < 5) w *= 2.0
+// Scalar value used to measure one upgrade's marginal improvement.
+// respawn uses 1/ms so that "faster respawn" = positive gain.
+function getStatValue(stat, ball) {
+  const s = ballStats(ball)
+  switch (stat) {
+    case 'speed':    return s.speed
+    case 'radius':   return s.maxRadius
+    case 'duration': return s.growMs + s.holdMs   // full active window
+    case 'respawn':  return 1 / s.respawnMs
   }
+}
 
-  if (stat === 'speed') {
-    // Early Speed bonus — balls need to move fast enough to reach active expansions.
-    if (ball.speedLevel < 2) w *= 2.5
-  }
-
-  if (stat === 'radius') {
-    // Modest priority that falls away quickly — radius is only worth recommending
-    // when the circle is still very small. Duration and Speed remain the main levers.
-    if      (ball.radiusLevel === 0) { /* normal — no multiplier */ }
-    else if (ball.radiusLevel === 1) w *= 0.80
-    else if (ball.radiusLevel === 2) w *= 0.60
-    else if (ball.radiusLevel >= 5)  w *= 0.15
-    else                              w *= 0.35  // level 3–4
-    // Dependency: bigger circle helps less without decent duration/speed.
-    if (ball.durationLevel < 2) w *= 0.75
-    if (ball.speedLevel < 2)    w *= 0.85
-  }
-
-  if (stat === 'respawn') {
-    // Respawn only matters once chains are plausible (enough balls on the board).
-    if (ownedCount < 4) w *= 0.5
-  }
-
-  return w
+// Gate: only surface Respawn in suggestions when it's actually meaningful.
+function shouldConsiderRespawn(st, ownedCount) {
+  if (ownedCount < 4) return false
+  if (st.stats.bestChainLength >= 3) return true
+  // Also open the gate once other stats are reasonably developed
+  const balls    = st.balls.slice(0, ownedCount)
+  const avg = key => balls.reduce((s, b) => s + b[key], 0) / ownedCount
+  return (avg('durationLevel') + avg('speedLevel') + avg('radiusLevel')) / 3 >= 2
 }
 
 function sugIsBetter(a, b) {
   if (Math.abs(a.score - b.score) > 1e-9) return a.score > b.score
-  const ai = SUG_TIE_ORDER.indexOf(a.stat)
-  const bi = SUG_TIE_ORDER.indexOf(b.stat)
-  if (ai !== bi) return ai < bi
-  return a.cost < b.cost
+  // Tie-break: prefer the larger raw gain, then cheaper, then stat order
+  if (Math.abs(a.marginalGain - b.marginalGain) > 1e-9) return a.marginalGain > b.marginalGain
+  if (a.cost !== b.cost) return a.cost < b.cost
+  return SUG_TIE_ORDER.indexOf(a.stat) < SUG_TIE_ORDER.indexOf(b.stat)
 }
 
-// Returns { ballIdx, stat, cost } for the best-scoring affordable upgrade.
-// Falls back to showing the best-scoring upgrade overall (button disabled) if broke.
+// Returns { ballIdx, stat, cost, score, marginalGain } for the best upgrade.
+// Falls back to the best-scoring upgrade overall (button disabled) when broke.
 function findSuggestedUpgrade(st) {
-  const ownedCount = st.unlockedSlots
+  const ownedCount   = st.unlockedSlots
+  const useRespawn   = shouldConsiderRespawn(st, ownedCount)
   let bestAffordable = null
   let bestAny        = null
 
-  for (const stat of SUG_TIE_ORDER) {
-    for (let i = 0; i < ownedCount; i++) {
-      const ball  = st.balls[i]
-      const level = ball[stat + 'Level']
-      const cost  = ballUpgradeCost(stat, level, i)
-      const score = sugWeight(stat, ball, ownedCount) / Math.sqrt(cost)
-      const cand  = { ballIdx: i, stat, cost, score }
+  for (let i = 0; i < ownedCount; i++) {
+    const ball = st.balls[i]
+
+    for (const stat of SUG_TIE_ORDER) {
+      if (stat === 'respawn' && !useRespawn) continue
+
+      const level    = ball[stat + 'Level']
+      const cost     = ballUpgradeCost(stat, level, i)
+      const curVal   = getStatValue(stat, ball)
+      const nextBall = { ...ball, [stat + 'Level']: level + 1 }
+      const nextVal  = getStatValue(stat, nextBall)
+
+      if (curVal <= 0) continue
+      const marginalGain = (nextVal - curVal) / curVal
+      const score        = SUG_STAT_WEIGHT[stat] * marginalGain / Math.pow(cost, 0.65)
+      const cand         = { ballIdx: i, stat, cost, score, marginalGain }
 
       if (cost <= st.coins) {
         if (!bestAffordable || sugIsBetter(cand, bestAffordable)) bestAffordable = cand
@@ -1749,7 +1755,7 @@ function updateQuickBuy() {
     prevSuggestKey              = sugKey
     qbSuggestTarget.textContent = `B${sug.ballIdx + 1} ${QB_STAT_LABEL[sug.stat]}`
     qbSuggestReason.textContent = affordable
-      ? `${QB_STAT_REASON[sug.stat]} · ◆${fmt(sug.cost)}`
+      ? `${sugReason(sug.stat, sug.marginalGain)} · ◆${fmt(sug.cost)}`
       : `Need ◆${fmt(sug.cost)}`
     qbSuggestBtn.disabled = !affordable
   } else {
