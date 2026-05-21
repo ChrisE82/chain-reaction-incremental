@@ -7,7 +7,7 @@ import {
   clickStats, tapUpgradeCost, tryUpgradeClick,
   chainReward, chainEndBonus, EconomyConfig,
   setAutoUpgrade,
-  setIntroComplete, devResetIntro,
+  setIntroComplete, devResetIntro, setFirstBallCueShown,
   devAddCoins, devAddPrestige, devReset,
 } from './store.js'
 
@@ -50,6 +50,9 @@ const VIRTUAL_H = 178   // 9:16 portrait
 
 // ─── Canvas / scale ───────────────────────────────────────────────────────
 let W, H, gameScale, gameOffsetX, gameOffsetY
+// Effective play-area height in virtual units. Shrunk from VIRTUAL_H so that
+// balls bounce above the quick-buy bar instead of sliding behind it.
+let gamePlayH = VIRTUAL_H
 
 function calcUnits() {
   W = window.innerWidth
@@ -59,6 +62,10 @@ function calcUnits() {
   gameScale   = Math.min(W / VIRTUAL_W, H / VIRTUAL_H)
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
   gameOffsetY = (H - VIRTUAL_H * gameScale) / 2
+  // qbBar.offsetHeight forces a synchronous layout read; it returns 0 when the
+  // bar is hidden (intro mode), so only update gamePlayH when it's visible.
+  const barPx = qbBar.offsetHeight
+  if (barPx > 0) gamePlayH = VIRTUAL_H - barPx / gameScale
 }
 calcUnits()
 
@@ -173,6 +180,23 @@ function runAutoUpgrade(dt) {
 let currentChain = null
 let nextChainId  = 1
 
+// ─── First-ball attention cue ─────────────────────────────────────────────
+// Fires once (per fresh save) after coins first reach Ball 2's cost (10).
+// Guides the eye from the playfield down to the +BALL quick-buy button.
+// All canvas drawing happens in screen-space after ctx.restore().
+let fbCueState     = 'idle'          // idle | waiting | active | done
+let fbCueTimer     = 0
+let fbCuePhase     = 0               // 0=ring, 1=coins+trail, 2=trail-fade, 3=persist
+let fbCuePhaseT    = 0
+let fbLastPopVX    = VIRTUAL_W / 2   // virtual coords of last triggered ball
+let fbLastPopVY    = VIRTUAL_H * 0.4
+let fbCueParticles = []              // screen-space coin particles
+
+const FB_WAIT_MS  = 250
+const FB_PULSE_MS = 500
+const FB_FLY_MS   = 900
+const FB_TRAIL_MS = 2200
+
 function startChain() {
   wasBoardActiveSinceLastKickstart = true
   currentChain = {
@@ -195,6 +219,7 @@ function endChain() {
     recordChainEnd(currentChain.index, currentChain.coins + bonus)
   }
   currentChain = null
+  if (!introMode) checkFirstBallCue()
 
   // Intro: start the black-hole transition once the qualifying chain is done
   if (introMode && introReadyToComplete && !introCompleting) {
@@ -441,8 +466,8 @@ function makeBall(storeData, idx) {
   return {
     id:       nextBallId++,
     spawnGen: 1,           // increments each time ball respawns
-    x:        r + Math.random() * (VIRTUAL_W - r * 2),
-    y:        r + Math.random() * (VIRTUAL_H - r * 2),
+    x:        r + Math.random() * (VIRTUAL_W  - r * 2),
+    y:        r + Math.random() * (gamePlayH  - r * 2),
     vx:       Math.cos(angle) * stats.speed,
     vy:       Math.sin(angle) * stats.speed,
     color:    BALL_COLORS[idx % BALL_COLORS.length],
@@ -539,6 +564,7 @@ function triggerBall(b, src) {
   }
 
   wasBoardActiveSinceLastKickstart = true
+  if (!introMode) { fbLastPopVX = b.x; fbLastPopVY = b.y }
   b.state     = 'expanding'
   b.expTimer  = 0
   b.curRadius = 0
@@ -577,10 +603,10 @@ function triggerBall(b, src) {
 // ─── Player tap ───────────────────────────────────────────────────────────
 function triggerAtPoint(vx, vy) {
   const r = BALL_RADIUS
-  vx = Math.max(r, Math.min(VIRTUAL_W - r, vx))
-  vy = Math.max(r, Math.min(VIRTUAL_H - r, vy))
+  vx = Math.max(r, Math.min(VIRTUAL_W  - r, vx))
+  vy = Math.max(r, Math.min(gamePlayH  - r, vy))
 
-  if (!introMode) cyclePlayerStarts++  // count valid player taps only
+  if (!introMode) cyclePlayerStarts++  // pointerdown guard ensures this only runs when no chain is active
   startChain()
 
   const maxRadius = clickStats(getState().clicks).tapRadius
@@ -648,6 +674,7 @@ function loop(ts) {
   ctx.strokeRect(gameOffsetX + 0.5, gameOffsetY + 0.5,
                  VIRTUAL_W * gameScale - 1, VIRTUAL_H * gameScale - 1)
   ctx.shadowBlur = 0
+  drawFirstBallCue()
 
   runAutoUpgrade(dt)
   updateHUD()
@@ -688,8 +715,8 @@ function update(dt) {
       if (b.respawnTimer <= 0) {
         const stats = b.isIntro ? INTRO_STATS : ballStats(getState().balls[b.storeIdx])
         const angle = Math.random() * Math.PI * 2
-        b.x  = r + Math.random() * (VIRTUAL_W - r * 2)
-        b.y  = r + Math.random() * (VIRTUAL_H - r * 2)
+        b.x  = r + Math.random() * (VIRTUAL_W  - r * 2)
+        b.y  = r + Math.random() * (gamePlayH  - r * 2)
         b.vx = Math.cos(angle) * stats.speed
         b.vy = Math.sin(angle) * stats.speed
         b.maxRadius = stats.maxRadius
@@ -709,8 +736,8 @@ function update(dt) {
 
     if (b.x - r < 0)         { b.x = r;             b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
     if (b.x + r > VIRTUAL_W) { b.x = VIRTUAL_W - r; b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
-    if (b.y - r < 0)         { b.y = r;             b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
-    if (b.y + r > VIRTUAL_H) { b.y = VIRTUAL_H - r; b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
+    if (b.y - r < 0)          { b.y = r;              b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
+    if (b.y + r > gamePlayH)  { b.y = gamePlayH - r;  b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
 
     b.sqx += (1 - b.sqx) * spring
     b.sqy += (1 - b.sqy) * spring
@@ -789,8 +816,8 @@ function update(dt) {
         for (const b of respawning) {
           const stats = ballStats(st.balls[b.storeIdx])
           const angle = Math.random() * Math.PI * 2
-          b.x = r + Math.random() * (VIRTUAL_W - r * 2)
-          b.y = r + Math.random() * (VIRTUAL_H - r * 2)
+          b.x = r + Math.random() * (VIRTUAL_W  - r * 2)
+          b.y = r + Math.random() * (gamePlayH  - r * 2)
           b.vx = Math.cos(angle) * stats.speed
           b.vy = Math.sin(angle) * stats.speed
           b.maxRadius = stats.maxRadius
@@ -810,6 +837,7 @@ function update(dt) {
   }
 
   updateParticles(dt)
+  updateFirstBallCue(dt)
 }
 
 // ─── Draw ─────────────────────────────────────────────────────────────────
@@ -1209,7 +1237,7 @@ function finishIntro() {
   balls = []
   for (let i = 0; i < st.unlockedSlots; i++) {
     const b = makeBall(st.balls[i], i)
-    if (i === 0) { b.x = VIRTUAL_W / 2; b.y = VIRTUAL_H / 2 }
+    if (i === 0) { b.x = VIRTUAL_W / 2; b.y = gamePlayH / 2 }
     balls.push(b)
   }
   currentChain = null
@@ -1217,10 +1245,263 @@ function finishIntro() {
   particles.length  = 0
   tapCircles.length = 0
 
-  // Restore UI
+  // Restore UI — removing intro-active makes the quick-buy bar visible again,
+  // so recalculate gamePlayH now that offsetHeight returns the real bar height.
   document.body.classList.remove('intro-active', 'intro-completing')
+  calcUnits()
 
   updateHUD()
+}
+
+// ─── First-ball cue: logic ────────────────────────────────────────────────
+
+function checkFirstBallCue() {
+  if (fbCueState !== 'idle') return
+  if (introMode) return
+  if (!shopPanel.classList.contains('hidden')) return  // don't fire while store is open
+  const st = getState()
+  if (st.firstBallCueShown) return
+  if (st.unlockedSlots !== 1) return         // only for the very first extra ball
+  if (st.coins < 100) return                  // full animation fires only at 100+ coins
+  fbCueState = 'waiting'
+  fbCueTimer = 0
+}
+
+function cancelFirstBallCue() {
+  if (fbCueState === 'idle' || fbCueState === 'done') return
+  fbCueState     = 'done'
+  fbCueParticles = []
+  qbBallBtn.classList.remove('qb-btn-cue-pulse')
+  setFirstBallCueShown()
+}
+
+function resetFirstBallCue() {
+  // Dev-reset only — clears state without marking firstBallCueShown
+  fbCueState     = 'idle'
+  fbCueTimer     = 0
+  fbCuePhase     = 0
+  fbCuePhaseT    = 0
+  fbCueParticles = []
+  qbBallBtn.classList.remove('qb-btn-cue-pulse')
+}
+
+function updateFirstBallCue(dt) {
+  if (fbCueState === 'idle' || fbCueState === 'done') return
+  fbCueTimer += dt
+
+  if (fbCueState === 'waiting') {
+    if (fbCueTimer >= FB_WAIT_MS) {
+      fbCueState  = 'active'
+      fbCuePhase  = 0
+      fbCuePhaseT = 0
+      fbCueTimer  = 0
+    }
+    return
+  }
+
+  // ── Active: advance phase timer ───────────────────────────────────────
+  fbCuePhaseT += dt
+  const dtS = dt / 1000
+
+  // Advance particles
+  for (let i = fbCueParticles.length - 1; i >= 0; i--) {
+    const p = fbCueParticles[i]
+    p.life -= p.decay * dtS
+    if (p.life <= 0) { fbCueParticles.splice(i, 1); continue }
+    if (p.type === 'coin') {
+      // Magnetic pull toward the +BALL button center
+      const rect = qbBallBtn.getBoundingClientRect()
+      const tx   = rect.left + rect.width  * 0.5
+      const ty   = rect.top  + rect.height * 0.5
+      const dx   = tx - p.x, dy = ty - p.y
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1
+      const pull = 0.18 + (1 - p.life) * 0.35
+      p.vx += (dx / dist) * pull
+      p.vy += (dy / dist) * pull
+      p.vx *= 0.93; p.vy *= 0.93
+    } else {
+      p.vx *= 0.88; p.vy *= 0.88
+    }
+    p.x += p.vx; p.y += p.vy
+  }
+
+  // Phase 0 → 1: spawn coin particles from playfield center toward button
+  if (fbCuePhase === 0 && fbCuePhaseT >= FB_PULSE_MS) {
+    fbCuePhase  = 1
+    fbCuePhaseT = 0
+    const cx   = gameOffsetX + VIRTUAL_W * 0.5 * gameScale
+    const cy   = gameOffsetY + gamePlayH  * 0.5 * gameScale
+    const rect = qbBallBtn.getBoundingClientRect()
+    const tx   = rect.left + rect.width  * 0.5
+    const ty   = rect.top  + rect.height * 0.5
+    const bdx  = tx - cx, bdy = ty - cy
+    const bd   = Math.sqrt(bdx * bdx + bdy * bdy) || 1
+    const px   = -bdy / bd, py = bdx / bd   // perpendicular unit vector
+    for (let i = 0; i < 8; i++) {
+      const scatter = (i - 3.5) * 7
+      const spd     = 2.0 + Math.random() * 0.8
+      fbCueParticles.push({
+        x:     cx + px * scatter * 0.3 + (Math.random() - 0.5) * 10,
+        y:     cy + py * scatter * 0.3 + (Math.random() - 0.5) * 10,
+        vx:    bdx / bd * spd + px * scatter * 0.04,
+        vy:    bdy / bd * spd + py * scatter * 0.04,
+        life:  1.0,
+        decay: 0.20 + Math.random() * 0.10,
+        r:     3.5 + Math.random() * 1.5,
+        type:  'coin',
+      })
+    }
+    qbBallBtn.classList.add('qb-btn-cue-pulse')
+  }
+
+  // Phase 1 → 2
+  if (fbCuePhase === 1 && fbCuePhaseT >= FB_FLY_MS) {
+    fbCuePhase  = 2
+    fbCuePhaseT = 0
+  }
+
+  // Phase 2 → 3: canvas drawing done, leave only button CSS pulse
+  if (fbCuePhase === 2 && fbCuePhaseT >= FB_TRAIL_MS) {
+    fbCuePhase     = 3
+    fbCuePhaseT    = 0
+    fbCueParticles = []
+  }
+}
+
+// ─── First-ball cue: drawing (screen-space, after ctx.restore()) ──────────
+
+function fbRoundRect(x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.arcTo(x + w, y,     x + w, y + r,     r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
+  ctx.lineTo(x + r, y + h)
+  ctx.arcTo(x,     y + h, x,     y + h - r, r)
+  ctx.lineTo(x, y + r)
+  ctx.arcTo(x,     y,     x + r, y,         r)
+  ctx.closePath()
+}
+
+function drawFirstBallCue() {
+  if (fbCueState !== 'active') return
+  const now = performance.now()
+
+  // ── Phase 0: expanding gold ring at last pop position ─────────────────
+  if (fbCuePhase === 0) {
+    const t  = Math.min(fbCuePhaseT / FB_PULSE_MS, 1)
+    const sx = fbLastPopVX * gameScale + gameOffsetX
+    const sy = fbLastPopVY * gameScale + gameOffsetY
+    for (let ring = 0; ring < 2; ring++) {
+      const rt    = ring === 0 ? t : Math.max(0, t - 0.18)
+      const ringR = rt * 52
+      const alpha = (1 - rt) * (ring === 0 ? 0.88 : 0.50)
+      if (ringR <= 0 || alpha <= 0) continue
+      ctx.save()
+      ctx.globalAlpha = alpha
+      ctx.strokeStyle = '#ffe566'
+      ctx.lineWidth   = (1 - rt) * 4 + 0.5
+      ctx.shadowColor = 'rgba(255,229,102,0.95)'
+      ctx.shadowBlur  = 22
+      ctx.beginPath()
+      ctx.arc(sx, sy, ringR, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+    }
+  }
+
+  // ── Coin ◆ particles (phases 1 and 2) ────────────────────────────────
+  for (const p of fbCueParticles) {
+    const a = Math.max(0, p.life)
+    const r = Math.max(0.5, p.r * (0.4 + p.life * 0.6))
+    ctx.save()
+    ctx.globalAlpha = a
+    ctx.fillStyle   = '#ffe566'
+    ctx.shadowColor = 'rgba(255,229,102,0.95)'
+    ctx.shadowBlur  = r * 3
+    ctx.beginPath()
+    ctx.moveTo(p.x,         p.y - r * 1.5)
+    ctx.lineTo(p.x + r,     p.y)
+    ctx.lineTo(p.x,         p.y + r * 1.5)
+    ctx.lineTo(p.x - r,     p.y)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
+
+  // ── Callout ghost + dashed trail (phases 1 and 2) ─────────────────────
+  if (fbCuePhase === 1 || fbCuePhase === 2) {
+    const tIn   = fbCuePhase === 1 ? Math.min(1, fbCuePhaseT / 350) : 1
+    const tOut  = fbCuePhase === 2 ? fbCuePhaseT / FB_TRAIL_MS : 0
+    const alpha = tIn * (1 - tOut * 0.8)
+    if (alpha <= 0.01) return
+
+    const rect = qbBallBtn.getBoundingClientRect()
+    const tx   = rect.left + rect.width  * 0.5
+    const ty   = rect.top  + rect.height * 0.5
+    // Callout appears in the lower-middle of the playfield
+    const cx   = gameOffsetX + VIRTUAL_W * 0.5  * gameScale
+    const cy   = gameOffsetY + gamePlayH  * 0.58 * gameScale
+    const pw   = 90, ph = 38, pr = 10
+
+    // ── Callout pill ───────────────────────────────────────────────────
+    const pulse = 1 + Math.sin(now * 0.005) * 0.055
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.translate(cx, cy)
+    ctx.scale(pulse, pulse)
+    ctx.translate(-cx, -cy)
+    ctx.shadowColor = 'rgba(255,229,102,0.95)'
+    ctx.shadowBlur  = 24
+    ctx.fillStyle   = 'rgba(12, 10, 2, 0.92)'
+    fbRoundRect(cx - pw * 0.5, cy - ph * 0.5, pw, ph, pr)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,229,102,0.88)'
+    ctx.lineWidth   = 1.5
+    ctx.stroke()
+    ctx.shadowBlur  = 6
+    ctx.fillStyle   = '#ffe566'
+    ctx.font        = 'bold 12px Orbitron, monospace'
+    ctx.textAlign   = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('◆  + BALL', cx, cy)
+    ctx.restore()
+
+    // ── Dashed marching trail from callout bottom to button ────────────
+    const marchOffset = -(now * 0.08) % 12
+    const trailStartY = cy + ph * 0.5 + 6
+    // Control point bows the trail inward
+    const cpx = cx * 0.6 + tx * 0.4
+    const cpy = trailStartY * 0.45 + ty * 0.55
+
+    ctx.save()
+    ctx.globalAlpha    = alpha * 0.72
+    ctx.strokeStyle    = '#ffe566'
+    ctx.lineWidth      = 1.8
+    ctx.shadowColor    = 'rgba(255,229,102,0.70)'
+    ctx.shadowBlur     = 8
+    ctx.setLineDash([7, 5])
+    ctx.lineDashOffset = marchOffset
+    ctx.beginPath()
+    ctx.moveTo(cx, trailStartY)
+    ctx.quadraticCurveTo(cpx, cpy, tx, ty - rect.height * 0.5 - 2)
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    // Arrowhead pointing at button
+    const arrAngle = Math.atan2(ty - cpy, tx - cpx)
+    ctx.globalAlpha = alpha * 0.92
+    ctx.shadowBlur  = 10
+    ctx.fillStyle   = '#ffe566'
+    ctx.beginPath()
+    ctx.moveTo(tx,     ty - rect.height * 0.5 - 2)
+    ctx.lineTo(tx - 9 * Math.cos(arrAngle - 0.42), ty - rect.height * 0.5 - 2 - 9 * Math.sin(arrAngle - 0.42))
+    ctx.lineTo(tx - 9 * Math.cos(arrAngle + 0.42), ty - rect.height * 0.5 - 2 - 9 * Math.sin(arrAngle + 0.42))
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
 }
 
 // ─── Quick-buy helpers ────────────────────────────────────────────────────
@@ -1331,10 +1612,10 @@ function updateQuickBuy() {
   const ballCost = slotCost(st.unlockedSlots)
   qbBallCostEl.textContent = `◆ ${fmt(ballCost)}`
   qbBallBtn.disabled = st.coins < ballCost
-  // Glow when the player is approaching the cost of Ball 2 (10 coins).
-  // ">= 8" lights up just before they can afford it without false-firing at 10.
-  qbBallBtn.classList.toggle('qb-btn-can-buy',
-    st.coins >= 8 && st.unlockedSlots === 1)
+  // Glow as soon as Ball 2 is affordable; the full canvas cue fires separately at 100 coins.
+  // cancelFirstBallCue() removes the class (and sets firstBallCueShown) on purchase.
+  qbBallBtn.classList.toggle('qb-btn-cue-pulse',
+    st.unlockedSlots === 1 && st.coins >= ballCost && !st.firstBallCueShown)
 
   // ── Cheapest upgrade ──
   const cheap = findCheapestUpgrade(st)
@@ -1561,8 +1842,11 @@ canvas.addEventListener('pointerdown', e => {
   e.preventDefault()
   if (introCompleting) return // no input while transition animation runs
 
-  // Block while a tap circle is active or any chain expansion is still running
-  if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive)) return
+  // Block while a tap circle is active, any ball is still animated, or a chain
+  // is open. The currentChain check catches the brief window between the last
+  // shrink finishing and endChain() running — prevents a queued tap from
+  // counting as a fresh shot before the chain is fully resolved.
+  if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive) || currentChain) return
   try { getAudio() } catch (_) {}
   const [vx, vy] = screenToVirtual(e.clientX, e.clientY)
   triggerAtPoint(vx, vy)
@@ -1590,6 +1874,7 @@ qbBallBtn.addEventListener('click', e => {
   e.stopPropagation()
   if (tryUnlockSlot()) {
     addBall()
+    cancelFirstBallCue()
     updateHUD()
     if (!shopPanel.classList.contains('hidden')) buildShop()
     spawnQbToast(`Ball ${getState().unlockedSlots} Unlocked!`)
@@ -1648,6 +1933,7 @@ devResetBtn.addEventListener('click', () => {
   wasBoardActiveSinceLastKickstart = false
   particles.length  = 0
   tapCircles.length = 0
+  resetFirstBallCue()
 
   // Full reset always restores intro mode (introComplete is false in default state)
   introMode            = !st.introComplete

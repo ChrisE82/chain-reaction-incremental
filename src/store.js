@@ -91,10 +91,24 @@ function holdMs(durationLevel) {
   return                          1180 + (durationLevel - 15) * 25
 }
 
+// Generic diminishing-returns multiplier.
+// Approaches (1 + maxBonus) asymptotically; curve controls how fast it gets there.
+// formula: 1 + maxBonus * (1 − e^(−level / curve))
+function diminishingUpgrade(level, maxBonus, curve) {
+  return 1 + maxBonus * (1 - Math.exp(-level / curve))
+}
+
+// Speed: maxBonus=2.0, curve=8 → big early gains, soft ceiling near ×3.
+//   Lv0  → ×1.00   Lv1  → ×1.24   Lv2  → ×1.44   Lv3  → ×1.63
+//   Lv5  → ×1.93   Lv10 → ×2.43   Lv20 → ×2.84
+function speedMult(level) {
+  return diminishingUpgrade(level, 2.0, 8)
+}
+
 export function ballStats(ball) {
   const base = BallTypeConfig[0].baseStats
   return {
-    speed:     base.speed     * (1 + ball.speedLevel  * 0.025),
+    speed:     base.speed     * speedMult(ball.speedLevel),
     maxRadius: base.maxRadius * (1 + ball.radiusLevel * 0.035),
     growMs:    GameConfig.growDuration,          // fixed — stays snappy at all levels
     holdMs:    holdMs(ball.durationLevel),        // piecewise — main upgrade lever
@@ -188,6 +202,7 @@ function defaultState() {
     prestigeCount:       0,      // increments each prestige; gates auto-upgrade
     autoUpgradeEnabled:  false,  // only effective when prestigeCount > 0
     introComplete:       false,  // true after the power-preview intro has run once
+    firstBallCueShown:  false,  // true after the first-ball attention cue has played
     stats: {
       bestChainLength:    0,
       lastChainLength:    0,
@@ -303,6 +318,11 @@ export function devResetIntro() {
 
 export function devAddPrestige() {
   state.prestigeCount++
+  saveState(state)
+}
+
+export function setFirstBallCueShown() {
+  state.firstBallCueShown = true
   saveState(state)
 }
 
