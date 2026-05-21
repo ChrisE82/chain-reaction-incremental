@@ -26,14 +26,37 @@
 <!-- ── Shop panel (slides up from bottom) ───────────────────────── -->
 <div id="shop-panel" class="hidden">
   <div class="shop-header">
-    <span class="shop-title">Upgrades</span>
+    <div class="shop-title-wrap">
+      <span class="shop-header-icon">&#11042;</span>
+      <span class="shop-title">Upgrades</span>
+    </div>
     <button id="shop-close" aria-label="Close">&#215;</button>
   </div>
   <div id="shop-body"><!-- built by JS --></div>
 </div>
 
-<!-- ── Shop toggle (bottom-right) ───────────────────────────────── -->
-<button id="shop-toggle" aria-label="Upgrades">&#9650;</button>
+<!-- ── Quick-buy bar (always visible, bottom) ───────────────────── -->
+<div id="quick-buy-bar">
+  <button id="qb-ball" class="qb-btn">
+    <span class="qb-btn-top">+ BALL</span>
+    <span class="qb-btn-sub" id="qb-ball-cost">&#9670; 3</span>
+  </button>
+  <button id="qb-cheap" class="qb-btn">
+    <span class="qb-btn-top" id="qb-cheap-label">CHEAP</span>
+    <span class="qb-btn-sub" id="qb-cheap-cost">&#9670; –</span>
+  </button>
+  <button id="qb-suggest" class="qb-btn">
+    <span class="qb-btn-top" id="qb-suggest-label">BEST</span>
+    <span class="qb-btn-sub" id="qb-suggest-cost">&#9670; –</span>
+  </button>
+  <button id="qb-store" class="qb-btn qb-btn-store">
+    <span class="qb-btn-top">STORE</span>
+    <span class="qb-btn-sub" id="qb-store-arrow">&#9650;</span>
+  </button>
+</div>
+
+<!-- ── Shop toggle (hidden — replaced by quick-buy bar) ─────────── -->
+<button id="shop-toggle" aria-label="Upgrades" style="display:none">&#9650;</button>
 
 <!-- ── Dev panel ────────────────────────────────────────────────── -->
 <div id="dev-panel" class="hidden">
@@ -46,10 +69,19 @@
       <button id="dev-add-coins" class="dev-small-btn">&#9670; +1 000</button>
       <button id="dev-reset"     class="dev-small-btn">&#8635; Reset</button>
     </div>
+    <div class="dev-row-btns">
+      <button id="dev-prestige"  class="dev-small-btn">&#9733; Prestige</button>
+    </div>
+    <div class="dev-row-btns">
+      <button id="dev-reset-intro" class="dev-small-btn">&#8617; Intro</button>
+    </div>
   </div>
 </div>
 
 <button id="dev-toggle" aria-label="Dev">&#9881;</button>
+
+<!-- ── Debug overlay (toggle with D key) ────────────────────────── -->
+<div id="debug-overlay" class="hidden"></div>
 
 <script type="module" src="/src/main.js"></script>
 </body>
