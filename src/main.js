@@ -580,7 +580,7 @@ function triggerAtPoint(vx, vy) {
   vx = Math.max(r, Math.min(VIRTUAL_W - r, vx))
   vy = Math.max(r, Math.min(VIRTUAL_H - r, vy))
 
-  if (!introMode) cyclePlayerStarts++  // count valid player taps only
+  if (!introMode) cyclePlayerStarts++  // pointerdown guard ensures this only runs when no chain is active
   startChain()
 
   const maxRadius = clickStats(getState().clicks).tapRadius
@@ -1561,8 +1561,11 @@ canvas.addEventListener('pointerdown', e => {
   e.preventDefault()
   if (introCompleting) return // no input while transition animation runs
 
-  // Block while a tap circle is active or any chain expansion is still running
-  if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive)) return
+  // Block while a tap circle is active, any ball is still animated, or a chain
+  // is open. The currentChain check catches the brief window between the last
+  // shrink finishing and endChain() running — prevents a queued tap from
+  // counting as a fresh shot before the chain is fully resolved.
+  if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive) || currentChain) return
   try { getAudio() } catch (_) {}
   const [vx, vy] = screenToVirtual(e.clientX, e.clientY)
   triggerAtPoint(vx, vy)
