@@ -1246,30 +1246,34 @@ function findCheapestUpgrade(st) {
 // Higher score = better recommendation.  When scores tie we fall back to
 // stat preference order (duration > radius > respawn > speed) then lower cost.
 
-const SUG_BASE_WEIGHT  = { duration: 6.0, radius: 3.0, respawn: 2.0, speed: 0.8 }
-const SUG_TIE_ORDER    = ['duration', 'radius', 'respawn', 'speed']
+const SUG_BASE_WEIGHT  = { duration: 6.0, speed: 5.0, radius: 3.0, respawn: 2.0 }
+const SUG_TIE_ORDER    = ['duration', 'speed', 'radius', 'respawn']
 
 function sugWeight(stat, ball, ownedCount) {
   let w = SUG_BASE_WEIGHT[stat]
 
   if (stat === 'duration') {
-    // Front-loaded bonus — early Duration levels are by far the biggest chain unlock.
+    // Front-loaded bonus — Duration is the biggest early chain unlock.
     if (ball.durationLevel < 2) w *= 3.0
     else if (ball.durationLevel < 5) w *= 2.0
   }
 
+  if (stat === 'speed') {
+    // Early Speed bonus — balls need to move fast enough to reach active expansions.
+    if (ball.speedLevel < 2) w *= 2.5
+  }
+
   if (stat === 'radius') {
-    // Radius is less useful until the ball stays active long enough to use it.
+    // Radius is only useful once the ball stays active and moves fast enough.
     if (ball.durationLevel < 2) w *= 0.5
+    if (ball.speedLevel < 2)    w *= 0.75
   }
 
   if (stat === 'respawn') {
-    // Respawn only matters once chains are plausible.
-    if (ownedCount < 4)         w *= 0.5
-    if (ball.durationLevel < 3) w *= 0.5
+    // Respawn only matters once chains are plausible (enough balls on the board).
+    if (ownedCount < 4) w *= 0.5
   }
 
-  // Speed has no bonus multipliers — its low base weight keeps it last.
   return w
 }
 

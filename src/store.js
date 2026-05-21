@@ -112,12 +112,12 @@ export function clickStats(cl) {
 
 // ─── Cost formulas ────────────────────────────────────────────────────────
 
-// Duration uses a front-loaded table so early levels are cheap and impactful.
-// Level 0 costs 15, Lv1 costs 35, …  After Lv4 it joins a 1.35× exponential curve.
-// All entries are before the per-ball index multiplier.
-//   Lv0 →  15   Lv1 →  35   Lv2 →  80   Lv3 → 180   Lv4 → 400
-//   Lv5 → 540   Lv6 → 729 …
+// Front-loaded cost tables — all entries are before the per-ball index multiplier.
+//
+// Duration:  Lv0→15  Lv1→35  Lv2→80  Lv3→180  Lv4→400  then ×1.35/level
+// Speed:     Lv0→20  Lv1→45  Lv2→100 Lv3→220  Lv4→480  then ×1.32/level
 const EARLY_DURATION_COSTS = [15, 35, 80, 180, 400]
+const EARLY_SPEED_COSTS    = [20, 45, 100, 220, 480]
 
 // ballIndex is zero-based: first ball = 0, second = 1, …
 // Passing no index (or 0) gives the original cost for Ball 1.
@@ -128,6 +128,13 @@ export function ballUpgradeCost(stat, level, ballIndex = 0) {
     const base = level < EARLY_DURATION_COSTS.length
       ? EARLY_DURATION_COSTS[level]
       : Math.floor(400 * Math.pow(1.35, level - 4))
+    return Math.floor(base * indexMult)
+  }
+
+  if (stat === 'speed') {
+    const base = level < EARLY_SPEED_COSTS.length
+      ? EARLY_SPEED_COSTS[level]
+      : Math.floor(480 * Math.pow(1.32, level - 4))
     return Math.floor(base * indexMult)
   }
 
