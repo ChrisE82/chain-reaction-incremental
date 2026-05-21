@@ -304,6 +304,61 @@ function drawTapCircles() {
   }
 }
 
+// ─── Radius upgrade ghost rings ───────────────────────────────────────────
+// Brief visual feedback on radius purchase: old circle fades out (dashed),
+// new circle pulses in (cyan glow), so the size jump is immediately obvious.
+const radiusGhosts     = []
+const RADIUS_GHOST_DUR = 750  // ms
+
+function spawnRadiusGhost(ballIdx, oldMaxR) {
+  const b = balls[ballIdx]
+  if (!b) return
+  const newMaxR = ballStats(getState().balls[ballIdx]).maxRadius
+  radiusGhosts.push({ x: b.x, y: b.y, oldR: oldMaxR, newR: newMaxR, timer: 0 })
+}
+
+function updateRadiusGhosts(dt) {
+  for (let i = radiusGhosts.length - 1; i >= 0; i--) {
+    radiusGhosts[i].timer += dt
+    if (radiusGhosts[i].timer >= RADIUS_GHOST_DUR) radiusGhosts.splice(i, 1)
+  }
+}
+
+function drawRadiusGhosts() {
+  for (const g of radiusGhosts) {
+    const t = g.timer / RADIUS_GHOST_DUR   // 0→1
+
+    // Old radius — dashed white ring fades out quickly
+    const oldAlpha = Math.max(0, 1 - t * 2.8) * 0.55
+    if (oldAlpha > 0.01) {
+      ctx.save()
+      ctx.globalAlpha = oldAlpha
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)'
+      ctx.lineWidth   = 0.4
+      ctx.setLineDash([2, 2])
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.oldR, 0, Math.PI * 2); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.restore()
+    }
+
+    // New radius — cyan ring expands slightly then fades
+    const tIn    = Math.min(t * 4, 1)
+    const tOut   = Math.max(0, (t - 0.20) / 0.80)
+    const newAlpha = tIn * (1 - tOut * tOut) * 0.90
+    const expand   = 1 + Math.max(0, 1 - tOut * 2) * 0.10   // brief outward pulse
+    if (newAlpha > 0.01) {
+      ctx.save()
+      ctx.globalAlpha  = newAlpha
+      ctx.strokeStyle  = 'rgba(66, 212, 255, 0.95)'
+      ctx.lineWidth    = 0.7
+      ctx.shadowColor  = 'rgba(66, 212, 255, 0.7)'
+      ctx.shadowBlur   = 4 * gameScale
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.newR * expand, 0, Math.PI * 2); ctx.stroke()
+      ctx.restore()
+    }
+  }
+}
+
 // ─── Particles ────────────────────────────────────────────────────────────
 const particles     = []
 const MAX_PARTICLES = 500
@@ -661,6 +716,7 @@ function loop(ts) {
   drawGrid()
   update(dt)
   drawAll()
+  drawRadiusGhosts()
   drawTapCircles()
   drawParticles()
   if (introCompleting) drawIntroTransition()
@@ -867,6 +923,7 @@ function update(dt) {
   }
 
   updateParticles(dt)
+  updateRadiusGhosts(dt)
   updateFirstBallCue(dt)
 }
 
@@ -1562,7 +1619,7 @@ function findCheapestUpgrade(st) {
 // Higher score = better recommendation.  When scores tie we fall back to
 // stat preference order (duration > radius > respawn > speed) then lower cost.
 
-const SUG_BASE_WEIGHT  = { duration: 6.0, speed: 5.0, radius: 3.0, respawn: 2.0 }
+const SUG_BASE_WEIGHT  = { duration: 6.0, speed: 5.0, radius: 4.0, respawn: 2.0 }
 const SUG_TIE_ORDER    = ['duration', 'speed', 'radius', 'respawn']
 
 function sugWeight(stat, ball, ownedCount) {
@@ -1580,9 +1637,16 @@ function sugWeight(stat, ball, ownedCount) {
   }
 
   if (stat === 'radius') {
-    // Radius is only useful once the ball stays active and moves fast enough.
-    if (ball.durationLevel < 2) w *= 0.5
-    if (ball.speedLevel < 2)    w *= 0.75
+    // Modest priority that falls away quickly — radius is only worth recommending
+    // when the circle is still very small. Duration and Speed remain the main levers.
+    if      (ball.radiusLevel === 0) { /* normal — no multiplier */ }
+    else if (ball.radiusLevel === 1) w *= 0.80
+    else if (ball.radiusLevel === 2) w *= 0.60
+    else if (ball.radiusLevel >= 5)  w *= 0.15
+    else                              w *= 0.35  // level 3–4
+    // Dependency: bigger circle helps less without decent duration/speed.
+    if (ball.durationLevel < 2) w *= 0.75
+    if (ball.speedLevel < 2)    w *= 0.85
   }
 
   if (stat === 'respawn') {
@@ -1870,7 +1934,14 @@ function buildShop() {
         statLabel(ball),
         `◆ ${fmt(cost)}`,
         st.coins >= cost,
-        () => { if (tryUpgrade(i, stat)) { syncBallStats(i); buildShop(); updateHUD() } }
+        () => {
+          const oldR = stat === 'radius' ? ballStats(getState().balls[i]).maxRadius : 0
+          if (tryUpgrade(i, stat)) {
+            syncBallStats(i)
+            if (stat === 'radius') spawnRadiusGhost(i, oldR)
+            buildShop(); updateHUD()
+          }
+        }
       ))
     }
     card.appendChild(grid)
@@ -1943,8 +2014,10 @@ qbCheapBtn.addEventListener('click', e => {
   e.stopPropagation()
   const up = findCheapestUpgrade(getState())
   if (!up) return
+  const oldR = up.stat === 'radius' ? ballStats(getState().balls[up.ballIdx]).maxRadius : 0
   if (tryUpgrade(up.ballIdx, up.stat)) {
     syncBallStats(up.ballIdx)
+    if (up.stat === 'radius') spawnRadiusGhost(up.ballIdx, oldR)
     updateHUD()
     if (!shopPanel.classList.contains('hidden')) buildShop()
     spawnQbToast(`${QB_STAT_LABEL[up.stat]} B${up.ballIdx + 1} upgraded!`)
@@ -1955,8 +2028,10 @@ qbSuggestBtn.addEventListener('click', e => {
   e.stopPropagation()
   const up = findSuggestedUpgrade(getState())
   if (!up) return
+  const oldR = up.stat === 'radius' ? ballStats(getState().balls[up.ballIdx]).maxRadius : 0
   if (tryUpgrade(up.ballIdx, up.stat)) {
     syncBallStats(up.ballIdx)
+    if (up.stat === 'radius') spawnRadiusGhost(up.ballIdx, oldR)
     updateHUD()
     if (!shopPanel.classList.contains('hidden')) buildShop()
     spawnQbToast(`${QB_STAT_LABEL[up.stat]} B${up.ballIdx + 1} upgraded!`)

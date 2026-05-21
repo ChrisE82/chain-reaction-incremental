@@ -64,7 +64,7 @@ export const BallTypeConfig = [
     maxOwned:           Infinity,
     baseStats: {
       speed:     0.30,   // virtual units / frame tick
-      maxRadius: 15,     // virtual units at expansion peak
+      maxRadius: 4.5,    // virtual units at expansion peak (level 0 intentionally small)
       respawnMs: 6000,   // ms before re-entering play (hard floor: 650ms)
       // Expansion timing is defined in GameConfig, not here, so that all
       // balls share one source of truth for the phase durations.
@@ -105,11 +105,20 @@ function speedMult(level) {
   return diminishingUpgrade(level, 2.0, 8)
 }
 
+// Radius: maxBonus=0.9, curve=6 → gentle, controlled growth, approaches ×1.9 asymptote.
+// Paired with small base (4.5 units) so circles stay modest at all levels.
+// Duration and Speed remain the main early chain enablers.
+//   Lv0  → ×1.00   Lv1  → ×1.14   Lv2  → ×1.26   Lv3  → ×1.35
+//   Lv5  → ×1.51   Lv8  → ×1.66   Lv12 → ×1.78
+function radiusMult(level) {
+  return diminishingUpgrade(level, 0.9, 6.0)
+}
+
 export function ballStats(ball) {
   const base = BallTypeConfig[0].baseStats
   return {
     speed:     base.speed     * speedMult(ball.speedLevel),
-    maxRadius: base.maxRadius * (1 + ball.radiusLevel * 0.035),
+    maxRadius: base.maxRadius * radiusMult(ball.radiusLevel),
     growMs:    GameConfig.growDuration,          // fixed — stays snappy at all levels
     holdMs:    holdMs(ball.durationLevel),        // piecewise — main upgrade lever
     shrinkMs:  GameConfig.shrinkDuration,        // fixed — visual-only collapse
@@ -130,8 +139,10 @@ export function clickStats(cl) {
 //
 // Duration:  Lv0→15  Lv1→35  Lv2→80  Lv3→180  Lv4→400  then ×1.35/level
 // Speed:     Lv0→20  Lv1→45  Lv2→100 Lv3→220  Lv4→480  then ×1.32/level
+// Radius:    Lv0→20  Lv1→45  Lv2→100 Lv3→225  Lv4→500  then ×1.35/level
 const EARLY_DURATION_COSTS = [15, 35, 80, 180, 400]
 const EARLY_SPEED_COSTS    = [20, 45, 100, 220, 480]
+const EARLY_RADIUS_COSTS   = [20, 45, 100, 225, 500]
 
 // ballIndex is zero-based: first ball = 0, second = 1, …
 // Passing no index (or 0) gives the original cost for Ball 1.
@@ -149,6 +160,13 @@ export function ballUpgradeCost(stat, level, ballIndex = 0) {
     const base = level < EARLY_SPEED_COSTS.length
       ? EARLY_SPEED_COSTS[level]
       : Math.floor(480 * Math.pow(1.32, level - 4))
+    return Math.floor(base * indexMult)
+  }
+
+  if (stat === 'radius') {
+    const base = level < EARLY_RADIUS_COSTS.length
+      ? EARLY_RADIUS_COSTS[level]
+      : Math.floor(500 * Math.pow(1.35, level - 4))
     return Math.floor(base * indexMult)
   }
 
