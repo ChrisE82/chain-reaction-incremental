@@ -448,6 +448,18 @@ canvas {
   letter-spacing: 0.08em;
 }
 
+/* ─── Board-clear bonus label ──────────────────────────────── */
+
+.clear-float {
+  color: #ffffff !important;
+  font-size: clamp(1rem, 3.4vmin, 1.3rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.12em !important;
+  text-shadow:
+    0 0 10px rgba(255, 255, 255, 0.95),
+    0 0 24px rgba(66, 212, 255, 0.65) !important;
+}
+
 /* ─── Debug overlay (toggle with D key) ───────────────────── */
 
 #debug-overlay {

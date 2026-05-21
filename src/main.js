@@ -84,14 +84,18 @@ let nextBallId  = 1     // monotonic ID assigned to each ball on creation
 let lastTime    = 0
 let debugVisible = false
 
-// ─── Kickstart ────────────────────────────────────────────────────────────
-// Temporary value — replace with prestige state when prestige is implemented.
-const PRESTIGE_BALL_COUNT = 1
-
-// True whenever any ball is alive/moving/expanding, or a chain has started.
-// Kickstart can only fire once per board-clear; this flag prevents re-triggering
-// every frame while the board stays empty.
+// ─── Board-clear cycle ────────────────────────────────────────────────────
+// When the board fully empties we award an efficiency-based clear bonus, then
+// immediately refill every owned ball so the next cycle can start at once.
+//
+// wasBoardActiveSinceLastKickstart: true once any ball has been triggered this
+// cycle; prevents the clear from re-firing every frame while the board is empty.
 let wasBoardActiveSinceLastKickstart = false
+
+// Per-cycle stats — reset to 0 after each clear fires.
+let cyclePlayerStarts       = 0   // valid player taps (not UI, not auto, not refill)
+let cycleTriggerOccurrences = 0   // every ball pop, including re-triggers after respawn
+let cycleBaseEarned         = 0   // coins from chainReward() only (no chain-end bonuses)
 
 // ─── Intro mode ───────────────────────────────────────────────────────────
 // Separate from real-game state. Intro balls, intro coins, and intro chains
@@ -556,6 +560,8 @@ function triggerBall(b, src) {
     introCoins += coins
   } else {
     addCoins(coins)
+    cycleTriggerOccurrences++   // every pop counts, including re-triggers after respawn
+    cycleBaseEarned += coins    // raw earn before chain-end bonuses
   }
   spawnCoinLabel(b.x, b.y, coins)
   spawnParticles(b.x, b.y, b.color, 22, b.maxRadius)
@@ -574,6 +580,7 @@ function triggerAtPoint(vx, vy) {
   vx = Math.max(r, Math.min(VIRTUAL_W - r, vx))
   vy = Math.max(r, Math.min(VIRTUAL_H - r, vy))
 
+  if (!introMode) cyclePlayerStarts++  // count valid player taps only
   startChain()
 
   const maxRadius = clickStats(getState().clicks).tapRadius
@@ -753,26 +760,50 @@ function update(dt) {
 
     if (respawning.length > 0) {
       if (!currentChain && wasBoardActiveSinceLastKickstart && !introMode) {
-        // ── Kickstart ──────────────────────────────────────────────────────
-        // Board just cleared and was recently active. Respawn a handful of
-        // balls immediately and award a small bonus based on last chain size.
+        // ── Board-clear bonus + full refill ────────────────────────────────
+        // Efficiency bonus: rewards high pops-per-tap, not raw spam.
+        //   popsPerTap 1 → log₂=0 → ×0 bonus
+        //   popsPerTap 2 → log₂=1 → ×0.5 bonus
+        //   popsPerTap 4 → log₂=2 → ×1.0 bonus
+        //   popsPerTap 8 → log₂=3 → ×1.5 bonus
+        //   cap at ×2.5 (popsPerTap ≈ 32+)
         wasBoardActiveSinceLastKickstart = false
 
-        const count   = Math.max(1, PRESTIGE_BALL_COUNT)
-        const lastLen = getState().stats.lastChainLength
-        const bonus   = Math.max(1, Math.floor(Math.sqrt(lastLen) * count))
+        const popsPerTap = cycleTriggerOccurrences / Math.max(1, cyclePlayerStarts)
+        const effMult    = Math.min(2.5, Math.max(0, Math.log2(popsPerTap)) * 0.5)
+        const clearBonus = Math.floor(cycleBaseEarned * effMult)
 
-        for (let i = 0; i < Math.min(count, respawning.length); i++) {
-          respawning[i].respawnTimer = 0
+        if (clearBonus > 0) {
+          addCoins(clearBonus)
+          recordKickstart(clearBonus)
+          spawnClearLabel(clearBonus)
         }
 
-        addCoins(bonus)
-        recordKickstart(bonus)
-        spawnKickstartLabel(VIRTUAL_W / 2, VIRTUAL_H / 3, bonus)
+        // Reset counters for the next cycle
+        cyclePlayerStarts       = 0
+        cycleTriggerOccurrences = 0
+        cycleBaseEarned         = 0
+
+        // Immediately put every owned ball back on the board
+        const st = getState()
+        for (const b of respawning) {
+          const stats = ballStats(st.balls[b.storeIdx])
+          const angle = Math.random() * Math.PI * 2
+          b.x = r + Math.random() * (VIRTUAL_W - r * 2)
+          b.y = r + Math.random() * (VIRTUAL_H - r * 2)
+          b.vx = Math.cos(angle) * stats.speed
+          b.vy = Math.sin(angle) * stats.speed
+          b.maxRadius = stats.maxRadius
+          b.holdMs    = stats.holdMs
+          b.respawnMs = stats.respawnMs
+          b.sqx = 1; b.sqy = 1
+          b.spawnGen++
+          b.state = 'idle'
+        }
       } else {
-        // ── Normal instant-wake ────────────────────────────────────────────
-        // Kickstart already fired (or hasn't been earned yet); just wake the
-        // soonest ball so the board never stays empty permanently.
+        // Safety valve: if clear hasn't been earned yet (fresh board, intro, or
+        // chain still technically open), just wake the soonest ball so the
+        // board never stays permanently empty.
         respawning[0].respawnTimer = 0
       }
     }
@@ -892,6 +923,16 @@ function spawnKickstartLabel(vx, vy, bonus) {
   el.textContent = `KICKSTART +${bonus}`
   el.style.left  = `${sx}px`
   el.style.top   = `${sy}px`
+  document.body.appendChild(el)
+  el.addEventListener('animationend', () => el.remove(), { once: true })
+}
+
+function spawnClearLabel(bonus) {
+  const el = document.createElement('div')
+  el.className   = 'coin-float clear-float'
+  el.textContent = `CLEAR  ◆+${fmt(bonus)}`
+  el.style.left  = `${Math.round(W / 2)}px`
+  el.style.top   = `${Math.round(H * 0.38)}px`
   document.body.appendChild(el)
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
@@ -1185,7 +1226,6 @@ function finishIntro() {
 // ─── Quick-buy helpers ────────────────────────────────────────────────────
 
 const QB_STAT_LABEL = { speed: 'SPD', radius: 'RAD', duration: 'DUR', respawn: 'RSP' }
-const QB_SUGGEST_ORDER = ['radius', 'duration', 'respawn', 'speed']
 
 // Returns { ballIdx, stat, cost } for the single cheapest ball upgrade,
 // or null if there are no ball slots.
@@ -1201,26 +1241,73 @@ function findCheapestUpgrade(st) {
   return best
 }
 
-// Returns { ballIdx, stat, cost } using priority: radius → duration → respawn → speed.
-// Prefers affordable upgrades; falls back to cheapest in priority order if broke.
+// ── Suggested upgrade scoring ─────────────────────────────────────────────
+// score = adjustedWeight / sqrt(cost)
+// Higher score = better recommendation.  When scores tie we fall back to
+// stat preference order (duration > radius > respawn > speed) then lower cost.
+
+const SUG_BASE_WEIGHT  = { duration: 6.0, speed: 5.0, radius: 3.0, respawn: 2.0 }
+const SUG_TIE_ORDER    = ['duration', 'speed', 'radius', 'respawn']
+
+function sugWeight(stat, ball, ownedCount) {
+  let w = SUG_BASE_WEIGHT[stat]
+
+  if (stat === 'duration') {
+    // Front-loaded bonus — Duration is the biggest early chain unlock.
+    if (ball.durationLevel < 2) w *= 3.0
+    else if (ball.durationLevel < 5) w *= 2.0
+  }
+
+  if (stat === 'speed') {
+    // Early Speed bonus — balls need to move fast enough to reach active expansions.
+    if (ball.speedLevel < 2) w *= 2.5
+  }
+
+  if (stat === 'radius') {
+    // Radius is only useful once the ball stays active and moves fast enough.
+    if (ball.durationLevel < 2) w *= 0.5
+    if (ball.speedLevel < 2)    w *= 0.75
+  }
+
+  if (stat === 'respawn') {
+    // Respawn only matters once chains are plausible (enough balls on the board).
+    if (ownedCount < 4) w *= 0.5
+  }
+
+  return w
+}
+
+function sugIsBetter(a, b) {
+  if (Math.abs(a.score - b.score) > 1e-9) return a.score > b.score
+  const ai = SUG_TIE_ORDER.indexOf(a.stat)
+  const bi = SUG_TIE_ORDER.indexOf(b.stat)
+  if (ai !== bi) return ai < bi
+  return a.cost < b.cost
+}
+
+// Returns { ballIdx, stat, cost } for the best-scoring affordable upgrade.
+// Falls back to showing the best-scoring upgrade overall (button disabled) if broke.
 function findSuggestedUpgrade(st) {
-  // Pass 1: first affordable upgrade in priority order
-  for (const stat of QB_SUGGEST_ORDER) {
-    for (let i = 0; i < st.unlockedSlots; i++) {
-      const cost = ballUpgradeCost(stat, st.balls[i][stat + 'Level'], i)
-      if (cost <= st.coins) return { ballIdx: i, stat, cost }
+  const ownedCount = st.unlockedSlots
+  let bestAffordable = null
+  let bestAny        = null
+
+  for (const stat of SUG_TIE_ORDER) {
+    for (let i = 0; i < ownedCount; i++) {
+      const ball  = st.balls[i]
+      const level = ball[stat + 'Level']
+      const cost  = ballUpgradeCost(stat, level, i)
+      const score = sugWeight(stat, ball, ownedCount) / Math.sqrt(cost)
+      const cand  = { ballIdx: i, stat, cost, score }
+
+      if (cost <= st.coins) {
+        if (!bestAffordable || sugIsBetter(cand, bestAffordable)) bestAffordable = cand
+      }
+      if (!bestAny || sugIsBetter(cand, bestAny)) bestAny = cand
     }
   }
-  // Pass 2: can't afford anything — show cheapest by priority order
-  for (const stat of QB_SUGGEST_ORDER) {
-    let cheapInStat = null
-    for (let i = 0; i < st.unlockedSlots; i++) {
-      const cost = ballUpgradeCost(stat, st.balls[i][stat + 'Level'], i)
-      if (!cheapInStat || cost < cheapInStat.cost) cheapInStat = { ballIdx: i, stat, cost }
-    }
-    if (cheapInStat) return cheapInStat
-  }
-  return null
+
+  return bestAffordable ?? bestAny
 }
 
 // Spawns a small toast just above the quick-buy bar.
@@ -1244,10 +1331,10 @@ function updateQuickBuy() {
   const ballCost = slotCost(st.unlockedSlots)
   qbBallCostEl.textContent = `◆ ${fmt(ballCost)}`
   qbBallBtn.disabled = st.coins < ballCost
-  // Glow when the player is approaching the cost of Ball 2 (30 coins).
-  // "> 25" avoids triggering when teetering on a round number.
+  // Glow when the player is approaching the cost of Ball 2 (10 coins).
+  // ">= 8" lights up just before they can afford it without false-firing at 10.
   qbBallBtn.classList.toggle('qb-btn-can-buy',
-    st.coins > 25 && st.unlockedSlots === 1)
+    st.coins >= 8 && st.unlockedSlots === 1)
 
   // ── Cheapest upgrade ──
   const cheap = findCheapestUpgrade(st)

@@ -33,22 +33,22 @@ export const UpgradeConfig = {
   tap: {
     radius: { baseCost: 300, costMult: 1.20 },
   },
-  // New-ball slot cost — piecewise curve so early balls are cheap and fun,
-  // late balls ramp hard so upgrades remain meaningful.
+  // New-ball slot cost — front-loaded so the player reaches 4–6 balls fast,
+  // then hits a hard ramp so later balls require real investment.
   // Key = ownedBallCount (balls owned before buying the next one).
   newBall: {
     earlyCosts: {
-      1:    30,   // buy Ball 2
-      2:    80,   // buy Ball 3
-      3:   180,   // buy Ball 4
-      4:   400,   // buy Ball 5
-      5:   850,   // buy Ball 6
-      6:  1800,   // buy Ball 7
-      7:  3800,   // buy Ball 8
+      1:    10,   // buy Ball 2  (almost instant)
+      2:    25,   // buy Ball 3
+      3:    60,   // buy Ball 4
+      4:   140,   // buy Ball 5
+      5:   325,   // buy Ball 6
+      6:   800,   // buy Ball 7
+      7:  2000,   // buy Ball 8
     },
-    // Beyond the lookup table: 3800 × 1.85^(ownedCount − 7)
-    lateBase:  3800,
-    lateMult:  1.85,
+    // Beyond the lookup table: 2000 × 1.9^(ownedCount − 7)
+    lateBase:  2000,
+    lateMult:  1.9,
     lateStart: 7,
   },
 }
@@ -112,11 +112,33 @@ export function clickStats(cl) {
 
 // ─── Cost formulas ────────────────────────────────────────────────────────
 
+// Front-loaded cost tables — all entries are before the per-ball index multiplier.
+//
+// Duration:  Lv0→15  Lv1→35  Lv2→80  Lv3→180  Lv4→400  then ×1.35/level
+// Speed:     Lv0→20  Lv1→45  Lv2→100 Lv3→220  Lv4→480  then ×1.32/level
+const EARLY_DURATION_COSTS = [15, 35, 80, 180, 400]
+const EARLY_SPEED_COSTS    = [20, 45, 100, 220, 480]
+
 // ballIndex is zero-based: first ball = 0, second = 1, …
 // Passing no index (or 0) gives the original cost for Ball 1.
 export function ballUpgradeCost(stat, level, ballIndex = 0) {
-  const { baseCost, costMult } = UpgradeConfig.ball[stat]
   const indexMult = Math.pow(UpgradeConfig.ballIndexCostMult, ballIndex)
+
+  if (stat === 'duration') {
+    const base = level < EARLY_DURATION_COSTS.length
+      ? EARLY_DURATION_COSTS[level]
+      : Math.floor(400 * Math.pow(1.35, level - 4))
+    return Math.floor(base * indexMult)
+  }
+
+  if (stat === 'speed') {
+    const base = level < EARLY_SPEED_COSTS.length
+      ? EARLY_SPEED_COSTS[level]
+      : Math.floor(480 * Math.pow(1.32, level - 4))
+    return Math.floor(base * indexMult)
+  }
+
+  const { baseCost, costMult } = UpgradeConfig.ball[stat]
   return Math.floor(baseCost * indexMult * Math.pow(costMult, level))
 }
 
