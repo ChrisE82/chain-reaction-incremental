@@ -813,8 +813,16 @@ function update(dt) {
     const inactive = balls.filter(b => b.state === 'respawning' || b.state === 'done')
 
     if (inactive.length > 0) {
-      if (!currentChain && wasBoardActiveSinceLastKickstart && !introMode) {
+      if (wasBoardActiveSinceLastKickstart && !introMode) {
         // ── Board-clear bonus + full refill ────────────────────────────────
+        // We do NOT gate on !currentChain here. The tap circle that started the
+        // chain may still be in its hold/shrink phase (400 ms active window) long
+        // after all balls have already finished expanding and gone to 'respawning'
+        // (≈340 ms cycle). Requiring !currentChain would cause the safety valve to
+        // fire instead, waking only one ball — this was the "board cleared but not
+        // all balls return" bug. Chain-end coins are still awarded correctly because
+        // endChain() fires on the next frame when the tap circle finishes.
+        //
         // Efficiency bonus: rewards high pops-per-tap, not raw spam.
         //   popsPerTap 1 → log₂=0 → ×0 bonus
         //   popsPerTap 2 → log₂=1 → ×0.5 bonus
@@ -845,8 +853,8 @@ function update(dt) {
         // NOT just the respawning subset — so every slot is guaranteed to return.
         refillAllOwnedBalls()
       } else {
-        // Safety valve: if clear hasn't been earned yet (fresh board, intro, or
-        // chain still technically open), just wake the soonest ball so the
+        // Safety valve: board emptied before any player interaction this cycle
+        // (e.g. very first cycle after intro). Wake the soonest ball so the
         // board never stays permanently empty.
         const soonest = inactive
           .filter(b => b.state === 'respawning')
