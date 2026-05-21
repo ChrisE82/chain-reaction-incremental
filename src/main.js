@@ -50,6 +50,9 @@ const VIRTUAL_H = 178   // 9:16 portrait
 
 // ─── Canvas / scale ───────────────────────────────────────────────────────
 let W, H, gameScale, gameOffsetX, gameOffsetY
+// Effective play-area height in virtual units. Shrunk from VIRTUAL_H so that
+// balls bounce above the quick-buy bar instead of sliding behind it.
+let gamePlayH = VIRTUAL_H
 
 function calcUnits() {
   W = window.innerWidth
@@ -59,6 +62,10 @@ function calcUnits() {
   gameScale   = Math.min(W / VIRTUAL_W, H / VIRTUAL_H)
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
   gameOffsetY = (H - VIRTUAL_H * gameScale) / 2
+  // qbBar.offsetHeight forces a synchronous layout read; it returns 0 when the
+  // bar is hidden (intro mode), so only update gamePlayH when it's visible.
+  const barPx = qbBar.offsetHeight
+  if (barPx > 0) gamePlayH = VIRTUAL_H - barPx / gameScale
 }
 calcUnits()
 
@@ -441,8 +448,8 @@ function makeBall(storeData, idx) {
   return {
     id:       nextBallId++,
     spawnGen: 1,           // increments each time ball respawns
-    x:        r + Math.random() * (VIRTUAL_W - r * 2),
-    y:        r + Math.random() * (VIRTUAL_H - r * 2),
+    x:        r + Math.random() * (VIRTUAL_W  - r * 2),
+    y:        r + Math.random() * (gamePlayH  - r * 2),
     vx:       Math.cos(angle) * stats.speed,
     vy:       Math.sin(angle) * stats.speed,
     color:    BALL_COLORS[idx % BALL_COLORS.length],
@@ -577,8 +584,8 @@ function triggerBall(b, src) {
 // ─── Player tap ───────────────────────────────────────────────────────────
 function triggerAtPoint(vx, vy) {
   const r = BALL_RADIUS
-  vx = Math.max(r, Math.min(VIRTUAL_W - r, vx))
-  vy = Math.max(r, Math.min(VIRTUAL_H - r, vy))
+  vx = Math.max(r, Math.min(VIRTUAL_W  - r, vx))
+  vy = Math.max(r, Math.min(gamePlayH  - r, vy))
 
   if (!introMode) cyclePlayerStarts++  // pointerdown guard ensures this only runs when no chain is active
   startChain()
@@ -688,8 +695,8 @@ function update(dt) {
       if (b.respawnTimer <= 0) {
         const stats = b.isIntro ? INTRO_STATS : ballStats(getState().balls[b.storeIdx])
         const angle = Math.random() * Math.PI * 2
-        b.x  = r + Math.random() * (VIRTUAL_W - r * 2)
-        b.y  = r + Math.random() * (VIRTUAL_H - r * 2)
+        b.x  = r + Math.random() * (VIRTUAL_W  - r * 2)
+        b.y  = r + Math.random() * (gamePlayH  - r * 2)
         b.vx = Math.cos(angle) * stats.speed
         b.vy = Math.sin(angle) * stats.speed
         b.maxRadius = stats.maxRadius
@@ -709,8 +716,8 @@ function update(dt) {
 
     if (b.x - r < 0)         { b.x = r;             b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
     if (b.x + r > VIRTUAL_W) { b.x = VIRTUAL_W - r; b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
-    if (b.y - r < 0)         { b.y = r;             b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
-    if (b.y + r > VIRTUAL_H) { b.y = VIRTUAL_H - r; b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
+    if (b.y - r < 0)          { b.y = r;              b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
+    if (b.y + r > gamePlayH)  { b.y = gamePlayH - r;  b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
 
     b.sqx += (1 - b.sqx) * spring
     b.sqy += (1 - b.sqy) * spring
@@ -789,8 +796,8 @@ function update(dt) {
         for (const b of respawning) {
           const stats = ballStats(st.balls[b.storeIdx])
           const angle = Math.random() * Math.PI * 2
-          b.x = r + Math.random() * (VIRTUAL_W - r * 2)
-          b.y = r + Math.random() * (VIRTUAL_H - r * 2)
+          b.x = r + Math.random() * (VIRTUAL_W  - r * 2)
+          b.y = r + Math.random() * (gamePlayH  - r * 2)
           b.vx = Math.cos(angle) * stats.speed
           b.vy = Math.sin(angle) * stats.speed
           b.maxRadius = stats.maxRadius
@@ -1209,7 +1216,7 @@ function finishIntro() {
   balls = []
   for (let i = 0; i < st.unlockedSlots; i++) {
     const b = makeBall(st.balls[i], i)
-    if (i === 0) { b.x = VIRTUAL_W / 2; b.y = VIRTUAL_H / 2 }
+    if (i === 0) { b.x = VIRTUAL_W / 2; b.y = gamePlayH / 2 }
     balls.push(b)
   }
   currentChain = null
@@ -1217,8 +1224,10 @@ function finishIntro() {
   particles.length  = 0
   tapCircles.length = 0
 
-  // Restore UI
+  // Restore UI — removing intro-active makes the quick-buy bar visible again,
+  // so recalculate gamePlayH now that offsetHeight returns the real bar height.
   document.body.classList.remove('intro-active', 'intro-completing')
+  calcUnits()
 
   updateHUD()
 }
