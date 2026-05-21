@@ -35,12 +35,12 @@ const devResetIntroBtn = document.getElementById('dev-reset-intro')
 const qbBar         = document.getElementById('quick-buy-bar')
 const qbBallBtn     = document.getElementById('qb-ball')
 const qbBallCostEl  = document.getElementById('qb-ball-cost')
-const qbCheapBtn    = document.getElementById('qb-cheap')
-const qbCheapLabel  = document.getElementById('qb-cheap-label')
-const qbCheapCost   = document.getElementById('qb-cheap-cost')
-const qbSuggestBtn  = document.getElementById('qb-suggest')
-const qbSuggestLabel = document.getElementById('qb-suggest-label')
-const qbSuggestCost  = document.getElementById('qb-suggest-cost')
+const qbCheapBtn     = document.getElementById('qb-cheap')
+const qbCheapTarget  = document.getElementById('qb-cheap-target')
+const qbCheapCost    = document.getElementById('qb-cheap-cost')
+const qbSuggestBtn   = document.getElementById('qb-suggest')
+const qbSuggestTarget = document.getElementById('qb-suggest-target')
+const qbSuggestReason = document.getElementById('qb-suggest-reason')
 const qbStoreBtn    = document.getElementById('qb-store')
 const qbStoreArrow  = document.getElementById('qb-store-arrow')
 
@@ -694,6 +694,33 @@ function drawGrid() {
   }
 }
 
+// ─── Board-clear refill ───────────────────────────────────────────────────
+// Reset EVERY owned ball slot to idle with a fresh random position/velocity.
+// Always iterates the full balls array so no ball is ever missed, regardless
+// of its current state (respawning, done, or any unexpected intermediate state).
+function refillAllOwnedBalls() {
+  const st = getState()
+  const r  = BALL_RADIUS
+  console.log(`[board-clear] refill: owned=${balls.length}  states-before=[${balls.map(b => b.state).join(', ')}]`)
+  for (const b of balls) {
+    const stats = ballStats(st.balls[b.storeIdx])
+    const angle = Math.random() * Math.PI * 2
+    b.x = r + Math.random() * (VIRTUAL_W - r * 2)
+    b.y = r + Math.random() * (gamePlayH - r * 2)
+    b.vx = Math.cos(angle) * stats.speed
+    b.vy = Math.sin(angle) * stats.speed
+    b.maxRadius    = stats.maxRadius
+    b.holdMs       = stats.holdMs
+    b.respawnMs    = stats.respawnMs
+    b.respawnTimer = 0
+    b.curRadius    = 0
+    b.sqx = 1; b.sqy = 1
+    b.spawnGen++
+    b.state = 'idle'
+  }
+  console.log(`[board-clear] refill done: states-after=[${balls.map(b => b.state).join(', ')}]`)
+}
+
 // ─── Update ───────────────────────────────────────────────────────────────
 function update(dt) {
   // Black-hole transition overrides normal physics entirely
@@ -779,13 +806,13 @@ function update(dt) {
     endChain()
   }
 
-  // Board-empty check: no idle or expanding balls
+  // Board-empty check: no idle or actively exploding balls remain
   if (balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
-    const respawning = balls
-      .filter(b => b.state === 'respawning')
-      .sort((a, b) => a.respawnTimer - b.respawnTimer)
+    // Include 'done' (brief shrink→respawn gap) alongside 'respawning' so the
+    // check is robust against any single-frame timing edge cases.
+    const inactive = balls.filter(b => b.state === 'respawning' || b.state === 'done')
 
-    if (respawning.length > 0) {
+    if (inactive.length > 0) {
       if (!currentChain && wasBoardActiveSinceLastKickstart && !introMode) {
         // ── Board-clear bonus + full refill ────────────────────────────────
         // Efficiency bonus: rewards high pops-per-tap, not raw spam.
@@ -800,6 +827,8 @@ function update(dt) {
         const effMult    = Math.min(2.5, Math.max(0, Math.log2(popsPerTap)) * 0.5)
         const clearBonus = Math.floor(cycleBaseEarned * effMult)
 
+        console.log(`[board-clear] pops=${cycleTriggerOccurrences} taps=${cyclePlayerStarts} popsPerTap=${popsPerTap.toFixed(2)} effMult=${effMult.toFixed(2)} base=${cycleBaseEarned} bonus=${clearBonus}`)
+
         if (clearBonus > 0) {
           addCoins(clearBonus)
           recordKickstart(clearBonus)
@@ -811,27 +840,20 @@ function update(dt) {
         cycleTriggerOccurrences = 0
         cycleBaseEarned         = 0
 
-        // Immediately put every owned ball back on the board
-        const st = getState()
-        for (const b of respawning) {
-          const stats = ballStats(st.balls[b.storeIdx])
-          const angle = Math.random() * Math.PI * 2
-          b.x = r + Math.random() * (VIRTUAL_W  - r * 2)
-          b.y = r + Math.random() * (gamePlayH  - r * 2)
-          b.vx = Math.cos(angle) * stats.speed
-          b.vy = Math.sin(angle) * stats.speed
-          b.maxRadius = stats.maxRadius
-          b.holdMs    = stats.holdMs
-          b.respawnMs = stats.respawnMs
-          b.sqx = 1; b.sqy = 1
-          b.spawnGen++
-          b.state = 'idle'
-        }
+        // Immediately put every owned ball back on the board.
+        // Uses refillAllOwnedBalls() which iterates the full balls array —
+        // NOT just the respawning subset — so every slot is guaranteed to return.
+        refillAllOwnedBalls()
       } else {
         // Safety valve: if clear hasn't been earned yet (fresh board, intro, or
         // chain still technically open), just wake the soonest ball so the
         // board never stays permanently empty.
-        respawning[0].respawnTimer = 0
+        const soonest = inactive
+          .filter(b => b.state === 'respawning')
+          .sort((a, b) => a.respawnTimer - b.respawnTimer)[0]
+          ?? inactive[0]
+        soonest.respawnTimer = 0
+        if (soonest.state === 'done') soonest.state = 'respawning'
       }
     }
   }
@@ -1506,7 +1528,12 @@ function drawFirstBallCue() {
 
 // ─── Quick-buy helpers ────────────────────────────────────────────────────
 
-const QB_STAT_LABEL = { speed: 'SPD', radius: 'RAD', duration: 'DUR', respawn: 'RSP' }
+const QB_STAT_LABEL  = { speed: 'Speed', radius: 'Radius', duration: 'Duration', respawn: 'Respawn' }
+const QB_STAT_REASON = { speed: 'Reach circles', radius: 'Catch more', duration: 'Longer chains', respawn: 'More returns' }
+
+// Track last displayed target so we can flash the text when it changes
+let prevCheapKey   = ''
+let prevSuggestKey = ''
 
 // Returns { ballIdx, stat, cost } for the single cheapest ball upgrade,
 // or null if there are no ball slots.
@@ -1617,24 +1644,47 @@ function updateQuickBuy() {
   qbBallBtn.classList.toggle('qb-btn-cue-pulse',
     st.unlockedSlots === 1 && st.coins >= ballCost && !st.firstBallCueShown)
 
-  // ── Cheapest upgrade ──
+  // ── Lowest Cost upgrade ──
   const cheap = findCheapestUpgrade(st)
   if (cheap) {
-    qbCheapLabel.textContent = `${QB_STAT_LABEL[cheap.stat]} B${cheap.ballIdx + 1}`
-    qbCheapCost.textContent  = `◆ ${fmt(cheap.cost)}`
-    qbCheapBtn.disabled      = st.coins < cheap.cost
+    const cheapKey = `${cheap.ballIdx}-${cheap.stat}`
+    if (cheapKey !== prevCheapKey && prevCheapKey !== '') {
+      qbCheapTarget.classList.remove('qb-target-changed')
+      void qbCheapTarget.offsetWidth   // force reflow so animation restarts
+      qbCheapTarget.classList.add('qb-target-changed')
+    }
+    prevCheapKey              = cheapKey
+    qbCheapTarget.textContent = `B${cheap.ballIdx + 1} ${QB_STAT_LABEL[cheap.stat]}`
+    qbCheapCost.textContent   = `◆ ${fmt(cheap.cost)}`
+    qbCheapBtn.disabled       = st.coins < cheap.cost
   } else {
-    qbCheapBtn.disabled = true
+    prevCheapKey              = ''
+    qbCheapTarget.textContent = '—'
+    qbCheapCost.textContent   = '—'
+    qbCheapBtn.disabled       = true
   }
 
-  // ── Suggested upgrade ──
+  // ── Best Next upgrade ──
   const sug = findSuggestedUpgrade(st)
   if (sug) {
-    qbSuggestLabel.textContent = `${QB_STAT_LABEL[sug.stat]} B${sug.ballIdx + 1}`
-    qbSuggestCost.textContent  = `◆ ${fmt(sug.cost)}`
-    qbSuggestBtn.disabled      = st.coins < sug.cost
+    const sugKey     = `${sug.ballIdx}-${sug.stat}`
+    const affordable = st.coins >= sug.cost
+    if (sugKey !== prevSuggestKey && prevSuggestKey !== '') {
+      qbSuggestTarget.classList.remove('qb-target-changed')
+      void qbSuggestTarget.offsetWidth
+      qbSuggestTarget.classList.add('qb-target-changed')
+    }
+    prevSuggestKey              = sugKey
+    qbSuggestTarget.textContent = `B${sug.ballIdx + 1} ${QB_STAT_LABEL[sug.stat]}`
+    qbSuggestReason.textContent = affordable
+      ? `${QB_STAT_REASON[sug.stat]} · ◆${fmt(sug.cost)}`
+      : `Need ◆${fmt(sug.cost)}`
+    qbSuggestBtn.disabled = !affordable
   } else {
-    qbSuggestBtn.disabled = true
+    prevSuggestKey              = ''
+    qbSuggestTarget.textContent = '—'
+    qbSuggestReason.textContent = '—'
+    qbSuggestBtn.disabled       = true
   }
 
   // ── Store arrow — flips when panel is open ──
