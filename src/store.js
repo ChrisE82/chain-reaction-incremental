@@ -202,6 +202,7 @@ function defaultState() {
     prestigeCount:       0,      // increments each prestige; gates auto-upgrade
     autoUpgradeEnabled:  false,  // only effective when prestigeCount > 0
     introComplete:       false,  // true after the power-preview intro has run once
+    firstBallCueShown:  false,  // true after the first-ball attention cue has played
     stats: {
       bestChainLength:    0,
       lastChainLength:    0,
@@ -317,6 +318,11 @@ export function devResetIntro() {
 
 export function devAddPrestige() {
   state.prestigeCount++
+  saveState(state)
+}
+
+export function setFirstBallCueShown() {
+  state.firstBallCueShown = true
   saveState(state)
 }
 
