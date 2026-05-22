@@ -9,6 +9,7 @@ import {
   setAutoUpgrade,
   setIntroComplete, devResetIntro, setFirstBallCueShown,
   devAddCoins, devAddPrestige, devReset,
+  devFreeUpgrade, devFreeUpgradeClick, devFreeUnlockSlot,
 } from './store.js'
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────
@@ -29,7 +30,11 @@ const devPrestigeBtn  = document.getElementById('dev-prestige')
 const debugOverlay    = document.getElementById('debug-overlay')
 
 // ── Intro ──
-const devResetIntroBtn = document.getElementById('dev-reset-intro')
+const devResetIntroBtn    = document.getElementById('dev-reset-intro')
+const devFreeUpgradesBtn  = document.getElementById('dev-free-upgrades')
+
+// ── Dev free-upgrades flag ──
+let devFreeUpgradesEnabled = false
 
 // ── Quick-buy bar ──
 const qbBar         = document.getElementById('quick-buy-bar')
@@ -79,15 +84,20 @@ const BALL_RADIUS = 2.4    // virtual units — visual size and wall-bounce boun
 // i.e. the edge of the expansion visually overlaps the edge of the target ball.
 const BALL_COLLISION_RADIUS = BALL_RADIUS * 1.15   // = 2.76 u
 
+const REFILL_START_DELAY    = 150   // ms before any ball pops in after board clear
+const SPAWN_STAGGER_MAX     = 250   // ms of additional spread across the wave
+const SPAWN_GROW_DURATION   = 220   // ms: scale 0 → 1.15 (overshoot)
+const SPAWN_SETTLE_DURATION = 160   // ms: scale 1.15 → 1.0
+
 // ─── Dynamic arena ────────────────────────────────────────────────────────
 // World size scales with owned ball count so 1–2 balls get a tight arena
 // (chains are easy to discover) while 9+ balls gradually expand the space.
 function getArenaScale(n) {
-  if (n <= 2) return 0.55
-  if (n <= 4) return 0.70
-  if (n <= 6) return 0.85
-  if (n <= 8) return 1.00
-  return Math.min(2.0, 1.0 + Math.log1p(n - 8) * 0.22)
+  if (n <= 3)  return 0.55
+  if (n <= 6)  return 0.70
+  if (n <= 9)  return 0.85
+  if (n <= 12) return 1.00
+  return Math.min(1.5, 1.0 + Math.log1p(n - 13) * 0.12)
 }
 
 let currentArenaScale = 1   // lerps toward target each frame; snapped on init & intro-end
@@ -149,8 +159,10 @@ let introMode            = false  // true while power-preview is active
 let introCoins           = 0      // visual-only coin counter; discarded on finish
 let introReadyToComplete = false  // a chain of 5+ was achieved
 let introCompleting      = false  // transition animation is running
+let introTweening        = false  // post-intro zoom tween: ball pinned to world centre
 let introTransTimer      = 0      // ms elapsed in transition
 let introTransScale      = 1      // [1→0] scales all ball radii during animation
+let introBirthPopPlayed  = false  // ensures the collapse-pop fires exactly once
 
 // ─── Auto-upgrade ─────────────────────────────────────────────────────────
 // Only active when prestigeCount > 0 AND autoUpgradeEnabled === true.
@@ -285,7 +297,7 @@ function updateTapCircles(dt) {
     // Collision — trigger any idle ball whose edge overlaps the active circle
     if (isTapActive(tc)) {
       for (const b of balls) {
-        if (b.state !== 'idle') continue
+        if (b.state !== 'idle' || getSpawnScale(b) < 0.8) continue
         const dx = b.x - tc.x, dy = b.y - tc.y
         if (Math.sqrt(dx * dx + dy * dy) < tc.curRadius + b.collisionRadius) {
           triggerBall(b, { x: tc.x, y: tc.y })
@@ -525,6 +537,55 @@ function playRumble() {
   } catch (_) {}
 }
 
+// Single sharp "collapse" pop played at the moment the shaking singularity
+// implodes just before the explosion ring fires.
+// Layers: sub-bass thump (impact body) + noise crack (transient snap) + high click (attack edge).
+function playBirthPop() {
+  try {
+    const ac  = getAudio()
+    const now = ac.currentTime + AUDIO_AHEAD
+
+    // Sub-bass thump — sine sweeping down from 90 → 28 Hz, punchy and physical
+    const osc1  = ac.createOscillator()
+    const gain1 = ac.createGain()
+    osc1.type = 'sine'
+    osc1.frequency.setValueAtTime(90, now)
+    osc1.frequency.exponentialRampToValueAtTime(28, now + 0.18)
+    gain1.gain.setValueAtTime(0, now)
+    gain1.gain.linearRampToValueAtTime(0.85, now + 0.004)   // near-instant attack
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.40)
+    osc1.connect(gain1); gain1.connect(ac.destination)
+    osc1.start(now); osc1.stop(now + 0.40)
+
+    // Noise crack — band-passed white noise for the "snap" texture
+    const frames = Math.ceil(ac.sampleRate * 0.20)
+    const buf    = ac.createBuffer(1, frames, ac.sampleRate)
+    const data   = buf.getChannelData(0)
+    for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1
+    const src    = ac.createBufferSource()
+    src.buffer   = buf
+    const filt   = ac.createBiquadFilter()
+    filt.type    = 'bandpass'
+    filt.frequency.setValueAtTime(1200, now)
+    filt.Q.setValueAtTime(0.7, now)
+    const gain2  = ac.createGain()
+    gain2.gain.setValueAtTime(0.45, now)
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.20)
+    src.connect(filt); filt.connect(gain2); gain2.connect(ac.destination)
+    src.start(now); src.stop(now + 0.20)
+
+    // High-frequency click — very brief bright transient that sells the "point" moment
+    const osc2  = ac.createOscillator()
+    const gain3 = ac.createGain()
+    osc2.type = 'triangle'
+    osc2.frequency.setValueAtTime(3200, now)
+    gain3.gain.setValueAtTime(0.30, now)
+    gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.06)
+    osc2.connect(gain3); gain3.connect(ac.destination)
+    osc2.start(now); osc2.stop(now + 0.06)
+  } catch (_) {}
+}
+
 // ─── Color utils ─────────────────────────────────────────────────────────
 function lighten(hex) {
   const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + 80)
@@ -553,6 +614,7 @@ function makeBall(storeData, idx) {
     collisionRadius: BALL_COLLISION_RADIUS,
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
+    spawnInTimer: -1, spawnInDelay: 0,
     storeIdx:     idx,
     maxRadius:    stats.maxRadius,
     growMs:       stats.growMs,
@@ -570,8 +632,8 @@ function makeIntroBall(i) {
   return {
     id:          nextBallId++,
     spawnGen:    1,
-    x:           r + Math.random() * (VIRTUAL_W - r * 2),
-    y:           r + Math.random() * (VIRTUAL_H - r * 2),
+    x:           r + Math.random() * (arenaW - r * 2),
+    y:           r + Math.random() * (arenaH - r * 2),
     vx:          Math.cos(angle) * INTRO_STATS.speed,
     vy:          Math.sin(angle) * INTRO_STATS.speed,
     color:       BALL_COLORS[i % BALL_COLORS.length],
@@ -582,6 +644,7 @@ function makeIntroBall(i) {
     collisionRadius: BALL_COLLISION_RADIUS,
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
+    spawnInTimer: -1, spawnInDelay: 0,
     storeIdx:    0,
     maxRadius:   INTRO_STATS.maxRadius,
     growMs:      INTRO_STATS.growMs,
@@ -725,10 +788,11 @@ function loop(ts) {
   const dt = Math.min(ts - lastTime, 50)
   lastTime = ts
 
-  // Lerp arena scale toward target (ball-count driven). Intro stays at 1.
-  if (!introMode) {
-    const target = getArenaScale(getState().unlockedSlots)
+  // Lerp arena scale toward target (ball-count driven; intro uses INTRO_BALL_COUNT).
+  {
+    const target = getArenaScale(introMode ? INTRO_BALL_COUNT : getState().unlockedSlots)
     currentArenaScale += (target - currentArenaScale) * Math.min(1, dt * 0.004)
+    if (introTweening && Math.abs(currentArenaScale - target) < 0.008) introTweening = false
   }
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
@@ -745,18 +809,40 @@ function loop(ts) {
 
   update(dt)
 
+  // During the intro-to-game zoom tween, pin the first ball to the current world
+  // centre. The camera already maps (arenaW/2, arenaH/2) to screen centre, so this
+  // makes the zoom look like pure scale — no lateral drift of the ball.
+  if (introTweening && balls.length > 0) {
+    balls[0].x = arenaW / 2
+    balls[0].y = arenaH / 2
+    // vx/vy are left untouched so the ball moves naturally once the tween ends
+  }
+
   // Camera: maps world space (0..arenaW × 0..arenaH) into virtual space (0..VIRTUAL_W × 0..gamePlayH).
   // When arenaScale < 1 the camera zooms in, making the tighter world fill the same canvas.
   const cameraS = 1.0 / currentArenaScale
   ctx.save()
   ctx.scale(cameraS, cameraS)
   drawGrid()
+
+  // Board-clear refill ripple — single ring expanding from arena centre
+  if (refillRippleTimer >= 0) {
+    const t      = refillRippleTimer / REFILL_RIPPLE_MS
+    const rippleR = Math.min(arenaW, arenaH) * 0.52 * t
+    ctx.save()
+    ctx.globalAlpha = (1 - t) * 0.15
+    ctx.lineWidth   = 1.2
+    ctx.strokeStyle = 'rgba(66,212,255,1)'
+    ctx.beginPath(); ctx.arc(arenaW / 2, arenaH / 2, rippleR, 0, Math.PI * 2); ctx.stroke()
+    ctx.restore()
+  }
+
   drawAll()
   drawRadiusGhosts()
   drawTapCircles()
   drawParticles()
   if (introCompleting) drawIntroTransition()
-  if (debugVisible) drawDebugCircles()
+
   ctx.restore()   // camera
 
   ctx.restore()   // virtual
@@ -788,6 +874,28 @@ function drawGrid() {
   }
 }
 
+// ─── Spawn-in animation ───────────────────────────────────────────────────
+
+// Returns the visual scale multiplier for a ball's spawn-in pop.
+// < 0 timer  → inactive (scale = 1).
+// delay phase → 0 (invisible until pop).
+// grow phase  → 0 → 1.12 (overshoot).
+// settle phase→ 1.12 → 1.0.
+function getSpawnScale(b) {
+  if (b.spawnInTimer < 0) return 1
+  const t = b.spawnInTimer - b.spawnInDelay
+  if (t < 0) return 0
+  if (t < SPAWN_GROW_DURATION)
+    return (t / SPAWN_GROW_DURATION) * 1.15
+  if (t < SPAWN_GROW_DURATION + SPAWN_SETTLE_DURATION)
+    return 1.15 - ((t - SPAWN_GROW_DURATION) / SPAWN_SETTLE_DURATION) * 0.15
+  return 1
+}
+
+let refillRippleTimer = -1   // < 0 inactive; 0+ ms elapsed
+const REFILL_RIPPLE_MS = 450
+let refillInputLock = 0      // ms remaining; blocks player taps during refill wave
+
 // ─── Board-clear refill ───────────────────────────────────────────────────
 // Reset EVERY owned ball slot to idle with a fresh random position/velocity.
 // Always iterates the full balls array so no ball is ever missed, regardless
@@ -795,8 +903,18 @@ function drawGrid() {
 function refillAllOwnedBalls() {
   const st = getState()
   const r  = BALL_RADIUS
-  console.log(`[board-clear] refill: owned=${balls.length}  states-before=[${balls.map(b => b.state).join(', ')}]`)
-  for (const b of balls) {
+  const cx = arenaW / 2
+  const cy = arenaH / 2
+
+  // Sort by current distance from arena centre — nearest pops first so the
+  // wave reads as expanding outward from the middle.
+  const sorted = [...balls].sort((a, b) => {
+    const da = Math.hypot(a.x - cx, a.y - cy)
+    const db = Math.hypot(b.x - cx, b.y - cy)
+    return da - db
+  })
+
+  sorted.forEach((b, i) => {
     const stats = ballStats(st.balls[b.storeIdx])
     const angle = Math.random() * Math.PI * 2
     b.x = r + Math.random() * (arenaW - r * 2)
@@ -811,8 +929,18 @@ function refillAllOwnedBalls() {
     b.sqx = 1; b.sqy = 1
     b.spawnGen++
     b.state = 'idle'
-  }
-  console.log(`[board-clear] refill done: states-after=[${balls.map(b => b.state).join(', ')}]`)
+    // Wave stagger: nearest ball at REFILL_START_DELAY, furthest at +SPAWN_STAGGER_MAX.
+    // Small noise (±15 ms) breaks up clusters of same-distance balls.
+    const waveFrac = sorted.length > 1 ? i / (sorted.length - 1) : 0
+    const noise    = (Math.random() - 0.5) * 30
+    b.spawnInTimer = 0
+    b.spawnInDelay = Math.max(0, REFILL_START_DELAY + waveFrac * SPAWN_STAGGER_MAX + noise)
+  })
+
+  refillRippleTimer = 0
+  // Keep input locked for the full wave + grow window so the player can't tap
+  // into a half-popped board by accident.
+  refillInputLock = REFILL_START_DELAY + SPAWN_STAGGER_MAX + SPAWN_GROW_DURATION + 80
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────
@@ -853,6 +981,13 @@ function update(dt) {
 
     if (b.state !== 'idle') continue
 
+    // Advance spawn-in animation; clear when fully settled
+    if (b.spawnInTimer >= 0) {
+      b.spawnInTimer += dt
+      if (b.spawnInTimer >= b.spawnInDelay + SPAWN_GROW_DURATION + SPAWN_SETTLE_DURATION)
+        b.spawnInTimer = -1
+    }
+
     b.x += b.vx; b.y += b.vy
 
     if (b.x - r < 0)        { b.x = r;            b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
@@ -883,7 +1018,7 @@ function update(dt) {
   for (const src of balls) {
     if (!canTrigger(src)) continue
     for (const b of balls) {
-      if (b === src || b.state !== 'idle') continue
+      if (b === src || b.state !== 'idle' || getSpawnScale(b) < 0.8) continue
       const dx = b.x - src.x, dy = b.y - src.y
       if (Math.sqrt(dx * dx + dy * dy) < src.curRadius + b.collisionRadius) {
         triggerBall(b, src)
@@ -960,6 +1095,12 @@ function update(dt) {
     }
   }
 
+  if (refillRippleTimer >= 0) {
+    refillRippleTimer += dt
+    if (refillRippleTimer > REFILL_RIPPLE_MS) refillRippleTimer = -1
+  }
+  if (refillInputLock > 0) refillInputLock = Math.max(0, refillInputLock - dt)
+
   updateParticles(dt)
   updateRadiusGhosts(dt)
   updateFirstBallCue(dt)
@@ -973,8 +1114,42 @@ function drawAll() {
 }
 
 function drawBall(b) {
-  const isActive = isExplosivelyActive(b)
-  const r        = (isActive ? b.curRadius : b.baseRadius) * introTransScale
+  const isActive  = isExplosivelyActive(b)
+  const spawnSc   = getSpawnScale(b)
+
+  // Spawn-in effects — drawn before the r-gate so they fire even on first visible frame.
+  if (b.spawnInTimer >= 0) {
+    const elapsed = b.spawnInTimer - b.spawnInDelay
+
+    // Pre-pop glint: tiny bright dot visible in the last 100 ms of the delay phase,
+    // hinting where the ball will appear just before it pops.
+    if (elapsed >= -100 && elapsed < 0) {
+      const glintT = (elapsed + 100) / 100   // 0 → 1
+      ctx.save()
+      ctx.globalAlpha = glintT * 0.70
+      ctx.fillStyle   = '#ffffff'
+      ctx.shadowColor = b.color
+      ctx.shadowBlur  = 5 * gameScale
+      ctx.beginPath(); ctx.arc(b.x, b.y, 0.7, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+    }
+
+    // Pop ring: ball-colored ring expands from baseRadius and fades over SPAWN_GROW_DURATION.
+    if (elapsed >= 0 && elapsed < SPAWN_GROW_DURATION) {
+      const ringT = elapsed / SPAWN_GROW_DURATION
+      const ringR = b.baseRadius * (1 + ringT * 2.6)
+      ctx.save()
+      ctx.globalAlpha = (1 - ringT) * 0.55
+      ctx.lineWidth   = 0.85
+      ctx.strokeStyle = b.color
+      ctx.shadowColor = b.color
+      ctx.shadowBlur  = 3 * gameScale
+      ctx.beginPath(); ctx.arc(b.x, b.y, ringR, 0, Math.PI * 2); ctx.stroke()
+      ctx.restore()
+    }
+  }
+
+  const r = (isActive ? b.curRadius : b.baseRadius) * introTransScale * spawnSc
   if (r <= 0) return
 
   ctx.save()
@@ -991,7 +1166,11 @@ function drawBall(b) {
     ctx.translate(-b.x, -b.y)
   }
 
-  if (isActive) { ctx.shadowColor = b.color; ctx.shadowBlur = 3 * gameScale }
+  // Glow when actively expanding, or during the spawn-in grow window.
+  const inSpawnGrow = b.spawnInTimer >= 0
+    && (b.spawnInTimer - b.spawnInDelay) >= 0
+    && (b.spawnInTimer - b.spawnInDelay) < SPAWN_GROW_DURATION
+  if (isActive || inSpawnGrow) { ctx.shadowColor = b.color; ctx.shadowBlur = 3 * gameScale }
 
   const grad = ctx.createRadialGradient(b.x - r * 0.3, b.y - r * 0.3, 0, b.x, b.y, r)
   grad.addColorStop(0, lighten(b.color))
@@ -1048,50 +1227,11 @@ function updateDebug(st) {
     `Lv0 expansion: 6.5 u  trigger dist: ${(6.5 + BALL_COLLISION_RADIUS).toFixed(1)} u</span>`
 }
 
-// ─── Debug collision overlay ──────────────────────────────────────────────
-// Called inside the virtual-coordinate ctx.save() block — draws in game space.
-// Green dashed ring = collision radius (what counts for triggering).
-// Orange ring = effective trigger zone from an active expansion
-//   (expansion.curRadius + BALL_COLLISION_RADIUS = where targets get caught).
-function drawDebugCircles() {
-  ctx.save()
-  ctx.lineWidth = 0.5
-
-  for (const b of balls) {
-    if (b.state === 'respawning') continue
-
-    // Collision radius — green dashed ring on every visible ball
-    ctx.setLineDash([1.2, 1.2])
-    ctx.strokeStyle = 'rgba(80,255,160,0.55)'
-    ctx.beginPath(); ctx.arc(b.x, b.y, b.collisionRadius, 0, Math.PI * 2)
-    ctx.stroke()
-
-    // Active expansion: show the effective catch boundary
-    if (canTrigger(b) && b.curRadius > 0) {
-      ctx.setLineDash([])
-      ctx.strokeStyle = 'rgba(255,200,40,0.45)'
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.curRadius + b.collisionRadius, 0, Math.PI * 2)
-      ctx.stroke()
-    }
-  }
-
-  // Same catch boundary for tap circles
-  for (const tc of tapCircles) {
-    if (!isTapActive(tc) || tc.curRadius <= 0) continue
-    ctx.setLineDash([])
-    ctx.strokeStyle = 'rgba(255,200,40,0.35)'
-    ctx.beginPath(); ctx.arc(tc.x, tc.y, tc.curRadius + BALL_COLLISION_RADIUS, 0, Math.PI * 2)
-    ctx.stroke()
-  }
-
-  ctx.setLineDash([])
-  ctx.restore()
-}
 
 // ─── Floating coin label ──────────────────────────────────────────────────
 function spawnCoinLabel(vx, vy, coins) {
-  const sx = Math.round(vx * gameScale + gameOffsetX)
-  const sy = Math.round(vy * gameScale + gameOffsetY)
+  const sx = Math.round((vx / currentArenaScale) * gameScale + gameOffsetX)
+  const sy = Math.round((vy / currentArenaScale) * gameScale + gameOffsetY)
   const el = document.createElement('div')
   el.className   = 'coin-float'
   el.textContent = `+${coins}`
@@ -1112,8 +1252,8 @@ function spawnChainBonusLabel(bonus) {
 }
 
 function spawnKickstartLabel(vx, vy, bonus) {
-  const sx = Math.round(vx * gameScale + gameOffsetX)
-  const sy = Math.round(vy * gameScale + gameOffsetY)
+  const sx = Math.round((vx / currentArenaScale) * gameScale + gameOffsetX)
+  const sy = Math.round((vy / currentArenaScale) * gameScale + gameOffsetY)
   const el = document.createElement('div')
   el.className   = 'coin-float kickstart-float'
   el.textContent = `KICKSTART +${bonus}`
@@ -1156,7 +1296,8 @@ function startIntroTransition() {
     b.rumbleY = b.y
   }
 
-  currentChain = null
+  currentChain        = null
+  introBirthPopPlayed = false
   document.body.classList.add('intro-completing')
   playRumble()
   playIntroBuildup()
@@ -1164,7 +1305,7 @@ function startIntroTransition() {
 
 function updateIntroTransition(dt) {
   introTransTimer += dt
-  const cx = VIRTUAL_W / 2, cy = VIRTUAL_H / 2
+  const cx = arenaW / 2, cy = arenaH / 2
 
   if (introTransTimer < INTRO_RUMBLE_DURATION) {
     // ── Phase 0: Rumble — balls shake around their stored origins ──────────
@@ -1176,8 +1317,8 @@ function updateIntroTransition(dt) {
       const oy = b.rumbleY ?? b.y
       b.x = ox + Math.sin(introTransTimer * 0.023 + b.id * 1.73) * shakeAmp
       b.y = oy + Math.cos(introTransTimer * 0.019 + b.id * 2.31) * shakeAmp
-      b.x = Math.max(BALL_RADIUS, Math.min(VIRTUAL_W - BALL_RADIUS, b.x))
-      b.y = Math.max(BALL_RADIUS, Math.min(VIRTUAL_H - BALL_RADIUS, b.y))
+      b.x = Math.max(BALL_RADIUS, Math.min(arenaW - BALL_RADIUS, b.x))
+      b.y = Math.max(BALL_RADIUS, Math.min(arenaH - BALL_RADIUS, b.y))
     }
 
   } else if (introTransTimer < INTRO_RUMBLE_DURATION + INTRO_SUCK_DURATION) {
@@ -1199,13 +1340,20 @@ function updateIntroTransition(dt) {
 
       b.x += nx * pull * dist + (-ny) * swirl * dist
       b.y += ny * pull * dist +  (nx) * swirl * dist
-      b.x = Math.max(0, Math.min(VIRTUAL_W, b.x))
-      b.y = Math.max(0, Math.min(VIRTUAL_H, b.y))
+      b.x = Math.max(0, Math.min(arenaW, b.x))
+      b.y = Math.max(0, Math.min(arenaH, b.y))
     }
 
   } else {
     // ── Phase 2: Birth — intro balls hidden; proto-sphere materialises ─────
     introTransScale = 0
+    const elapsed = introTransTimer - INTRO_RUMBLE_DURATION - INTRO_SUCK_DURATION
+    // T_SHAKE = 0.52 matches the threshold in drawIntroTransition() where the
+    // shaking dot collapses and the explosion ring begins.
+    if (!introBirthPopPlayed && elapsed >= 0.52 * INTRO_BIRTH_DURATION) {
+      introBirthPopPlayed = true
+      playBirthPop()
+    }
     const end = INTRO_RUMBLE_DURATION + INTRO_SUCK_DURATION + INTRO_BIRTH_DURATION
     if (introTransTimer >= end) finishIntro()
   }
@@ -1215,7 +1363,7 @@ function updateIntroTransition(dt) {
 // Three phases: rumble (glow auras + shake), suck (bright attractor absorbs balls),
 // birth (proto-sphere contracts → dot shakes → burst → ball forms).
 function drawIntroTransition() {
-  const cx = VIRTUAL_W / 2, cy = VIRTUAL_H / 2
+  const cx = arenaW / 2, cy = arenaH / 2
 
   if (introTransTimer < INTRO_RUMBLE_DURATION) {
     // ── Phase 0: Rumble ────────────────────────────────────────────────────
@@ -1236,11 +1384,11 @@ function drawIntroTransition() {
     }
 
     // Edge vignette builds slowly — keeps focus on the shaking field
-    const vGrad = ctx.createRadialGradient(cx, cy, VIRTUAL_W * 0.28, cx, cy, VIRTUAL_W * 0.9)
+    const vGrad = ctx.createRadialGradient(cx, cy, arenaW * 0.28, cx, cy, arenaW * 0.9)
     vGrad.addColorStop(0, 'rgba(0,0,0,0)')
     vGrad.addColorStop(1, `rgba(0,0,0,${t * 0.35})`)
     ctx.fillStyle = vGrad
-    ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+    ctx.fillRect(0, 0, arenaW, arenaH)
 
   } else if (introTransTimer < INTRO_RUMBLE_DURATION + INTRO_SUCK_DURATION) {
     // ── Phase 1: Suck ──────────────────────────────────────────────────────
@@ -1270,11 +1418,11 @@ function drawIntroTransition() {
     ctx.restore()
 
     // Edge vignette — keeps the eye on the centre without obscuring ball motion
-    const vGrad = ctx.createRadialGradient(cx, cy, VIRTUAL_W * 0.30, cx, cy, VIRTUAL_W * 0.88)
+    const vGrad = ctx.createRadialGradient(cx, cy, arenaW * 0.30, cx, cy, arenaW * 0.88)
     vGrad.addColorStop(0, 'rgba(0,0,0,0)')
     vGrad.addColorStop(1, `rgba(0,0,0,${0.22 + t * 0.52})`)
     ctx.fillStyle = vGrad
-    ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+    ctx.fillRect(0, 0, arenaW, arenaH)
 
   } else {
     // ── Phase 2: Birth ─────────────────────────────────────────────────────
@@ -1286,7 +1434,7 @@ function drawIntroTransition() {
 
     // Opaque background covers the now-gone intro balls
     ctx.fillStyle = 'rgba(0,0,0,0.96)'
-    ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+    ctx.fillRect(0, 0, arenaW, arenaH)
 
     // Sub-phase thresholds (t ∈ 0–1)
     const T_CONTRACT = 0.18   // 0 → 0.18 : attractor (r=15) contracts to r=2.2
@@ -1392,6 +1540,7 @@ function finishIntro() {
   introMode            = false
   introReadyToComplete = false
   introCompleting      = false
+  introTweening        = true   // pin ball to world centre while scale lerps in
   introTransTimer      = 0
   introTransScale      = 1
   introCoins           = 0
@@ -1404,18 +1553,21 @@ function finishIntro() {
   document.body.classList.remove('intro-active', 'intro-completing')
   calcUnits()
 
-  // Snap arena scale immediately (no lerp animation from intro's 1.0 → game value).
+  // Let the loop lerp carry currentArenaScale from the intro value down to the
+  // game value — no snap so the zoom animates smoothly instead of jumping.
+  // Compute the target arena dims so the first ball is placed at the destination
+  // centre (safely inside bounds as the world shrinks around it).
   const st = getState()
-  currentArenaScale = getArenaScale(st.unlockedSlots)
-  arenaW = VIRTUAL_W * currentArenaScale
-  arenaH = gamePlayH * currentArenaScale
+  const targetScale  = getArenaScale(st.unlockedSlots)
+  const targetArenaW = VIRTUAL_W * targetScale
+  const targetArenaH = gamePlayH * targetScale
 
-  // Rebuild the playfield. Place the first ball at centre so it appears to
-  // emerge from the spiral; subsequent balls spawn randomly in the world.
+  // Rebuild the playfield. Place the first ball at the target centre so it
+  // appears to emerge from the spiral and stays in bounds during the tween.
   balls = []
   for (let i = 0; i < st.unlockedSlots; i++) {
     const b = makeBall(st.balls[i], i)
-    if (i === 0) { b.x = arenaW / 2; b.y = arenaH / 2 }
+    if (i === 0) { b.x = targetArenaW / 2; b.y = targetArenaH / 2 }
     balls.push(b)
   }
   currentChain = null
@@ -1786,8 +1938,8 @@ function updateQuickBuy() {
 
   // ── + Ball ──
   const ballCost = slotCost(st.unlockedSlots)
-  qbBallCostEl.textContent = `◆ ${fmt(ballCost)}`
-  qbBallBtn.disabled = st.coins < ballCost
+  qbBallCostEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(ballCost)}`
+  qbBallBtn.disabled = !devFreeUpgradesEnabled && st.coins < ballCost
   // Glow as soon as Ball 2 is affordable; the full canvas cue fires separately at 100 coins.
   // cancelFirstBallCue() removes the class (and sets firstBallCueShown) on purchase.
   qbBallBtn.classList.toggle('qb-btn-cue-pulse',
@@ -1804,20 +1956,20 @@ function updateQuickBuy() {
     }
     prevCheapKey              = cheapKey
     qbCheapTarget.textContent = `B${cheap.ballIdx + 1} ${QB_STAT_LABEL[cheap.stat]}`
-    qbCheapCost.textContent   = `◆ ${fmt(cheap.cost)}`
-    qbCheapBtn.disabled       = st.coins < cheap.cost
+    qbCheapCost.textContent   = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cheap.cost)}`
+    qbCheapBtn.disabled       = !devFreeUpgradesEnabled && st.coins < cheap.cost
   } else {
     prevCheapKey              = ''
     qbCheapTarget.textContent = '—'
     qbCheapCost.textContent   = '—'
-    qbCheapBtn.disabled       = true
+    qbCheapBtn.disabled       = !devFreeUpgradesEnabled
   }
 
   // ── Best Next upgrade ──
   const sug = findSuggestedUpgrade(st)
   if (sug) {
     const sugKey     = `${sug.ballIdx}-${sug.stat}`
-    const affordable = st.coins >= sug.cost
+    const affordable = devFreeUpgradesEnabled || st.coins >= sug.cost
     if (sugKey !== prevSuggestKey && prevSuggestKey !== '') {
       qbSuggestTarget.classList.remove('qb-target-changed')
       void qbSuggestTarget.offsetWidth
@@ -1825,15 +1977,17 @@ function updateQuickBuy() {
     }
     prevSuggestKey              = sugKey
     qbSuggestTarget.textContent = `B${sug.ballIdx + 1} ${QB_STAT_LABEL[sug.stat]}`
-    qbSuggestReason.textContent = affordable
-      ? `${sugReason(sug.stat, sug.marginalGain)} · ◆${fmt(sug.cost)}`
-      : `Need ◆${fmt(sug.cost)}`
+    qbSuggestReason.textContent = devFreeUpgradesEnabled
+      ? `${sugReason(sug.stat, sug.marginalGain)} · FREE`
+      : affordable
+        ? `${sugReason(sug.stat, sug.marginalGain)} · ◆${fmt(sug.cost)}`
+        : `Need ◆${fmt(sug.cost)}`
     qbSuggestBtn.disabled = !affordable
   } else {
     prevSuggestKey              = ''
     qbSuggestTarget.textContent = '—'
     qbSuggestReason.textContent = '—'
-    qbSuggestBtn.disabled       = true
+    qbSuggestBtn.disabled       = !devFreeUpgradesEnabled
   }
 
   // ── Store arrow — flips when panel is open ──
@@ -1965,16 +2119,21 @@ function buildShop() {
     const grid = document.createElement('div')
     grid.className = 'upgrade-btns'
     for (const { stat, label, icon, statLabel } of TAP_UPGRADE_DEFS) {
-      const level = st.clicks[stat + 'Level']
-      const cost  = tapUpgradeCost(stat, level)
+      const level    = st.clicks[stat + 'Level']
+      const cost     = tapUpgradeCost(stat, level)
+      const costText = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+      const canAfford = devFreeUpgradesEnabled || st.coins >= cost
       grid.appendChild(makeUpgradeBtn(
         icon,
         label,
         level,
         statLabel(st.clicks),
-        `◆ ${fmt(cost)}`,
-        st.coins >= cost,
-        () => { if (tryUpgradeClick(stat)) { buildShop(); updateHUD() } }
+        costText,
+        canAfford,
+        () => {
+          const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
+          if (ok) { buildShop(); updateHUD() }
+        }
       ))
     }
     card.appendChild(grid)
@@ -1993,18 +2152,21 @@ function buildShop() {
     grid.className = 'upgrade-btns'
 
     for (const { stat, label, icon, statLabel } of BALL_UPGRADE_DEFS) {
-      const level = ball[stat + 'Level']
-      const cost  = ballUpgradeCost(stat, level, i)   // pass ball index for per-ball multiplier
+      const level     = ball[stat + 'Level']
+      const cost      = ballUpgradeCost(stat, level, i)   // pass ball index for per-ball multiplier
+      const costText  = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+      const canAfford = devFreeUpgradesEnabled || st.coins >= cost
       grid.appendChild(makeUpgradeBtn(
         icon,
         label,
         level,
         statLabel(ball),
-        `◆ ${fmt(cost)}`,
-        st.coins >= cost,
+        costText,
+        canAfford,
         () => {
           const oldR = stat === 'radius' ? ballStats(getState().balls[i]).maxRadius : 0
-          if (tryUpgrade(i, stat)) {
+          const ok = devFreeUpgradesEnabled ? devFreeUpgrade(i, stat) : tryUpgrade(i, stat)
+          if (ok) {
             syncBallStats(i)
             if (stat === 'radius') spawnRadiusGhost(i, oldR)
             buildShop(); updateHUD()
@@ -2017,14 +2179,16 @@ function buildShop() {
   }
 
   // ── Unlock next ball ─────────────────────────────────────────
-  const n    = st.unlockedSlots
-  const cost = slotCost(n)
+  const n         = st.unlockedSlots
+  const cost      = slotCost(n)
+  const costLabel = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
   const unlockBtn = document.createElement('button')
   unlockBtn.className   = 'unlock-slot-btn'
-  unlockBtn.disabled    = st.coins < cost
-  unlockBtn.textContent = `Unlock Ball ${n + 1}  ◆ ${fmt(cost)}`
+  unlockBtn.disabled    = !devFreeUpgradesEnabled && st.coins < cost
+  unlockBtn.textContent = `Unlock Ball ${n + 1}  ${costLabel}`
   unlockBtn.addEventListener('click', () => {
-    if (tryUnlockSlot()) { addBall(); buildShop(); updateHUD() }
+    const ok = devFreeUpgradesEnabled ? devFreeUnlockSlot() : tryUnlockSlot()
+    if (ok) { addBall(); buildShop(); updateHUD() }
   })
   shopBody.appendChild(unlockBtn)
 }
@@ -2041,13 +2205,13 @@ function screenToWorld(sx, sy) {
 canvas.addEventListener('pointerdown', e => {
   if (!e.isPrimary) return    // ignore secondary touch points (pinch, etc.)
   e.preventDefault()
-  if (introCompleting) return // no input while transition animation runs
+  if (introCompleting || introTweening) return // no input during transition or zoom tween
 
   // Block while a tap circle is active, any ball is still animated, or a chain
   // is open. The currentChain check catches the brief window between the last
   // shrink finishing and endChain() running — prevents a queued tap from
   // counting as a fresh shot before the chain is fully resolved.
-  if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive) || currentChain) return
+  if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive) || currentChain || refillInputLock > 0) return
   try { getAudio() } catch (_) {}
   const [vx, vy] = screenToWorld(e.clientX, e.clientY)
   triggerAtPoint(vx, vy)
@@ -2073,7 +2237,8 @@ qbBar.addEventListener('pointerdown', e => e.stopPropagation())
 
 qbBallBtn.addEventListener('click', e => {
   e.stopPropagation()
-  if (tryUnlockSlot()) {
+  const ok = devFreeUpgradesEnabled ? devFreeUnlockSlot() : tryUnlockSlot()
+  if (ok) {
     addBall()
     cancelFirstBallCue()
     updateHUD()
@@ -2087,7 +2252,8 @@ qbCheapBtn.addEventListener('click', e => {
   const up = findCheapestUpgrade(getState())
   if (!up) return
   const oldR = up.stat === 'radius' ? ballStats(getState().balls[up.ballIdx]).maxRadius : 0
-  if (tryUpgrade(up.ballIdx, up.stat)) {
+  const ok = devFreeUpgradesEnabled ? devFreeUpgrade(up.ballIdx, up.stat) : tryUpgrade(up.ballIdx, up.stat)
+  if (ok) {
     syncBallStats(up.ballIdx)
     if (up.stat === 'radius') spawnRadiusGhost(up.ballIdx, oldR)
     updateHUD()
@@ -2101,7 +2267,8 @@ qbSuggestBtn.addEventListener('click', e => {
   const up = findSuggestedUpgrade(getState())
   if (!up) return
   const oldR = up.stat === 'radius' ? ballStats(getState().balls[up.ballIdx]).maxRadius : 0
-  if (tryUpgrade(up.ballIdx, up.stat)) {
+  const ok = devFreeUpgradesEnabled ? devFreeUpgrade(up.ballIdx, up.stat) : tryUpgrade(up.ballIdx, up.stat)
+  if (ok) {
     syncBallStats(up.ballIdx)
     if (up.stat === 'radius') spawnRadiusGhost(up.ballIdx, oldR)
     updateHUD()
@@ -2130,6 +2297,16 @@ devPrestigeBtn.addEventListener('click', () => {
   if (!shopPanel.classList.contains('hidden')) buildShop()
 })
 
+devFreeUpgradesBtn.addEventListener('click', () => {
+  devFreeUpgradesEnabled = !devFreeUpgradesEnabled
+  devFreeUpgradesBtn.classList.toggle('dev-btn-active', devFreeUpgradesEnabled)
+  devFreeUpgradesBtn.textContent = devFreeUpgradesEnabled
+    ? '✦ Free Upgrades ON'
+    : '✦ Free Upgrades'
+  updateHUD()
+  if (!shopPanel.classList.contains('hidden')) buildShop()
+})
+
 devResetBtn.addEventListener('click', () => {
   const st = devReset()
   balls = []
@@ -2145,8 +2322,13 @@ devResetBtn.addEventListener('click', () => {
   introCoins           = 0
   introReadyToComplete = false
   introCompleting      = false
+  introTweening        = false
   introTransTimer      = 0
   introTransScale      = 1
+
+  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.unlockedSlots)
+  arenaW = VIRTUAL_W * currentArenaScale
+  arenaH = gamePlayH * currentArenaScale
 
   if (introMode) {
     for (let i = 0; i < INTRO_BALL_COUNT; i++) balls.push(makeIntroBall(i))
@@ -2173,8 +2355,12 @@ devResetIntroBtn.addEventListener('click', () => {
   introCoins           = 0
   introReadyToComplete = false
   introCompleting      = false
+  introTweening        = false
   introTransTimer      = 0
   introTransScale      = 1
+  currentArenaScale = getArenaScale(INTRO_BALL_COUNT)
+  arenaW = VIRTUAL_W * currentArenaScale
+  arenaH = gamePlayH * currentArenaScale
   for (let i = 0; i < INTRO_BALL_COUNT; i++) balls.push(makeIntroBall(i))
   document.body.classList.add('intro-active')
   shopPanel.classList.add('hidden')
@@ -2207,7 +2393,7 @@ function init() {
   introMode = !st.introComplete
 
   // Snap arena scale to the correct starting value (no lerp on fresh load)
-  currentArenaScale = introMode ? 1 : getArenaScale(st.unlockedSlots)
+  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.unlockedSlots)
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
 

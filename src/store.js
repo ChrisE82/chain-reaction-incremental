@@ -348,6 +348,27 @@ export function setFirstBallCueShown() {
   saveState(state)
 }
 
+export function devFreeUpgrade(ballIdx, stat) {
+  const ball = state.balls[ballIdx]
+  if (!ball) return false
+  ball[stat + 'Level']++
+  saveState(state)
+  return true
+}
+
+export function devFreeUpgradeClick(stat) {
+  state.clicks[stat + 'Level']++
+  saveState(state)
+  return true
+}
+
+export function devFreeUnlockSlot() {
+  state.unlockedSlots++
+  state.balls.push(newBallData())
+  saveState(state)
+  return true
+}
+
 export function devReset() {
   state = defaultState()
   saveState(state)
