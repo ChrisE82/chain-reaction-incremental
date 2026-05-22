@@ -177,9 +177,8 @@ function runAutoUpgrade(dt) {
 // triggered: Set of "ballId:spawnGen" strings — prevents the same spawn
 //   from being counted twice, while still allowing a respawned ball (new
 //   spawnGen) to be caught by a still-active expansion.
-let currentChain  = null
-let nextChainId   = 1
-let chainJustEnded = false   // set by endChain(); consumed after board-empty check
+let currentChain = null
+let nextChainId  = 1
 
 // ─── First-ball attention cue ─────────────────────────────────────────────
 // Fires once (per fresh save) after coins first reach Ball 2's cost (10).
@@ -220,10 +219,7 @@ function endChain() {
     recordChainEnd(currentChain.index, currentChain.coins + bonus)
   }
   currentChain = null
-  if (!introMode) {
-    chainJustEnded = true   // trigger post-chain respawn release (runs after board-empty check)
-    checkFirstBallCue()
-  }
+  if (!introMode) checkFirstBallCue()
 
   // Intro: start the black-hole transition once the qualifying chain is done
   if (introMode && introReadyToComplete && !introCompleting) {
@@ -781,31 +777,6 @@ function refillAllOwnedBalls() {
   console.log(`[board-clear] refill done: states-after=[${balls.map(b => b.state).join(', ')}]`)
 }
 
-// Release only the balls currently in 'respawning' state back to idle.
-// Called after a partial chain (some balls fired but board wasn't fully cleared).
-// Full board-clears use refillAllOwnedBalls() which resets every slot.
-function releaseRespawningBalls() {
-  const st = getState()
-  const r  = BALL_RADIUS
-  for (const b of balls) {
-    if (b.state !== 'respawning') continue
-    const stats = ballStats(st.balls[b.storeIdx])
-    const angle = Math.random() * Math.PI * 2
-    b.x = r + Math.random() * (VIRTUAL_W - r * 2)
-    b.y = r + Math.random() * (gamePlayH - r * 2)
-    b.vx = Math.cos(angle) * stats.speed
-    b.vy = Math.sin(angle) * stats.speed
-    b.maxRadius    = stats.maxRadius
-    b.holdMs       = stats.holdMs
-    b.respawnMs    = stats.respawnMs
-    b.respawnTimer = 0
-    b.curRadius    = 0
-    b.sqx = 1; b.sqy = 1
-    b.spawnGen++
-    b.state = 'idle'
-  }
-}
-
 // ─── Update ───────────────────────────────────────────────────────────────
 function update(dt) {
   // Black-hole transition overrides normal physics entirely
@@ -949,15 +920,6 @@ function update(dt) {
         if (soonest.state === 'done') soonest.state = 'respawning'
       }
     }
-  }
-
-  // Post-chain respawn: after the board-empty check has had a chance to fire
-  // its full-clear bonus, release any remaining respawning balls back to idle.
-  // Ensures that partial chains (not a full board-clear) don't leave balls
-  // permanently stuck — every ball comes back when its chain round ends.
-  if (chainJustEnded) {
-    chainJustEnded = false
-    releaseRespawningBalls()
   }
 
   updateParticles(dt)
