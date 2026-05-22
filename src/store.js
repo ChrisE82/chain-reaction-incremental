@@ -64,7 +64,7 @@ export const BallTypeConfig = [
     maxOwned:           Infinity,
     baseStats: {
       speed:     0.30,   // virtual units / frame tick
-      maxRadius: 4.5,    // virtual units at expansion peak (level 0 intentionally small)
+      maxRadius: 9.0,    // virtual units at expansion peak
       respawnMs: 99999999,   // effectively never — balls only return via board-clear
       // Expansion timing is defined in GameConfig, not here, so that all
       // balls share one source of truth for the phase durations.
@@ -105,23 +105,23 @@ function speedMult(level) {
   return diminishingUpgrade(level, 2.0, 8)
 }
 
-// Radius: maxBonus=1.4, curve=3.5 → front-loaded so the first few levels feel dramatic,
-// with a modest asymptote (×2.4 → 10.8 u) that keeps circles from getting unwieldy.
-//   Lv0  → ×1.00  (4.5 u)
-//   Lv1  → ×1.35  (6.1 u)   +35% — clearly visible jump
-//   Lv2  → ×1.61  (7.2 u)   +60%
-//   Lv3  → ×1.80  (8.1 u)   +80%
-//   Lv5  → ×2.06  (9.3 u)
-//   Lv10 → ×2.30  (10.4 u)  approaching ceiling
-function radiusMult(level) {
-  return diminishingUpgrade(level, 1.4, 3.5)
+// Diameter multiplier table — explicit steps so early upgrades feel crisp and predictable.
+// Lv0–6 use a flat table; beyond that a log tail caps at ×2.05.
+// With base 9.0 u:
+//   Lv0 → ×1.00 (9.0 u)    Lv1 → ×1.18 (10.6 u)  Lv2 → ×1.34 (12.1 u)
+//   Lv3 → ×1.48 (13.3 u)   Lv4 → ×1.60 (14.4 u)  Lv5 → ×1.70 (15.3 u)
+//   Lv6 → ×1.78 (16.0 u)   Lv7+ → log tail        max → ×2.05 (18.5 u)
+const DIAMETER_MULTIPLIERS = [1.00, 1.18, 1.34, 1.48, 1.60, 1.70, 1.78]
+function getDiameterMultiplier(level) {
+  if (level < DIAMETER_MULTIPLIERS.length) return DIAMETER_MULTIPLIERS[level]
+  return Math.min(2.05, 1.78 + 0.10 * Math.log1p(level - 6))
 }
 
 export function ballStats(ball) {
   const base = BallTypeConfig[0].baseStats
   return {
     speed:     base.speed     * speedMult(ball.speedLevel),
-    maxRadius: base.maxRadius * radiusMult(ball.radiusLevel),
+    maxRadius: base.maxRadius * getDiameterMultiplier(ball.radiusLevel),
     growMs:    GameConfig.growDuration,          // fixed — stays snappy at all levels
     holdMs:    holdMs(ball.durationLevel),        // piecewise — main upgrade lever
     shrinkMs:  GameConfig.shrinkDuration,        // fixed — visual-only collapse

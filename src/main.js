@@ -73,7 +73,11 @@ calcUnits()
 canvas.style.touchAction = 'none'
 
 // ─── Physics constants ────────────────────────────────────────────────────
-const BALL_RADIUS = 2.4    // virtual units
+const BALL_RADIUS = 2.4    // virtual units — visual size and wall-bounce boundary
+// Collision/trigger radius is slightly larger than visual for fair-feeling chains.
+// Using center-to-center distance: trigger fires when dist < expansionR + BALL_COLLISION_RADIUS,
+// i.e. the edge of the expansion visually overlaps the edge of the target ball.
+const BALL_COLLISION_RADIUS = BALL_RADIUS * 1.25   // = 3.0 u
 // Expansion phase durations live on each ball object (growMs / holdMs / shrinkMs)
 // and are derived from GameConfig + upgrade level in ballStats(). No global
 // EXPAND_DURATION / SHRINK_DURATION constants — those have been removed.
@@ -267,7 +271,7 @@ function updateTapCircles(dt) {
       for (const b of balls) {
         if (b.state !== 'idle') continue
         const dx = b.x - tc.x, dy = b.y - tc.y
-        if (Math.sqrt(dx * dx + dy * dy) < tc.curRadius + b.baseRadius) {
+        if (Math.sqrt(dx * dx + dy * dy) < tc.curRadius + b.collisionRadius) {
           triggerBall(b, { x: tc.x, y: tc.y })
         }
       }
@@ -529,7 +533,8 @@ function makeBall(storeData, idx) {
     state:    'idle',
     expTimer:  0,
     curRadius: 0,
-    baseRadius: r,
+    baseRadius:      r,
+    collisionRadius: BALL_COLLISION_RADIUS,
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
     storeIdx:     idx,
@@ -557,7 +562,8 @@ function makeIntroBall(i) {
     state:       'idle',
     expTimer:    0,
     curRadius:   0,
-    baseRadius:  r,
+    baseRadius:      r,
+    collisionRadius: BALL_COLLISION_RADIUS,
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
     storeIdx:    0,
@@ -720,6 +726,7 @@ function loop(ts) {
   drawTapCircles()
   drawParticles()
   if (introCompleting) drawIntroTransition()
+  if (debugVisible) drawDebugCircles()
 
   ctx.restore()
 
@@ -847,7 +854,7 @@ function update(dt) {
     for (const b of balls) {
       if (b === src || b.state !== 'idle') continue
       const dx = b.x - src.x, dy = b.y - src.y
-      if (Math.sqrt(dx * dx + dy * dy) < src.curRadius + b.baseRadius) {
+      if (Math.sqrt(dx * dx + dy * dy) < src.curRadius + b.collisionRadius) {
         triggerBall(b, src)
       }
     }
@@ -1004,7 +1011,50 @@ function updateDebug(st) {
     `Best chain: ${st.stats.bestChainLength} balls<br>` +
     `Total chains: ${st.stats.totalChains}<br>` +
     `Coins: ${fmt(st.coins)}  |  Total earned: ${fmt(st.totalCoins)}<br>` +
-    `Last kickstart: +${st.stats.lastKickstartBonus}`
+    `Last kickstart: +${st.stats.lastKickstartBonus}<br>` +
+    `<span style="color:#4fffb0">Ball visual r: ${BALL_RADIUS}  ` +
+    `collision r: ${BALL_COLLISION_RADIUS.toFixed(2)}  ` +
+    `Lv0 expansion: ${(9.0).toFixed(1)} u  trigger dist: ${(9.0 + BALL_COLLISION_RADIUS).toFixed(1)} u</span>`
+}
+
+// ─── Debug collision overlay ──────────────────────────────────────────────
+// Called inside the virtual-coordinate ctx.save() block — draws in game space.
+// Green dashed ring = collision radius (what counts for triggering).
+// Orange ring = effective trigger zone from an active expansion
+//   (expansion.curRadius + BALL_COLLISION_RADIUS = where targets get caught).
+function drawDebugCircles() {
+  ctx.save()
+  ctx.lineWidth = 0.5
+
+  for (const b of balls) {
+    if (b.state === 'respawning') continue
+
+    // Collision radius — green dashed ring on every visible ball
+    ctx.setLineDash([1.2, 1.2])
+    ctx.strokeStyle = 'rgba(80,255,160,0.55)'
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.collisionRadius, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Active expansion: show the effective catch boundary
+    if (canTrigger(b) && b.curRadius > 0) {
+      ctx.setLineDash([])
+      ctx.strokeStyle = 'rgba(255,200,40,0.45)'
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.curRadius + b.collisionRadius, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+  }
+
+  // Same catch boundary for tap circles
+  for (const tc of tapCircles) {
+    if (!isTapActive(tc) || tc.curRadius <= 0) continue
+    ctx.setLineDash([])
+    ctx.strokeStyle = 'rgba(255,200,40,0.35)'
+    ctx.beginPath(); ctx.arc(tc.x, tc.y, tc.curRadius + BALL_COLLISION_RADIUS, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+
+  ctx.setLineDash([])
+  ctx.restore()
 }
 
 // ─── Floating coin label ──────────────────────────────────────────────────
