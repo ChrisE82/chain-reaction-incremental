@@ -78,6 +78,22 @@ const BALL_RADIUS = 2.4    // virtual units — visual size and wall-bounce boun
 // Using center-to-center distance: trigger fires when dist < expansionR + BALL_COLLISION_RADIUS,
 // i.e. the edge of the expansion visually overlaps the edge of the target ball.
 const BALL_COLLISION_RADIUS = BALL_RADIUS * 1.15   // = 2.76 u
+
+// ─── Dynamic arena ────────────────────────────────────────────────────────
+// World size scales with owned ball count so 1–2 balls get a tight arena
+// (chains are easy to discover) while 9+ balls gradually expand the space.
+function getArenaScale(n) {
+  if (n <= 2) return 0.55
+  if (n <= 4) return 0.70
+  if (n <= 6) return 0.85
+  if (n <= 8) return 1.00
+  return Math.min(2.0, 1.0 + Math.log1p(n - 8) * 0.22)
+}
+
+let currentArenaScale = 1   // lerps toward target each frame; snapped on init & intro-end
+let arenaW = VIRTUAL_W      // world width in virtual units  (updated every frame)
+let arenaH = VIRTUAL_H      // world height in virtual units (updated every frame)
+
 // Expansion phase durations live on each ball object (growMs / holdMs / shrinkMs)
 // and are derived from GameConfig + upgrade level in ballStats(). No global
 // EXPAND_DURATION / SHRINK_DURATION constants — those have been removed.
@@ -525,8 +541,8 @@ function makeBall(storeData, idx) {
   return {
     id:       nextBallId++,
     spawnGen: 1,           // increments each time ball respawns
-    x:        r + Math.random() * (VIRTUAL_W  - r * 2),
-    y:        r + Math.random() * (gamePlayH  - r * 2),
+    x:        r + Math.random() * (arenaW - r * 2),
+    y:        r + Math.random() * (arenaH - r * 2),
     vx:       Math.cos(angle) * stats.speed,
     vy:       Math.sin(angle) * stats.speed,
     color:    BALL_COLORS[idx % BALL_COLORS.length],
@@ -664,8 +680,8 @@ function triggerBall(b, src) {
 // ─── Player tap ───────────────────────────────────────────────────────────
 function triggerAtPoint(vx, vy) {
   const r = BALL_RADIUS
-  vx = Math.max(r, Math.min(VIRTUAL_W  - r, vx))
-  vy = Math.max(r, Math.min(gamePlayH  - r, vy))
+  vx = Math.max(r, Math.min(arenaW - r, vx))
+  vy = Math.max(r, Math.min(arenaH - r, vy))
 
   if (!introMode) cyclePlayerStarts++  // pointerdown guard ensures this only runs when no chain is active
   startChain()
@@ -709,6 +725,14 @@ function loop(ts) {
   const dt = Math.min(ts - lastTime, 50)
   lastTime = ts
 
+  // Lerp arena scale toward target (ball-count driven). Intro stays at 1.
+  if (!introMode) {
+    const target = getArenaScale(getState().unlockedSlots)
+    currentArenaScale += (target - currentArenaScale) * Math.min(1, dt * 0.004)
+  }
+  arenaW = VIRTUAL_W * currentArenaScale
+  arenaH = gamePlayH * currentArenaScale
+
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, W, H)
   ctx.fillStyle = '#050810'
@@ -719,16 +743,23 @@ function loop(ts) {
   ctx.scale(gameScale, gameScale)
   ctx.beginPath(); ctx.rect(0, 0, VIRTUAL_W, VIRTUAL_H); ctx.clip()
 
-  drawGrid()
   update(dt)
+
+  // Camera: maps world space (0..arenaW × 0..arenaH) into virtual space (0..VIRTUAL_W × 0..gamePlayH).
+  // When arenaScale < 1 the camera zooms in, making the tighter world fill the same canvas.
+  const cameraS = 1.0 / currentArenaScale
+  ctx.save()
+  ctx.scale(cameraS, cameraS)
+  drawGrid()
   drawAll()
   drawRadiusGhosts()
   drawTapCircles()
   drawParticles()
   if (introCompleting) drawIntroTransition()
   if (debugVisible) drawDebugCircles()
+  ctx.restore()   // camera
 
-  ctx.restore()
+  ctx.restore()   // virtual
 
   ctx.shadowColor = 'rgba(66,212,255,0.55)'
   ctx.shadowBlur  = 12
@@ -749,11 +780,11 @@ function drawGrid() {
   ctx.strokeStyle = 'rgba(255,255,255,0.03)'
   ctx.lineWidth   = 1 / gameScale
   const step = 8
-  for (let x = 0; x <= VIRTUAL_W; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, VIRTUAL_H); ctx.stroke()
+  for (let x = 0; x <= arenaW; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, arenaH); ctx.stroke()
   }
-  for (let y = 0; y <= VIRTUAL_H; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(VIRTUAL_W, y); ctx.stroke()
+  for (let y = 0; y <= arenaH; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(arenaW, y); ctx.stroke()
   }
 }
 
@@ -768,8 +799,8 @@ function refillAllOwnedBalls() {
   for (const b of balls) {
     const stats = ballStats(st.balls[b.storeIdx])
     const angle = Math.random() * Math.PI * 2
-    b.x = r + Math.random() * (VIRTUAL_W - r * 2)
-    b.y = r + Math.random() * (gamePlayH - r * 2)
+    b.x = r + Math.random() * (arenaW - r * 2)
+    b.y = r + Math.random() * (arenaH - r * 2)
     b.vx = Math.cos(angle) * stats.speed
     b.vy = Math.sin(angle) * stats.speed
     b.maxRadius    = stats.maxRadius
@@ -805,8 +836,8 @@ function update(dt) {
       if (b.respawnTimer <= 0) {
         const stats = b.isIntro ? INTRO_STATS : ballStats(getState().balls[b.storeIdx])
         const angle = Math.random() * Math.PI * 2
-        b.x  = r + Math.random() * (VIRTUAL_W  - r * 2)
-        b.y  = r + Math.random() * (gamePlayH  - r * 2)
+        b.x  = r + Math.random() * (arenaW - r * 2)
+        b.y  = r + Math.random() * (arenaH - r * 2)
         b.vx = Math.cos(angle) * stats.speed
         b.vy = Math.sin(angle) * stats.speed
         b.maxRadius = stats.maxRadius
@@ -824,10 +855,10 @@ function update(dt) {
 
     b.x += b.vx; b.y += b.vy
 
-    if (b.x - r < 0)         { b.x = r;             b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
-    if (b.x + r > VIRTUAL_W) { b.x = VIRTUAL_W - r; b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
-    if (b.y - r < 0)          { b.y = r;              b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
-    if (b.y + r > gamePlayH)  { b.y = gamePlayH - r;  b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
+    if (b.x - r < 0)        { b.x = r;            b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
+    if (b.x + r > arenaW)   { b.x = arenaW - r;   b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
+    if (b.y - r < 0)         { b.y = r;             b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
+    if (b.y + r > arenaH)    { b.y = arenaH - r;    b.vy *= -1; b.sqx = 1.38; b.sqy = 0.62 }
 
     b.sqx += (1 - b.sqx) * spring
     b.sqy += (1 - b.sqy) * spring
@@ -1368,24 +1399,29 @@ function finishIntro() {
   // Persist the completion flag so the intro never replays
   setIntroComplete()
 
-  // Rebuild the playfield from the real saved state (1 ball, normal stats).
-  // Place the first ball at the centre so it appears to emerge from the spiral.
+  // Restore UI first — makes the quick-buy bar visible so calcUnits() can
+  // read its real height and give us the correct gamePlayH for ball spawning.
+  document.body.classList.remove('intro-active', 'intro-completing')
+  calcUnits()
+
+  // Snap arena scale immediately (no lerp animation from intro's 1.0 → game value).
   const st = getState()
+  currentArenaScale = getArenaScale(st.unlockedSlots)
+  arenaW = VIRTUAL_W * currentArenaScale
+  arenaH = gamePlayH * currentArenaScale
+
+  // Rebuild the playfield. Place the first ball at centre so it appears to
+  // emerge from the spiral; subsequent balls spawn randomly in the world.
   balls = []
   for (let i = 0; i < st.unlockedSlots; i++) {
     const b = makeBall(st.balls[i], i)
-    if (i === 0) { b.x = VIRTUAL_W / 2; b.y = gamePlayH / 2 }
+    if (i === 0) { b.x = arenaW / 2; b.y = arenaH / 2 }
     balls.push(b)
   }
   currentChain = null
   wasBoardActiveSinceLastKickstart = false
   particles.length  = 0
   tapCircles.length = 0
-
-  // Restore UI — removing intro-active makes the quick-buy bar visible again,
-  // so recalculate gamePlayH now that offsetHeight returns the real bar height.
-  document.body.classList.remove('intro-active', 'intro-completing')
-  calcUnits()
 
   updateHUD()
 }
@@ -1528,8 +1564,8 @@ function drawFirstBallCue() {
   // ── Phase 0: expanding gold ring at last pop position ─────────────────
   if (fbCuePhase === 0) {
     const t  = Math.min(fbCuePhaseT / FB_PULSE_MS, 1)
-    const sx = fbLastPopVX * gameScale + gameOffsetX
-    const sy = fbLastPopVY * gameScale + gameOffsetY
+    const sx = (fbLastPopVX / currentArenaScale) * gameScale + gameOffsetX
+    const sy = (fbLastPopVY / currentArenaScale) * gameScale + gameOffsetY
     for (let ring = 0; ring < 2; ring++) {
       const rt    = ring === 0 ? t : Math.max(0, t - 0.18)
       const ringR = rt * 52
@@ -1994,8 +2030,12 @@ function buildShop() {
 }
 
 // ─── Input ────────────────────────────────────────────────────────────────
-function screenToVirtual(sx, sy) {
-  return [(sx - gameOffsetX) / gameScale, (sy - gameOffsetY) / gameScale]
+function screenToWorld(sx, sy) {
+  // screen → virtual → world (virtual = world / arenaScale, so world = virtual * arenaScale)
+  return [
+    (sx - gameOffsetX) / gameScale * currentArenaScale,
+    (sy - gameOffsetY) / gameScale * currentArenaScale,
+  ]
 }
 
 canvas.addEventListener('pointerdown', e => {
@@ -2009,7 +2049,7 @@ canvas.addEventListener('pointerdown', e => {
   // counting as a fresh shot before the chain is fully resolved.
   if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive) || currentChain) return
   try { getAudio() } catch (_) {}
-  const [vx, vy] = screenToVirtual(e.clientX, e.clientY)
+  const [vx, vy] = screenToWorld(e.clientX, e.clientY)
   triggerAtPoint(vx, vy)
 })
 
@@ -2165,6 +2205,11 @@ window.addEventListener('resize', () => calcUnits())
 function init() {
   const st = getState()
   introMode = !st.introComplete
+
+  // Snap arena scale to the correct starting value (no lerp on fresh load)
+  currentArenaScale = introMode ? 1 : getArenaScale(st.unlockedSlots)
+  arenaW = VIRTUAL_W * currentArenaScale
+  arenaH = gamePlayH * currentArenaScale
 
   balls = []
   if (introMode) {
