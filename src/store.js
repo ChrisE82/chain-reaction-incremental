@@ -65,7 +65,7 @@ export const BallTypeConfig = [
     baseStats: {
       speed:     0.30,   // virtual units / frame tick
       maxRadius: 4.5,    // virtual units at expansion peak (level 0 intentionally small)
-      respawnMs: 6000,   // ms before re-entering play (hard floor: 650ms)
+      respawnMs: 99999999,   // effectively never — balls only return via board-clear
       // Expansion timing is defined in GameConfig, not here, so that all
       // balls share one source of truth for the phase durations.
     },
@@ -105,13 +105,16 @@ function speedMult(level) {
   return diminishingUpgrade(level, 2.0, 8)
 }
 
-// Radius: maxBonus=0.9, curve=6 → gentle, controlled growth, approaches ×1.9 asymptote.
-// Paired with small base (4.5 units) so circles stay modest at all levels.
-// Duration and Speed remain the main early chain enablers.
-//   Lv0  → ×1.00   Lv1  → ×1.14   Lv2  → ×1.26   Lv3  → ×1.35
-//   Lv5  → ×1.51   Lv8  → ×1.66   Lv12 → ×1.78
+// Radius: maxBonus=1.4, curve=3.5 → front-loaded so the first few levels feel dramatic,
+// with a modest asymptote (×2.4 → 10.8 u) that keeps circles from getting unwieldy.
+//   Lv0  → ×1.00  (4.5 u)
+//   Lv1  → ×1.35  (6.1 u)   +35% — clearly visible jump
+//   Lv2  → ×1.61  (7.2 u)   +60%
+//   Lv3  → ×1.80  (8.1 u)   +80%
+//   Lv5  → ×2.06  (9.3 u)
+//   Lv10 → ×2.30  (10.4 u)  approaching ceiling
 function radiusMult(level) {
-  return diminishingUpgrade(level, 0.9, 6.0)
+  return diminishingUpgrade(level, 1.4, 3.5)
 }
 
 export function ballStats(ball) {

@@ -155,7 +155,7 @@ function runAutoUpgrade(dt) {
 
   for (let i = 0; i < st.unlockedSlots; i++) {
     const ball = st.balls[i]
-    for (const stat of ['speed', 'radius', 'duration', 'respawn']) {
+    for (const stat of ['speed', 'radius', 'duration']) {
       const cost = ballUpgradeCost(stat, ball[stat + 'Level'], i)
       if (cost <= st.coins && cost < bestCost) {
         bestCost    = cost
@@ -177,8 +177,9 @@ function runAutoUpgrade(dt) {
 // triggered: Set of "ballId:spawnGen" strings — prevents the same spawn
 //   from being counted twice, while still allowing a respawned ball (new
 //   spawnGen) to be caught by a still-active expansion.
-let currentChain = null
-let nextChainId  = 1
+let currentChain  = null
+let nextChainId   = 1
+let chainJustEnded = false   // set by endChain(); consumed after board-empty check
 
 // ─── First-ball attention cue ─────────────────────────────────────────────
 // Fires once (per fresh save) after coins first reach Ball 2's cost (10).
@@ -219,7 +220,10 @@ function endChain() {
     recordChainEnd(currentChain.index, currentChain.coins + bonus)
   }
   currentChain = null
-  if (!introMode) checkFirstBallCue()
+  if (!introMode) {
+    chainJustEnded = true   // trigger post-chain respawn release (runs after board-empty check)
+    checkFirstBallCue()
+  }
 
   // Intro: start the black-hole transition once the qualifying chain is done
   if (introMode && introReadyToComplete && !introCompleting) {
@@ -777,6 +781,31 @@ function refillAllOwnedBalls() {
   console.log(`[board-clear] refill done: states-after=[${balls.map(b => b.state).join(', ')}]`)
 }
 
+// Release only the balls currently in 'respawning' state back to idle.
+// Called after a partial chain (some balls fired but board wasn't fully cleared).
+// Full board-clears use refillAllOwnedBalls() which resets every slot.
+function releaseRespawningBalls() {
+  const st = getState()
+  const r  = BALL_RADIUS
+  for (const b of balls) {
+    if (b.state !== 'respawning') continue
+    const stats = ballStats(st.balls[b.storeIdx])
+    const angle = Math.random() * Math.PI * 2
+    b.x = r + Math.random() * (VIRTUAL_W - r * 2)
+    b.y = r + Math.random() * (gamePlayH - r * 2)
+    b.vx = Math.cos(angle) * stats.speed
+    b.vy = Math.sin(angle) * stats.speed
+    b.maxRadius    = stats.maxRadius
+    b.holdMs       = stats.holdMs
+    b.respawnMs    = stats.respawnMs
+    b.respawnTimer = 0
+    b.curRadius    = 0
+    b.sqx = 1; b.sqy = 1
+    b.spawnGen++
+    b.state = 'idle'
+  }
+}
+
 // ─── Update ───────────────────────────────────────────────────────────────
 function update(dt) {
   // Black-hole transition overrides normal physics entirely
@@ -920,6 +949,15 @@ function update(dt) {
         if (soonest.state === 'done') soonest.state = 'respawning'
       }
     }
+  }
+
+  // Post-chain respawn: after the board-empty check has had a chance to fire
+  // its full-clear bonus, release any remaining respawning balls back to idle.
+  // Ensures that partial chains (not a full board-clear) don't leave balls
+  // permanently stuck — every ball comes back when its chain round ends.
+  if (chainJustEnded) {
+    chainJustEnded = false
+    releaseRespawningBalls()
   }
 
   updateParticles(dt)
@@ -1593,13 +1631,13 @@ function drawFirstBallCue() {
 
 // ─── Quick-buy helpers ────────────────────────────────────────────────────
 
-const QB_STAT_LABEL  = { speed: 'Speed', radius: 'Radius', duration: 'Duration', respawn: 'Respawn' }
+const QB_STAT_LABEL  = { speed: 'Speed', radius: 'Radius', duration: 'Duration' }
 // Reason label shown on the Suggested button.
 // "Big gain" fires when the marginal improvement is ≥20%; otherwise stat-specific.
 function sugReason(stat, marginalGain) {
   if (marginalGain >= 0.20) return 'Big gain'
   return { duration: 'Longer chain', speed: 'Reach more',
-           radius: 'Wider catch',    respawn: 'More returns' }[stat] ?? 'Upgrade'
+           radius: 'Wider catch' }[stat] ?? 'Upgrade'
 }
 
 // Track last displayed target so we can flash the text when it changes
@@ -1612,7 +1650,7 @@ function findCheapestUpgrade(st) {
   let best = null
   for (let i = 0; i < st.unlockedSlots; i++) {
     const ball = st.balls[i]
-    for (const stat of ['speed', 'radius', 'duration', 'respawn']) {
+    for (const stat of ['speed', 'radius', 'duration']) {
       const cost = ballUpgradeCost(stat, ball[stat + 'Level'], i)
       if (!best || cost < best.cost) best = { ballIdx: i, stat, cost }
     }
@@ -1628,29 +1666,17 @@ function findCheapestUpgrade(st) {
 // naturally, and any stat with diminishing returns falls in priority on its
 // own — no fixed target levels needed.
 
-const SUG_STAT_WEIGHT = { duration: 1.15, speed: 1.10, radius: 1.00, respawn: 0.45 }
-const SUG_TIE_ORDER   = ['duration', 'speed', 'radius', 'respawn']
+const SUG_STAT_WEIGHT = { duration: 1.15, speed: 1.10, radius: 1.00 }
+const SUG_TIE_ORDER   = ['duration', 'speed', 'radius']
 
 // Scalar value used to measure one upgrade's marginal improvement.
-// respawn uses 1/ms so that "faster respawn" = positive gain.
 function getStatValue(stat, ball) {
   const s = ballStats(ball)
   switch (stat) {
     case 'speed':    return s.speed
     case 'radius':   return s.maxRadius
     case 'duration': return s.growMs + s.holdMs   // full active window
-    case 'respawn':  return 1 / s.respawnMs
   }
-}
-
-// Gate: only surface Respawn in suggestions when it's actually meaningful.
-function shouldConsiderRespawn(st, ownedCount) {
-  if (ownedCount < 4) return false
-  if (st.stats.bestChainLength >= 3) return true
-  // Also open the gate once other stats are reasonably developed
-  const balls    = st.balls.slice(0, ownedCount)
-  const avg = key => balls.reduce((s, b) => s + b[key], 0) / ownedCount
-  return (avg('durationLevel') + avg('speedLevel') + avg('radiusLevel')) / 3 >= 2
 }
 
 function sugIsBetter(a, b) {
@@ -1665,7 +1691,6 @@ function sugIsBetter(a, b) {
 // Falls back to the best-scoring upgrade overall (button disabled) when broke.
 function findSuggestedUpgrade(st) {
   const ownedCount   = st.unlockedSlots
-  const useRespawn   = shouldConsiderRespawn(st, ownedCount)
   let bestAffordable = null
   let bestAny        = null
 
@@ -1673,8 +1698,6 @@ function findSuggestedUpgrade(st) {
     const ball = st.balls[i]
 
     for (const stat of SUG_TIE_ORDER) {
-      if (stat === 'respawn' && !useRespawn) continue
-
       const level    = ball[stat + 'Level']
       const cost     = ballUpgradeCost(stat, level, i)
       const curVal   = getStatValue(stat, ball)
@@ -1797,15 +1820,6 @@ const BALL_UPGRADE_DEFS = [
       const s = ballStats(ball)
       // Show active window = grow + hold (the window that can trigger neighbours)
       return `${((s.growMs + s.holdMs) / 1000).toFixed(2)}s`
-    },
-  },
-  {
-    stat: 'respawn',
-    label: 'Respawn',
-    icon: '↺',
-    statLabel: (ball) => {
-      const s = ballStats(ball)
-      return `${(s.respawnMs / 1000).toFixed(2)}s`
     },
   },
 ]
