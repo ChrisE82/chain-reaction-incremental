@@ -64,8 +64,8 @@ export const BallTypeConfig = [
     maxOwned:           Infinity,
     baseStats: {
       speed:     0.30,   // virtual units / frame tick
-      maxRadius: 15,     // virtual units at expansion peak
-      respawnMs: 6000,   // ms before re-entering play (hard floor: 650ms)
+      maxRadius: 6.5,    // virtual units — Lv0 anchor; actual value returned by getExpansionRadius()
+      respawnMs: 99999999,   // effectively never — balls only return via board-clear
       // Expansion timing is defined in GameConfig, not here, so that all
       // balls share one source of truth for the phase durations.
     },
@@ -105,11 +105,24 @@ function speedMult(level) {
   return diminishingUpgrade(level, 2.0, 8)
 }
 
+// Expansion radius in virtual units — anchored so the curve never exceeds 18 u
+// (the intro preview radius), giving late upgrades a visible "wow" ceiling.
+//   Lv0  →  6.5    Lv1  →  7.4    Lv2  →  8.2    Lv3  →  9.0
+//   Lv5  → 10.4    Lv8  → 11.9    Lv10 → 13.0    Lv15 → 15.0    Lv20 → 15.8
+//   High levels slowly approach 18 (never exceeds it).
+const BASE_EXPANSION_RADIUS = 6.5
+const MAX_EXPANSION_RADIUS  = 18
+const DIAMETER_CURVE        = 12
+function getExpansionRadius(level) {
+  const t = 1 - Math.exp(-level / DIAMETER_CURVE)
+  return BASE_EXPANSION_RADIUS + (MAX_EXPANSION_RADIUS - BASE_EXPANSION_RADIUS) * t
+}
+
 export function ballStats(ball) {
   const base = BallTypeConfig[0].baseStats
   return {
     speed:     base.speed     * speedMult(ball.speedLevel),
-    maxRadius: base.maxRadius * (1 + ball.radiusLevel * 0.035),
+    maxRadius: getExpansionRadius(ball.radiusLevel),
     growMs:    GameConfig.growDuration,          // fixed — stays snappy at all levels
     holdMs:    holdMs(ball.durationLevel),        // piecewise — main upgrade lever
     shrinkMs:  GameConfig.shrinkDuration,        // fixed — visual-only collapse
@@ -130,8 +143,10 @@ export function clickStats(cl) {
 //
 // Duration:  Lv0→15  Lv1→35  Lv2→80  Lv3→180  Lv4→400  then ×1.35/level
 // Speed:     Lv0→20  Lv1→45  Lv2→100 Lv3→220  Lv4→480  then ×1.32/level
+// Radius:    Lv0→20  Lv1→45  Lv2→100 Lv3→225  Lv4→500  then ×1.35/level
 const EARLY_DURATION_COSTS = [15, 35, 80, 180, 400]
 const EARLY_SPEED_COSTS    = [20, 45, 100, 220, 480]
+const EARLY_RADIUS_COSTS   = [20, 45, 100, 225, 500]
 
 // ballIndex is zero-based: first ball = 0, second = 1, …
 // Passing no index (or 0) gives the original cost for Ball 1.
@@ -149,6 +164,13 @@ export function ballUpgradeCost(stat, level, ballIndex = 0) {
     const base = level < EARLY_SPEED_COSTS.length
       ? EARLY_SPEED_COSTS[level]
       : Math.floor(480 * Math.pow(1.32, level - 4))
+    return Math.floor(base * indexMult)
+  }
+
+  if (stat === 'radius') {
+    const base = level < EARLY_RADIUS_COSTS.length
+      ? EARLY_RADIUS_COSTS[level]
+      : Math.floor(500 * Math.pow(1.35, level - 4))
     return Math.floor(base * indexMult)
   }
 
@@ -324,6 +346,27 @@ export function devAddPrestige() {
 export function setFirstBallCueShown() {
   state.firstBallCueShown = true
   saveState(state)
+}
+
+export function devFreeUpgrade(ballIdx, stat) {
+  const ball = state.balls[ballIdx]
+  if (!ball) return false
+  ball[stat + 'Level']++
+  saveState(state)
+  return true
+}
+
+export function devFreeUpgradeClick(stat) {
+  state.clicks[stat + 'Level']++
+  saveState(state)
+  return true
+}
+
+export function devFreeUnlockSlot() {
+  state.unlockedSlots++
+  state.balls.push(newBallData())
+  saveState(state)
+  return true
 }
 
 export function devReset() {

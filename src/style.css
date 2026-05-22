@@ -1,6 +1,6 @@
 :root {
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
-  --qb-h: calc(62px + env(safe-area-inset-bottom, 0px));
+  --qb-h: calc(66px + env(safe-area-inset-bottom, 0px));
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -444,6 +444,12 @@ canvas {
   color: rgba(255,255,255,0.9);
 }
 
+.dev-btn-active {
+  background: rgba(80,220,120,0.18);
+  border-color: rgba(80,220,120,0.45);
+  color: rgba(120,255,160,0.95);
+}
+
 /* ─── Floating coin label ──────────────────────────────────── */
 
 .coin-float {
@@ -539,7 +545,7 @@ body.intro-completing #hud {
   bottom: 0;
   left: 0; right: 0;
   height: var(--qb-h);
-  /* 8px top padding + buttons fill the 46px slot + safe-area bottom padding */
+  /* 8px top padding + buttons fill the 50px slot + safe-area bottom padding */
   padding: 8px 8px env(safe-area-inset-bottom, 0px);
   display: flex;
   gap: 6px;
@@ -551,12 +557,12 @@ body.intro-completing #hud {
 
 .qb-btn {
   flex: 1;
-  height: 46px;
+  height: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   background: rgba(66, 212, 255, 0.045);
   border: 1px solid rgba(66, 212, 255, 0.15);
   border-radius: 8px;
@@ -610,6 +616,62 @@ body.intro-completing #hud {
   color: #ffe566;
   white-space: nowrap;
 }
+
+/* ── Upgrade button 3-row layout ───────────────────────────────── */
+
+/* Row 1: tiny muted header ("LOWEST COST" / "BEST NEXT") */
+.qb-btn-hd {
+  font-size: clamp(0.46rem, 1.6vmin, 0.58rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: rgba(255,255,255,0.32);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Row 2: main target line ("B1 Speed") — bright and readable */
+.qb-btn-target {
+  font-size: clamp(0.62rem, 2.15vmin, 0.76rem);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: rgba(255,255,255,0.88);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* Dim target when button is disabled */
+.qb-btn:disabled .qb-btn-target { opacity: 0.38; }
+
+/* Row 3: reason text for Best Next ("Longer chains · ◆35")
+   or "Need ◆35" when unaffordable — styled like .qb-btn-sub */
+.qb-btn-reason {
+  font-size: clamp(0.48rem, 1.65vmin, 0.60rem);
+  letter-spacing: 0.05em;
+  color: rgba(79, 255, 176, 0.80);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* Orange "Need ◆X" when button is disabled */
+.qb-btn:disabled .qb-btn-reason { color: rgba(255, 130, 50, 0.88); }
+
+/* Target-change flash — brief cyan highlight when target switches */
+@keyframes qb-target-flash {
+  0%   { color: rgba(66, 212, 255, 0.95); }
+  60%  { color: rgba(66, 212, 255, 0.70); }
+  100% { color: rgba(255, 255, 255, 0.88); }
+}
+.qb-target-changed {
+  animation: qb-target-flash 0.5s ease-out forwards;
+}
+/* Don't flash when button is disabled (target is dimmed anyway) */
+.qb-btn:disabled .qb-target-changed { animation: none; }
 
 /* Store button — slightly different accent */
 .qb-btn-store {
