@@ -77,7 +77,7 @@ const BALL_RADIUS = 2.4    // virtual units — visual size and wall-bounce boun
 // Collision/trigger radius is slightly larger than visual for fair-feeling chains.
 // Using center-to-center distance: trigger fires when dist < expansionR + BALL_COLLISION_RADIUS,
 // i.e. the edge of the expansion visually overlaps the edge of the target ball.
-const BALL_COLLISION_RADIUS = BALL_RADIUS * 1.25   // = 3.0 u
+const BALL_COLLISION_RADIUS = BALL_RADIUS * 1.15   // = 2.76 u
 // Expansion phase durations live on each ball object (growMs / holdMs / shrinkMs)
 // and are derived from GameConfig + upgrade level in ballStats(). No global
 // EXPAND_DURATION / SHRINK_DURATION constants — those have been removed.
@@ -1014,7 +1014,7 @@ function updateDebug(st) {
     `Last kickstart: +${st.stats.lastKickstartBonus}<br>` +
     `<span style="color:#4fffb0">Ball visual r: ${BALL_RADIUS}  ` +
     `collision r: ${BALL_COLLISION_RADIUS.toFixed(2)}  ` +
-    `Lv0 expansion: ${(9.0).toFixed(1)} u  trigger dist: ${(9.0 + BALL_COLLISION_RADIUS).toFixed(1)} u</span>`
+    `Lv0 expansion: 6.5 u  trigger dist: ${(6.5 + BALL_COLLISION_RADIUS).toFixed(1)} u</span>`
 }
 
 // ─── Debug collision overlay ──────────────────────────────────────────────

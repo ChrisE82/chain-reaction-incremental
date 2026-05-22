@@ -64,7 +64,7 @@ export const BallTypeConfig = [
     maxOwned:           Infinity,
     baseStats: {
       speed:     0.30,   // virtual units / frame tick
-      maxRadius: 9.0,    // virtual units at expansion peak
+      maxRadius: 6.5,    // virtual units — Lv0 anchor; actual value returned by getExpansionRadius()
       respawnMs: 99999999,   // effectively never — balls only return via board-clear
       // Expansion timing is defined in GameConfig, not here, so that all
       // balls share one source of truth for the phase durations.
@@ -105,23 +105,24 @@ function speedMult(level) {
   return diminishingUpgrade(level, 2.0, 8)
 }
 
-// Diameter multiplier table — explicit steps so early upgrades feel crisp and predictable.
-// Lv0–6 use a flat table; beyond that a log tail caps at ×2.05.
-// With base 9.0 u:
-//   Lv0 → ×1.00 (9.0 u)    Lv1 → ×1.18 (10.6 u)  Lv2 → ×1.34 (12.1 u)
-//   Lv3 → ×1.48 (13.3 u)   Lv4 → ×1.60 (14.4 u)  Lv5 → ×1.70 (15.3 u)
-//   Lv6 → ×1.78 (16.0 u)   Lv7+ → log tail        max → ×2.05 (18.5 u)
-const DIAMETER_MULTIPLIERS = [1.00, 1.18, 1.34, 1.48, 1.60, 1.70, 1.78]
-function getDiameterMultiplier(level) {
-  if (level < DIAMETER_MULTIPLIERS.length) return DIAMETER_MULTIPLIERS[level]
-  return Math.min(2.05, 1.78 + 0.10 * Math.log1p(level - 6))
+// Expansion radius in virtual units — anchored so the curve never exceeds 18 u
+// (the intro preview radius), giving late upgrades a visible "wow" ceiling.
+//   Lv0  →  6.5    Lv1  →  7.4    Lv2  →  8.2    Lv3  →  9.0
+//   Lv5  → 10.4    Lv8  → 11.9    Lv10 → 13.0    Lv15 → 15.0    Lv20 → 15.8
+//   High levels slowly approach 18 (never exceeds it).
+const BASE_EXPANSION_RADIUS = 6.5
+const MAX_EXPANSION_RADIUS  = 18
+const DIAMETER_CURVE        = 12
+function getExpansionRadius(level) {
+  const t = 1 - Math.exp(-level / DIAMETER_CURVE)
+  return BASE_EXPANSION_RADIUS + (MAX_EXPANSION_RADIUS - BASE_EXPANSION_RADIUS) * t
 }
 
 export function ballStats(ball) {
   const base = BallTypeConfig[0].baseStats
   return {
     speed:     base.speed     * speedMult(ball.speedLevel),
-    maxRadius: base.maxRadius * getDiameterMultiplier(ball.radiusLevel),
+    maxRadius: getExpansionRadius(ball.radiusLevel),
     growMs:    GameConfig.growDuration,          // fixed — stays snappy at all levels
     holdMs:    holdMs(ball.durationLevel),        // piecewise — main upgrade lever
     shrinkMs:  GameConfig.shrinkDuration,        // fixed — visual-only collapse
