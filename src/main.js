@@ -103,14 +103,9 @@ function calcUnits() {
   // Scale so the virtual field fits inside the available height (above the bar).
   gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
-  if (barPx > 0) {
-    // Bottom-align: play field sits flush against the quick-buy bar.
-    gameOffsetY = Math.max(0, availH - VIRTUAL_H * gameScale)
-  } else {
-    // No bar visible (intro): center vertically in the full window.
-    gameOffsetY = (availH - VIRTUAL_H * gameScale) / 2
-  }
-  // Full virtual height now fits above the bar — no virtual-unit reduction needed.
+  // Center the play field in the available space above the quick-buy bar.
+  gameOffsetY = Math.max(0, (availH - VIRTUAL_H * gameScale) / 2)
+  // Full virtual height fits above the bar — no virtual-unit reduction needed.
   gamePlayH = VIRTUAL_H
 }
 calcUnits()
