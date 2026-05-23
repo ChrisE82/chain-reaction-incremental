@@ -649,6 +649,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .upgrade-btn:active { background: rgba(66, 212, 255, 0.18) !important; }
+.upgrade-btn:disabled:active { background: rgba(255, 72, 38, 0.20) !important; border-color: rgba(255, 72, 38, 0.45) !important; }
 
 .upgrade-btn:disabled {
   cursor: default;
@@ -863,6 +864,10 @@ body.intro-active #stats-screen { display: none !important; }
   background: rgba(255,255,255,0.09) !important;
   transform: scale(0.98);
 }
+.next-ball-card:disabled:active {
+  background: rgba(255, 72, 38, 0.18) !important;
+  border-color: rgba(255, 72, 38, 0.44) !important;
+}
 
 .next-ball-card:disabled {
   cursor: default;
@@ -1019,6 +1024,10 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .upg-chip:active { transform: scale(0.91); }
+.upg-chip:disabled:active {
+  background: rgba(255, 72, 38, 0.18) !important;
+  border-color: rgba(255, 72, 38, 0.44) !important;
+}
 
 .upg-chip:disabled {
   cursor: default;
@@ -1148,6 +1157,10 @@ body.intro-active #stats-screen { display: none !important; }
 .upg-row:active {
   transform: scale(0.97);
   background: color-mix(in srgb, var(--bc) 14%, transparent) !important;
+}
+.upg-row:disabled:active {
+  background: rgba(255, 72, 38, 0.20) !important;
+  border-color: rgba(255, 72, 38, 0.48) !important;
 }
 
 .upg-row:disabled {
@@ -1549,6 +1562,10 @@ body.intro-completing #hud {
 
 .qb-btn:active:not(.qb-btn-store) {
   background: color-mix(in srgb, var(--qb-color, #42d4ff) 14%, transparent) !important;
+}
+.qb-btn:disabled:active:not(.qb-btn-store) {
+  background: rgba(255, 72, 38, 0.18) !important;
+  border-color: rgba(255, 72, 38, 0.46) !important;
 }
 
 .qb-btn:disabled {
