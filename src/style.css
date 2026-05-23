@@ -1,6 +1,6 @@
 ﻿:root {
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
-  --qb-h: calc(66px + env(safe-area-inset-bottom, 0px));
+  --qb-h: calc(16vmin + env(safe-area-inset-bottom, 0px));
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1018,7 +1018,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 #dev-toggle {
   position: fixed;
-  bottom: calc(var(--qb-h) + 10px);
+  bottom: calc(var(--qb-h) + 2.5vmin);
   left: 4vw;
   z-index: 22;
   width: clamp(48px, 12vmin, 64px);
@@ -1044,7 +1044,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 #dev-panel {
   position: fixed;
-  bottom: calc(var(--qb-h) + clamp(36px, 9vmin, 48px) + 18px);
+  bottom: calc(var(--qb-h) + 9vmin + 4.5vmin);
   left: 4vw;
   z-index: 22;
   min-width: 180px;
@@ -1232,10 +1232,9 @@ body.intro-completing #hud {
   bottom: 0;
   left: 0; right: 0;
   height: var(--qb-h);
-  /* 8px top padding + buttons fill the 50px slot + safe-area bottom padding */
-  padding: 8px 8px env(safe-area-inset-bottom, 0px);
+  padding: 1.5vmin 1.5vmin env(safe-area-inset-bottom, 0px);
   display: flex;
-  gap: 6px;
+  gap: 1.5vmin;
   background: rgba(6, 10, 22, 0.97);
   border-top: 1px solid rgba(255,255,255,0.09);
   backdrop-filter: blur(14px);
@@ -1244,18 +1243,18 @@ body.intro-completing #hud {
 
 .qb-btn {
   flex: 1;
-  height: 50px;
+  height: 12vmin;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 0.8vmin;
   background: rgba(66, 212, 255, 0.045);
   border: 1px solid rgba(66, 212, 255, 0.15);
-  border-radius: 8px;
+  border-radius: 2vmin;
   font-family: 'Orbitron', monospace;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 1.5vmin;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -1285,7 +1284,7 @@ body.intro-completing #hud {
 
 /* Top row: the upgrade name / ball label */
 .qb-btn-top {
-  font-size: clamp(0.6rem, 2.2vmin, 0.8rem);
+  font-size: clamp(0.72rem, 2.5vmin, 0.88rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   color: rgba(255,255,255,0.72);
@@ -1298,7 +1297,7 @@ body.intro-completing #hud {
 
 /* Bottom row: cost */
 .qb-btn-sub {
-  font-size: clamp(0.65rem, 2.2vmin, 0.82rem);
+  font-size: clamp(0.75rem, 2.5vmin, 0.88rem);
   letter-spacing: 0.06em;
   color: #ffe566;
   white-space: nowrap;
@@ -1308,7 +1307,7 @@ body.intro-completing #hud {
 
 /* Row 1: tiny muted header ("LOWEST COST" / "BEST NEXT") */
 .qb-btn-hd {
-  font-size: clamp(0.46rem, 1.6vmin, 0.58rem);
+  font-size: clamp(0.60rem, 2.0vmin, 0.72rem);
   font-weight: 700;
   letter-spacing: 0.16em;
   color: rgba(255,255,255,0.32);
@@ -1321,7 +1320,7 @@ body.intro-completing #hud {
 
 /* Row 2: main target line ("B1 Speed") — bright and readable */
 .qb-btn-target {
-  font-size: clamp(0.62rem, 2.15vmin, 0.76rem);
+  font-size: clamp(0.72rem, 2.5vmin, 0.88rem);
   font-weight: 700;
   letter-spacing: 0.09em;
   color: rgba(255,255,255,0.88);
@@ -1337,7 +1336,7 @@ body.intro-completing #hud {
 /* Row 3: reason text for Best Next ("Longer chains · ◆35")
    or "Need ◆35" when unaffordable — styled like .qb-btn-sub */
 .qb-btn-reason {
-  font-size: clamp(0.48rem, 1.65vmin, 0.60rem);
+  font-size: clamp(0.60rem, 2.0vmin, 0.72rem);
   letter-spacing: 0.05em;
   color: rgba(79, 255, 176, 0.80);
   white-space: nowrap;
