@@ -722,9 +722,29 @@ body.intro-active #stats-screen { display: none !important; }
 .reactor-header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 8px;
   padding: 2px 0 4px;
+}
+
+/* Compact-mode toggle button */
+.shop-compact-btn {
+  all: unset;
+  box-sizing: border-box;
+  font-size: clamp(1.1rem, 3.8vmin, 1.5rem);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 1vmin 1.5vmin;
+  border-radius: 1.5vmin;
+  line-height: 1;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s, background 0.15s;
+}
+
+.shop-compact-btn:active {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .reactor-coin-icon {
@@ -935,11 +955,83 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .bucket-card-top {
+  all: unset;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 9px;
+  width: 100%;
   margin-bottom: 3vmin;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+
+.bucket-chevron {
+  font-size: clamp(0.9rem, 3vmin, 1.2rem);
+  color: color-mix(in srgb, var(--bc) 90%, white);
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ─── Collapsed chip row ──────────────────────────────────── */
+.bucket-collapsed-row {
+  display: flex;
+  gap: 1.5vmin;
+}
+
+.upg-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2vmin;
+  min-height: 14vmin;
+  border-radius: 2vmin;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-family: 'Orbitron', monospace;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s, transform 80ms;
+}
+
+.upg-chip--can {
+  background: color-mix(in srgb, var(--bc) 8%, transparent);
+  border-color: color-mix(in srgb, var(--bc) 42%, transparent);
+}
+
+.upg-chip:active { transform: scale(0.91); }
+
+.upg-chip:disabled {
+  cursor: default;
+  opacity: 0.50;
+}
+
+.upg-chip-icon {
+  font-size: clamp(1.05rem, 3.5vmin, 1.45rem);
+  color: var(--ut-color, rgba(255,255,255,0.80));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ut-color, white) 50%, transparent));
+  line-height: 1;
+}
+
+.upg-chip--can .upg-chip-icon {
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ut-color, white) 85%, transparent));
+}
+
+.upg-chip:disabled .upg-chip-icon { filter: none; }
+
+.upg-chip-cost {
+  font-size: clamp(0.52rem, 1.7vmin, 0.65rem);
+  font-weight: 700;
+  color: #ffe566;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.upg-chip:disabled .upg-chip-cost { color: rgba(255, 130, 50, 0.88); }
 
 /* Color indicator orb in card header */
 .bucket-orb {
