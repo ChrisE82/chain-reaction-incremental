@@ -2,6 +2,7 @@
 
 import {
   getState, addCoins, recordChainEnd, recordKickstart,
+  recordBallPopped, recordManualClick, resetCurrentStatsForPrestige,
   tryPurchaseNextBall, tryPurchaseColorUpgrade,
   getDerivedBallStats, statsFromBucket, colorUpgradeCost, nextBallCost,
   COLOR_ORDER, COLOR_HEX, EconomyConfig,
@@ -19,6 +20,17 @@ const canvas     = document.getElementById('c')
 const ctx        = canvas.getContext('2d')
 const hudCoins   = document.getElementById('hud-coins')
 const hudChain   = document.getElementById('hud-chain')
+const hudCoinsBtn     = document.getElementById('hud-coins-btn')
+const hudExpandArrow  = document.getElementById('hud-expand-arrow')
+const statsMini       = document.getElementById('stats-mini')
+const smtPopped       = document.getElementById('smt-popped')
+const smtChain        = document.getElementById('smt-chain')
+const smtPayout       = document.getElementById('smt-payout')
+const smtEarned       = document.getElementById('smt-earned')
+const statsFullBtn    = document.getElementById('stats-full-btn')
+const statsScreen     = document.getElementById('stats-screen')
+const statsScreenClose = document.getElementById('stats-screen-close')
+const statsTabBody    = document.getElementById('stats-tab-body')
 const shopPanel  = document.getElementById('shop-panel')
 const shopBody   = document.getElementById('shop-body')
 const shopClose  = document.getElementById('shop-close')
@@ -37,6 +49,10 @@ const devFreeUpgradesBtn  = document.getElementById('dev-free-upgrades')
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
+
+// ── Stats mini panel state ──
+let statsMiniOpen  = false
+let statsActiveTab = 'run'
 
 // ── Quick-buy bar ──
 const qbBar         = document.getElementById('quick-buy-bar')
@@ -252,7 +268,7 @@ function endChain() {
       addCoins(bonus)
       spawnChainBonusLabel(chainLen, mult, bonus)
     }
-    recordChainEnd(chainLen, chainCoins + bonus)
+    recordChainEnd(chainLen, chainCoins, bonus)
   }
   currentChain = null
   if (!introMode) checkFirstBallCue()
@@ -738,6 +754,7 @@ function triggerBall(b, src) {
     introCoins += coins
   } else {
     addCoins(coins)
+    recordBallPopped(b.colorKey, coins, /* isManual: */ !src?.colorKey)
     cycleTriggerOccurrences++   // every pop counts, including re-triggers after respawn
     cycleBaseEarned += coins    // raw earn before chain-end bonuses
   }
@@ -758,7 +775,7 @@ function triggerAtPoint(vx, vy) {
   vx = Math.max(r, Math.min(arenaW - r, vx))
   vy = Math.max(r, Math.min(arenaH - r, vy))
 
-  if (!introMode) cyclePlayerStarts++  // pointerdown guard ensures this only runs when no chain is active
+  if (!introMode) { cyclePlayerStarts++; recordManualClick() }
   startChain()
 
   const maxRadius = clickStats(getState().clicks).tapRadius
@@ -1240,6 +1257,7 @@ function updateHUD() {
   hudChain.textContent = '×' + fmtMult(mult)
 
   if (!introMode) updateQuickBuy()
+  if (statsMiniOpen) updateStatsMini()
   if (debugVisible) updateDebug(st)
 }
 
@@ -2035,6 +2053,185 @@ function updateQuickBuy() {
   qbStoreArrow.textContent = shopPanel.classList.contains('hidden') ? '▲' : '▼'
 }
 
+// ─── Stats mini panel ─────────────────────────────────────────────────────
+
+function closeStatsMini() {
+  if (!statsMiniOpen) return
+  statsMiniOpen = false
+  statsMini.classList.add('hidden')
+  hudExpandArrow.textContent = '›'
+}
+
+function toggleStatsMini() {
+  if (introMode) return
+  statsMiniOpen = !statsMiniOpen
+  statsMini.classList.toggle('hidden', !statsMiniOpen)
+  hudExpandArrow.textContent = statsMiniOpen ? '∨' : '›'
+  if (statsMiniOpen) updateStatsMini()
+}
+
+function updateStatsMini() {
+  const cur = getState().stats.current
+  smtPopped.textContent  = fmt(cur.ballsPopped)
+  smtChain.textContent   = cur.biggestChain  || '–'
+  smtPayout.textContent  = cur.bestChainPayout > 0 ? `◆${fmt(cur.bestChainPayout)}` : '–'
+  smtEarned.textContent  = fmt(cur.totalEarned)
+}
+
+// ─── Full stats screen ────────────────────────────────────────────────────
+
+function openStatsScreen(tab) {
+  statsActiveTab = tab ?? statsActiveTab
+  statsScreen.classList.remove('hidden')
+  closeStatsMini()
+  // Close shop if open
+  if (!shopPanel.classList.contains('hidden')) {
+    shopPanel.classList.add('hidden')
+    updateQuickBuy()
+  }
+  buildStatsScreen()
+}
+
+function buildStatsScreen() {
+  // Update tab button states
+  statsScreen.querySelectorAll('.stats-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === statsActiveTab))
+  statsTabBody.innerHTML = ''
+  const st = getState()
+  if      (statsActiveTab === 'run')     buildStatsRunTab(st)
+  else if (statsActiveTab === 'alltime') buildStatsAllTimeTab(st)
+  else if (statsActiveTab === 'bycolor') buildStatsByColorTab(st)
+}
+
+function makeStatRow(label, value) {
+  const row  = document.createElement('div')
+  row.className = 'stats-row'
+  const lbl  = document.createElement('span')
+  lbl.className = 'stats-row-lbl'; lbl.textContent = label
+  const val  = document.createElement('span')
+  val.className = 'stats-row-val'; val.textContent = value
+  row.appendChild(lbl); row.appendChild(val)
+  return row
+}
+
+function makeStatsSection(title) {
+  const sec = document.createElement('div')
+  sec.className = 'stats-section'
+  if (title) {
+    const h = document.createElement('div')
+    h.className = 'stats-section-title'; h.textContent = title
+    sec.appendChild(h)
+  }
+  return sec
+}
+
+function buildStatsRunTab(st) {
+  const cur     = st.stats.current
+  const elapsed = Date.now() - (cur.startedAt ?? Date.now())
+  const mins    = Math.floor(elapsed / 60000)
+  const secs    = Math.floor((elapsed % 60000) / 1000)
+  const timeStr = `${mins}m ${String(secs).padStart(2, '0')}s`
+
+  const sec1 = makeStatsSection('This Run')
+  sec1.appendChild(makeStatRow('Time', timeStr))
+  sec1.appendChild(makeStatRow('Coins Earned', `◆ ${fmt(cur.totalEarned)}`))
+  sec1.appendChild(makeStatRow('Balls Popped', fmt(cur.ballsPopped)))
+  sec1.appendChild(makeStatRow('Manual Clicks', fmt(cur.manualClicks)))
+  sec1.appendChild(makeStatRow('Chains', fmt(cur.chainsTriggered)))
+  statsTabBody.appendChild(sec1)
+
+  const sec2 = makeStatsSection('Chain Records')
+  sec2.appendChild(makeStatRow('Biggest Chain', cur.biggestChain || '–'))
+  sec2.appendChild(makeStatRow('Best Payout', cur.bestChainPayout > 0 ? `◆ ${fmt(cur.bestChainPayout)}` : '–'))
+  statsTabBody.appendChild(sec2)
+
+  const sec3 = makeStatsSection('Income Split')
+  const total      = cur.totalEarned || 1
+  const manualPct  = Math.round(cur.manualPointsEarned  / total * 100)
+  const chainPct   = Math.round(cur.chainPointsEarned   / total * 100)
+  sec3.appendChild(makeStatRow('Manual Points', `◆ ${fmt(cur.manualPointsEarned)} (${manualPct}%)`))
+  sec3.appendChild(makeStatRow('Chain Points',  `◆ ${fmt(cur.chainPointsEarned)}  (${chainPct}%)`))
+  statsTabBody.appendChild(sec3)
+
+  const sec4 = makeStatsSection('Purchases')
+  sec4.appendChild(makeStatRow('Balls Bought',    fmt(cur.ballsPurchased)))
+  sec4.appendChild(makeStatRow('Upgrades Bought', fmt(cur.upgradesPurchased)))
+  statsTabBody.appendChild(sec4)
+}
+
+function buildStatsAllTimeTab(st) {
+  const at = st.stats.allTime
+
+  const sec1 = makeStatsSection('All-Time')
+  sec1.appendChild(makeStatRow('Total Earned',   `◆ ${fmt(at.totalEarned)}`))
+  sec1.appendChild(makeStatRow('Peak Wallet',    `◆ ${fmt(at.highestCurrency)}`))
+  sec1.appendChild(makeStatRow('Balls Popped',   fmt(at.ballsPopped)))
+  sec1.appendChild(makeStatRow('Manual Clicks',  fmt(at.manualClicks)))
+  sec1.appendChild(makeStatRow('Chains',         fmt(at.chainsTriggered)))
+  statsTabBody.appendChild(sec1)
+
+  const sec2 = makeStatsSection('Records')
+  sec2.appendChild(makeStatRow('Longest Chain',    at.biggestChain   || '–'))
+  sec2.appendChild(makeStatRow('Best Chain Payout', at.bestChainPayout > 0 ? `◆ ${fmt(at.bestChainPayout)}` : '–'))
+  statsTabBody.appendChild(sec2)
+
+  const sec3 = makeStatsSection('Career')
+  sec3.appendChild(makeStatRow('Prestiges',           fmt(at.totalPrestiges)))
+  sec3.appendChild(makeStatRow('Balls Purchased',     fmt(at.ballsPurchased)))
+  sec3.appendChild(makeStatRow('Upgrades Purchased',  fmt(at.upgradesPurchased)))
+  statsTabBody.appendChild(sec3)
+
+  // Chain-length histogram — top entries sorted by length descending
+  const byLen   = st.stats.chainsByLength ?? {}
+  const entries = Object.entries(byLen)
+    .map(([k, v]) => ({ len: parseInt(k), count: v }))
+    .filter(e => e.len >= 2)
+    .sort((a, b) => b.len - a.len)
+    .slice(0, 8)
+  if (entries.length > 0) {
+    const sec4 = makeStatsSection('Chain Lengths')
+    for (const { len, count } of entries)
+      sec4.appendChild(makeStatRow(`${len}-chain`, `× ${fmt(count)}`))
+    statsTabBody.appendChild(sec4)
+  }
+}
+
+function buildStatsByColorTab(st) {
+  const byColor = st.stats.byColor ?? {}
+  let hadContent = false
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey]
+    if (!bkt || bkt.ballsOwned === 0) continue
+    hadContent = true
+    const cs = { ...{ ballsPopped: 0, ballsPurchased: 0, upgradesPurchased: 0, totalEarned: 0 }, ...(byColor[colorKey] ?? {}) }
+
+    const sec = makeStatsSection('')
+    const hdr = document.createElement('div')
+    hdr.className = 'stats-color-header'
+    const orb = document.createElement('span')
+    orb.className = 'stats-color-orb'
+    orb.style.cssText = `background:${COLOR_HEX[colorKey]};box-shadow:0 0 6px ${COLOR_HEX[colorKey]}`
+    const name = document.createElement('span')
+    name.className = 'stats-color-name'
+    name.textContent = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
+    name.style.color = COLOR_HEX[colorKey]
+    hdr.appendChild(orb); hdr.appendChild(name)
+    sec.appendChild(hdr)
+
+    sec.appendChild(makeStatRow('Balls Popped',     fmt(cs.ballsPopped)))
+    sec.appendChild(makeStatRow('Earned',           `◆ ${fmt(cs.totalEarned)}`))
+    sec.appendChild(makeStatRow('Balls Bought',     fmt(cs.ballsPurchased)))
+    sec.appendChild(makeStatRow('Upgrades Bought',  fmt(cs.upgradesPurchased)))
+    statsTabBody.appendChild(sec)
+  }
+  if (!hadContent) {
+    const msg = document.createElement('p')
+    msg.className = 'stats-empty-msg'
+    msg.textContent = 'No color data yet.'
+    statsTabBody.appendChild(msg)
+  }
+}
+
 // ─── Shop UI ──────────────────────────────────────────────────────────────
 function makeUpgradeBtn(icon, label, level, statText, costText, canAfford, onClick) {
   const btn = document.createElement('button')
@@ -2320,9 +2517,27 @@ function toggleShop() {
   if (introMode) return   // shop is hidden during intro
   const opening = shopPanel.classList.contains('hidden')
   shopPanel.classList.toggle('hidden')
-  if (opening) buildShop()
+  if (opening) {
+    buildShop()
+    // Close stats panels when opening shop
+    closeStatsMini()
+    statsScreen.classList.add('hidden')
+  }
   updateQuickBuy()   // flip the store arrow immediately
 }
+
+// ─── Stats panel events ───────────────────────────────────────────────────
+
+hudCoinsBtn.addEventListener('click', () => toggleStatsMini())
+statsFullBtn.addEventListener('click', () => openStatsScreen('run'))
+statsScreenClose.addEventListener('click', () => statsScreen.classList.add('hidden'))
+
+statsScreen.querySelectorAll('.stats-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    statsActiveTab = tab.dataset.tab
+    buildStatsScreen()
+  })
+})
 
 shopToggle.addEventListener('click', toggleShop)   // legacy button (hidden)
 shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); updateQuickBuy() })

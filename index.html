@@ -13,14 +13,52 @@
 
 <!-- ── HUD ──────────────────────────────────────────────────────── -->
 <div id="hud">
-  <div class="hud-item">
+  <button class="hud-item hud-coins-btn" id="hud-coins-btn" aria-label="Stats">
     <span class="hud-coin-icon">◆</span>
     <span class="hud-value" id="hud-coins">0</span>
-  </div>
+    <span class="hud-expand-arrow" id="hud-expand-arrow">›</span>
+  </button>
   <div class="hud-item" id="hud-chain-wrap">
     <span class="hud-label">Chain</span>
     <span class="hud-value" id="hud-chain">×1.00</span>
   </div>
+</div>
+
+<!-- ── Stats mini panel ─────────────────────────────────────────── -->
+<div id="stats-mini" class="hidden">
+  <div class="stats-mini-grid">
+    <div class="smt">
+      <span class="smt-val" id="smt-popped">–</span>
+      <span class="smt-lbl">Popped</span>
+    </div>
+    <div class="smt">
+      <span class="smt-val" id="smt-chain">–</span>
+      <span class="smt-lbl">Best Chain</span>
+    </div>
+    <div class="smt">
+      <span class="smt-val" id="smt-payout">–</span>
+      <span class="smt-lbl">Best Payout</span>
+    </div>
+    <div class="smt">
+      <span class="smt-val" id="smt-earned">–</span>
+      <span class="smt-lbl">Run Earned</span>
+    </div>
+  </div>
+  <button id="stats-full-btn" class="stats-full-btn">Full Stats ›</button>
+</div>
+
+<!-- ── Full stats screen ────────────────────────────────────────── -->
+<div id="stats-screen" class="hidden">
+  <div class="stats-screen-header">
+    <span class="stats-screen-title">◆ Stats</span>
+    <button id="stats-screen-close" aria-label="Close">&#215;</button>
+  </div>
+  <div class="stats-tab-bar">
+    <button class="stats-tab active" data-tab="run">Run</button>
+    <button class="stats-tab" data-tab="alltime">All-Time</button>
+    <button class="stats-tab" data-tab="bycolor">By Color</button>
+  </div>
+  <div id="stats-tab-body"></div>
 </div>
 
 <!-- ── Shop panel (slides up from bottom) ───────────────────────── -->

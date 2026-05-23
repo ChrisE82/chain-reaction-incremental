@@ -31,7 +31,7 @@ canvas {
   justify-content: space-between;
   align-items: flex-start;
   padding: 0 4vw;
-  pointer-events: none;
+  pointer-events: none;  /* individual interactive children set pointer-events: auto */
   z-index: 5;
 }
 
@@ -59,6 +59,282 @@ canvas {
   color: rgba(255,255,255,0.88);
   font-weight: 700;
 }
+
+/* ─── HUD coin button (tappable, opens mini stats) ────────── */
+
+.hud-coins-btn {
+  /* reset button styles */
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.9rem, 3.5vmin, 1.3rem);
+  letter-spacing: 0.2em;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 4px 8px 4px 2px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hud-coins-btn:active { background: rgba(255, 229, 102, 0.10); }
+
+.hud-expand-arrow {
+  font-size: clamp(0.75rem, 2.8vmin, 1rem);
+  color: rgba(255, 255, 255, 0.28);
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+/* ─── Stats mini panel ─────────────────────────────────────── */
+
+#stats-mini {
+  position: fixed;
+  top: calc(max(1.5dvh, env(safe-area-inset-top, 12px)) + clamp(1.8rem, 7vmin, 2.6rem) + 8px);
+  left: 4vw;
+  z-index: 10;
+  background: rgba(6, 10, 22, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  padding: 11px 13px 10px;
+  backdrop-filter: blur(14px);
+  min-width: 190px;
+  max-width: min(270px, 86vw);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: auto;
+}
+
+#stats-mini.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+}
+
+.stats-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 9px;
+}
+
+.smt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px 7px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.smt-val {
+  font-size: clamp(0.92rem, 3vmin, 1.15rem);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.04em;
+}
+
+.smt-lbl {
+  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.30);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.stats-full-btn {
+  width: 100%;
+  padding: 8px 4px;
+  background: rgba(66, 212, 255, 0.05);
+  border: 1px solid rgba(66, 212, 255, 0.18);
+  border-radius: 6px;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.58rem, 1.9vmin, 0.72rem);
+  letter-spacing: 0.13em;
+  color: rgba(66, 212, 255, 0.78);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s;
+}
+
+.stats-full-btn:active { background: rgba(66, 212, 255, 0.14); }
+
+/* ─── Full stats screen ────────────────────────────────────── */
+
+#stats-screen {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: var(--qb-h);
+  z-index: 16;
+  max-height: 78dvh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 10, 22, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px 16px 0 0;
+  backdrop-filter: blur(14px);
+  padding-bottom: 12px;
+  transform: translateY(0);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity  0.35s ease;
+  pointer-events: auto;
+}
+
+#stats-screen.hidden {
+  transform: translateY(105%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stats-screen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.stats-screen-title {
+  font-size: clamp(1rem, 3.2vmin, 1.25rem);
+  letter-spacing: 0.3em;
+  color: rgba(255, 229, 102, 0.82);
+  text-transform: uppercase;
+}
+
+#stats-screen-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+#stats-screen-close:active { color: rgba(255, 255, 255, 0.9); }
+
+.stats-tab-bar {
+  display: flex;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.stats-tab {
+  flex: 1;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.60rem, 1.95vmin, 0.75rem);
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.stats-tab.active {
+  color: rgba(255, 229, 102, 0.88);
+  border-bottom-color: rgba(255, 229, 102, 0.60);
+}
+
+#stats-tab-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#stats-tab-body::-webkit-scrollbar { display: none; }
+
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.stats-section-title {
+  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
+  letter-spacing: 0.22em;
+  color: rgba(66, 212, 255, 0.50);
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(66, 212, 255, 0.10);
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.stats-row:last-child { border-bottom: none; }
+
+.stats-row-lbl {
+  font-size: clamp(0.65rem, 2.1vmin, 0.78rem);
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.38);
+  text-transform: uppercase;
+}
+
+.stats-row-val {
+  font-size: clamp(0.75rem, 2.4vmin, 0.90rem);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.04em;
+}
+
+.stats-color-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stats-color-orb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.stats-color-name {
+  font-size: clamp(0.70rem, 2.2vmin, 0.84rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.stats-empty-msg {
+  font-size: clamp(0.70rem, 2.2vmin, 0.84rem);
+  color: rgba(255, 255, 255, 0.28);
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Hide stats UI during intro ─────────────────────────────────── */
+body.intro-active #stats-mini,
+body.intro-active #stats-screen { display: none !important; }
 
 /* ─── Shop toggle (bottom-right) ──────────────────────────── */
 

@@ -215,6 +215,60 @@ export function getColorOrderProgress(state) {
   return { cycle, position, nextColor, ownedInCycle }
 }
 
+// ─── Stats helpers ────────────────────────────────────────────────────────
+
+function defaultCurrentStats() {
+  return {
+    totalEarned:        0,
+    ballsPopped:        0,
+    manualClicks:       0,
+    chainsTriggered:    0,
+    biggestChain:       0,
+    bestChainPayout:    0,
+    chainPointsEarned:  0,
+    manualPointsEarned: 0,
+    ballsPurchased:     0,
+    upgradesPurchased:  0,
+    startedAt:          Date.now(),
+  }
+}
+
+function defaultAllTimeStats() {
+  return {
+    totalEarned:        0,
+    ballsPopped:        0,
+    manualClicks:       0,
+    chainsTriggered:    0,
+    biggestChain:       0,
+    bestChainPayout:    0,
+    chainPointsEarned:  0,
+    manualPointsEarned: 0,
+    ballsPurchased:     0,
+    upgradesPurchased:  0,
+    totalPrestiges:     0,
+    highestCurrency:    0,
+  }
+}
+
+function defaultColorStats() {
+  return { ballsPopped: 0, ballsPurchased: 0, upgradesPurchased: 0, totalEarned: 0 }
+}
+
+// Ensures all nested stats fields exist on a loaded/merged state.
+// Safe to call on any state object — only adds missing keys, never overwrites.
+function ensureStatsFields(st) {
+  const s = st.stats
+  if (!s.current)        s.current        = defaultCurrentStats()
+  if (!s.allTime)        s.allTime        = defaultAllTimeStats()
+  if (!s.byColor)        s.byColor        = {}
+  if (!s.chainsByLength) s.chainsByLength = {}
+  // Merge missing keys into existing nested objects
+  s.current = { ...defaultCurrentStats(),  ...s.current }
+  s.allTime  = { ...defaultAllTimeStats(),  ...s.allTime  }
+  for (const c of COLOR_ORDER)
+    s.byColor[c] = { ...defaultColorStats(), ...(s.byColor[c] ?? {}) }
+}
+
 // ─── State ────────────────────────────────────────────────────────────────
 
 function defaultState() {
@@ -233,11 +287,17 @@ function defaultState() {
     introComplete:       false,
     firstBallCueShown:   false,
     stats: {
+      // Legacy flat fields (kept for backward compat + debug overlay)
       bestChainLength:    0,
       lastChainLength:    0,
       lastChainCoins:     0,
       totalChains:        0,
       lastKickstartBonus: 0,
+      // Nested tracking (new)
+      current:        defaultCurrentStats(),
+      allTime:        defaultAllTimeStats(),
+      byColor:        Object.fromEntries(COLOR_ORDER.map(c => [c, defaultColorStats()])),
+      chainsByLength: {},
     },
   }
 }
@@ -252,6 +312,8 @@ function mergeState(saved) {
   for (const c of COLOR_ORDER)
     mergedBuckets[c] = { ...newColorBucket(), ...(saved.colorBuckets?.[c] ?? {}) }
   merged.colorBuckets = mergedBuckets
+  // Ensure all nested stat fields exist (handles saves from before nested stats)
+  ensureStatsFields(merged)
   return merged
 }
 
@@ -323,9 +385,16 @@ export function getState() { return state }
 
 // ─── Mutations ────────────────────────────────────────────────────────────
 
-export function addCoins(n) {
+// trackStats=false for dev cheats so they don't inflate earned totals.
+export function addCoins(n, trackStats = true) {
   state.coins      += n
   state.totalCoins += n
+  if (trackStats) {
+    state.stats.current.totalEarned += n
+    state.stats.allTime.totalEarned += n
+  }
+  if (state.coins > state.stats.allTime.highestCurrency)
+    state.stats.allTime.highestCurrency = state.coins
   saveState(state)
 }
 
@@ -334,13 +403,59 @@ export function recordKickstart(bonus) {
   saveState(state)
 }
 
-export function recordChainEnd(chainLength, chainCoins) {
+// chainCoins = per-pop coins earned during chain; chainBonus = chain-end multiplier bonus.
+export function recordChainEnd(chainLength, chainCoins, chainBonus = 0) {
   if (chainLength === 0) return
+  const total = chainCoins + chainBonus
   state.stats.lastChainLength = chainLength
-  state.stats.lastChainCoins  = chainCoins
+  state.stats.lastChainCoins  = total
   state.stats.totalChains++
   if (chainLength > state.stats.bestChainLength)
     state.stats.bestChainLength = chainLength
+
+  const s = state.stats
+  s.current.chainsTriggered++
+  s.allTime.chainsTriggered++
+  if (chainLength > s.current.biggestChain)  s.current.biggestChain  = chainLength
+  if (chainLength > s.allTime.biggestChain)   s.allTime.biggestChain  = chainLength
+  if (total > s.current.bestChainPayout)     s.current.bestChainPayout = total
+  if (total > s.allTime.bestChainPayout)      s.allTime.bestChainPayout = total
+  // Chain-end bonus is a chain-category earning (per-pop coins tracked in recordBallPopped)
+  if (chainBonus > 0) {
+    s.current.chainPointsEarned += chainBonus
+    s.allTime.chainPointsEarned += chainBonus
+  }
+  const key = String(chainLength)
+  s.chainsByLength[key] = (s.chainsByLength[key] ?? 0) + 1
+
+  saveState(state)
+}
+
+export function recordBallPopped(colorKey, coins, isManual) {
+  const s = state.stats
+  s.current.ballsPopped++
+  s.allTime.ballsPopped++
+  const cs = s.byColor[colorKey]
+  if (cs) { cs.ballsPopped++; cs.totalEarned += coins }
+  if (isManual) {
+    s.current.manualPointsEarned += coins
+    s.allTime.manualPointsEarned += coins
+  } else {
+    s.current.chainPointsEarned += coins
+    s.allTime.chainPointsEarned += coins
+  }
+  saveState(state)
+}
+
+export function recordManualClick() {
+  state.stats.current.manualClicks++
+  state.stats.allTime.manualClicks++
+  saveState(state)
+}
+
+export function resetCurrentStatsForPrestige() {
+  state.stats.current = defaultCurrentStats()
+  state.stats.allTime.totalPrestiges++
   saveState(state)
 }
 
@@ -352,6 +467,10 @@ export function tryPurchaseNextBall() {
   const colorKey = getNextPurchaseColor(state)
   state.colorBuckets[colorKey].ballsOwned++
   state.totalBallsPurchased++
+  state.stats.current.ballsPurchased++
+  state.stats.allTime.ballsPurchased++
+  const cs = state.stats.byColor[colorKey]
+  if (cs) cs.ballsPurchased++
   saveState(state)
   return colorKey
 }
@@ -365,6 +484,10 @@ export function tryPurchaseColorUpgrade(color, upgradeType) {
   if (state.coins < cost) return false
   state.coins -= cost
   bkt[upgradeType + 'Level']++
+  state.stats.current.upgradesPurchased++
+  state.stats.allTime.upgradesPurchased++
+  const cs = state.stats.byColor[color]
+  if (cs) cs.upgradesPurchased++
   saveState(state)
   return true
 }
@@ -404,7 +527,7 @@ export function setFirstBallCueShown() {
   saveState(state)
 }
 
-export function devAddCoins(n) { addCoins(n) }
+export function devAddCoins(n) { addCoins(n, false) }
 
 // Dev: free color upgrade (bypasses cost).
 export function devFreeColorUpgrade(color, upgradeType) {
