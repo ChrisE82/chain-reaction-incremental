@@ -97,13 +97,21 @@ function calcUnits() {
   H = window.innerHeight
   canvas.width  = W
   canvas.height = H
-  gameScale   = Math.min(W / VIRTUAL_W, H / VIRTUAL_H)
+  // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
+  const barPx  = qbBar.offsetHeight
+  const availH = barPx > 0 ? H - barPx : H
+  // Scale so the virtual field fits inside the available height (above the bar).
+  gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
-  gameOffsetY = (H - VIRTUAL_H * gameScale) / 2
-  // qbBar.offsetHeight forces a synchronous layout read; it returns 0 when the
-  // bar is hidden (intro mode), so only update gamePlayH when it's visible.
-  const barPx = qbBar.offsetHeight
-  if (barPx > 0) gamePlayH = VIRTUAL_H - barPx / gameScale
+  if (barPx > 0) {
+    // Bottom-align: play field sits flush against the quick-buy bar.
+    gameOffsetY = Math.max(0, availH - VIRTUAL_H * gameScale)
+  } else {
+    // No bar visible (intro): center vertically in the full window.
+    gameOffsetY = (availH - VIRTUAL_H * gameScale) / 2
+  }
+  // Full virtual height now fits above the bar — no virtual-unit reduction needed.
+  gamePlayH = VIRTUAL_H
 }
 calcUnits()
 
@@ -911,15 +919,14 @@ function loop(ts) {
 
   ctx.restore()   // virtual
 
-  // Field border — bottom edge is clamped to the top of the quick-buy bar so
-  // the glow is never hidden behind the bar overlay.
-  const fieldBorderH = (H - (qbBar.offsetHeight || 0)) - gameOffsetY
+  // Field border — now that the play area is bottom-aligned above the bar,
+  // the full virtual height is correct and no clamping is needed.
   ctx.shadowColor = 'rgba(66,212,255,0.55)'
   ctx.shadowBlur  = 12
   ctx.strokeStyle = 'rgba(66,212,255,0.32)'
   ctx.lineWidth   = 1
   ctx.strokeRect(gameOffsetX + 0.5, gameOffsetY + 0.5,
-                 VIRTUAL_W * gameScale - 1, fieldBorderH - 1)
+                 VIRTUAL_W * gameScale - 1, VIRTUAL_H * gameScale - 1)
   ctx.shadowBlur = 0
   drawFirstBallCue()
 
