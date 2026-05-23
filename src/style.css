@@ -1,6 +1,6 @@
-:root {
+﻿:root {
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
-  --qb-h: calc(66px + env(safe-area-inset-bottom, 0px));
+  --qb-h: calc(15dvh + env(safe-area-inset-bottom, 0px));
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,7 +31,7 @@ canvas {
   justify-content: space-between;
   align-items: flex-start;
   padding: 0 4vw;
-  pointer-events: none;
+  pointer-events: none;  /* individual interactive children set pointer-events: auto */
   z-index: 5;
 }
 
@@ -47,8 +47,21 @@ canvas {
 
 .hud-coin-icon {
   color: #ffe566;
-  font-size: clamp(1.1rem, 4vmin, 1.5rem);
-  filter: drop-shadow(0 0 5px rgba(255, 229, 102, 0.65));
+  font-size: clamp(1.2rem, 5vmin, 1.9rem);
+  filter: drop-shadow(0 0 6px rgba(255, 229, 102, 0.75));
+  align-self: center;
+}
+
+/* ─── Coins value — epic gold, mirrors chain display ──────── */
+.hud-coins-btn .hud-value {
+  font-size: clamp(1.5rem, 6.5vmin, 2.4rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #ffe566;
+  text-shadow:
+    0 0 10px rgba(255, 229, 102, 0.80),
+    0 0 26px rgba(255, 229, 102, 0.35);
+  line-height: 1.05;
 }
 
 .hud-label {
@@ -59,6 +72,373 @@ canvas {
   color: rgba(255,255,255,0.88);
   font-weight: 700;
 }
+
+/* ─── Chain multiplier — epic, stacked, green ──────────────── */
+
+#hud-chain-wrap {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+
+#hud-chain-wrap .hud-label {
+  font-size: clamp(0.6rem, 2vmin, 0.78rem);
+  letter-spacing: 0.22em;
+  color: rgba(79, 255, 176, 0.55);
+  line-height: 1;
+}
+
+#hud-chain-wrap .hud-value {
+  font-size: clamp(1.5rem, 6.5vmin, 2.4rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #4fffb0;
+  text-shadow:
+    0 0 10px rgba(79, 255, 176, 0.80),
+    0 0 26px rgba(79, 255, 176, 0.35);
+  line-height: 1.05;
+}
+
+/* ─── HUD coin button (tappable, opens mini stats) ────────── */
+
+.hud-coins-btn {
+  /* reset button styles */
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 1.5vmin;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.9rem, 3.5vmin, 1.3rem);
+  letter-spacing: 0.2em;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 1.2vmin 2.5vmin 1.2vmin 1.5vmin;
+  border-radius: 2vmin;
+  border: 1px solid rgba(255, 229, 102, 0.28);
+  background: rgba(255, 229, 102, 0.05);
+  box-shadow: 0 0 10px rgba(255, 229, 102, 0.12);
+  transition: background 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hud-coins-btn:active {
+  background: rgba(255, 229, 102, 0.14);
+  box-shadow: 0 0 16px rgba(255, 229, 102, 0.28);
+}
+
+.hud-expand-arrow {
+  font-size: clamp(1.0rem, 3.5vmin, 1.4rem);
+  color: rgba(255, 229, 102, 0.75);
+  text-shadow: 0 0 8px rgba(255, 229, 102, 0.50);
+  line-height: 1;
+  transition: transform 0.2s;
+}
+
+/* ─── Stats mini panel ─────────────────────────────────────── */
+
+#stats-mini {
+  position: fixed;
+  top: calc(max(1.5dvh, env(safe-area-inset-top, 12px)) + clamp(1.8rem, 7vmin, 2.6rem) + 8px);
+  left: 4vw;
+  z-index: 10;
+  background: rgba(6, 10, 22, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  padding: 11px 13px 10px;
+  backdrop-filter: blur(14px);
+  min-width: 190px;
+  max-width: min(270px, 86vw);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: auto;
+}
+
+#stats-mini.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+}
+
+.stats-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.8vmin;
+  margin-bottom: 2.5vmin;
+}
+
+.smt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2vmin;
+  padding: 2.5vmin 2vmin;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 2vmin;
+}
+
+.smt-val {
+  font-size: clamp(1.15rem, 4.2vmin, 1.65rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.smt-lbl {
+  font-size: clamp(0.60rem, 2vmin, 0.75rem);
+  letter-spacing: 0.10em;
+  color: rgba(255, 255, 255, 0.78);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.stats-full-btn {
+  width: 100%;
+  padding: 3vmin 4vmin;
+  background: rgba(66, 212, 255, 0.08);
+  border: 1px solid rgba(66, 212, 255, 0.50);
+  border-radius: 2vmin;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.72rem, 2.3vmin, 0.86rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #42d4ff;
+  text-shadow: 0 0 10px rgba(66, 212, 255, 0.65);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 0 14px rgba(66, 212, 255, 0.25),
+              inset 0 0 10px rgba(66, 212, 255, 0.05);
+}
+
+.stats-full-btn:active {
+  background: rgba(66, 212, 255, 0.18);
+  box-shadow: 0 0 22px rgba(66, 212, 255, 0.45);
+}
+
+/* ─── Full stats screen ────────────────────────────────────── */
+
+#stats-screen {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: var(--qb-h);
+  z-index: 16;
+  max-height: 78dvh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 10, 22, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px 16px 0 0;
+  backdrop-filter: blur(14px);
+  padding-bottom: 12px;
+  transform: translateY(0);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity  0.35s ease;
+  pointer-events: auto;
+}
+
+#stats-screen.hidden {
+  transform: translateY(105%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stats-screen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.stats-screen-title {
+  font-size: clamp(1rem, 3.2vmin, 1.25rem);
+  letter-spacing: 0.3em;
+  color: rgba(255, 229, 102, 0.82);
+  text-transform: uppercase;
+}
+
+#stats-screen-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+#stats-screen-close:active { color: #ffffff; }
+
+.stats-tab-bar {
+  display: flex;
+  padding: 2.5vmin 4vmin;
+  gap: 1.5vmin;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.stats-tab {
+  flex: 1;
+  padding: 1.8vmin 0;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 1.5vmin;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, text-shadow 0.15s;
+}
+
+.stats-tab.active {
+  color: #ffe566;
+  background: rgba(255, 229, 102, 0.08);
+  border-color: rgba(255, 229, 102, 0.42);
+  text-shadow: 0 0 8px rgba(255, 229, 102, 0.45);
+}
+
+#stats-tab-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4vmin 4vmin 6vmin;
+  display: flex;
+  flex-direction: column;
+  gap: 3vmin;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#stats-tab-body::-webkit-scrollbar { display: none; }
+
+.stats-section {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Collapsible section header ──── */
+.stats-section-hdr {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 2vmin 2.5vmin 2vmin 3vmin;
+  border-left: 2px solid rgba(66, 212, 255, 0.55);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.75rem, 2.5vmin, 0.92rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: rgba(66, 212, 255, 0.88);
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.stats-section-hdr:active { color: #42d4ff; }
+
+.stats-section-hdr > .stats-section-title-text { flex: 1; }
+
+.stats-section-chevron {
+  font-size: clamp(0.80rem, 2.6vmin, 1rem);
+  color: rgba(66, 212, 255, 0.90);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+/* Color-section header variant */
+.stats-color-hdr {
+  gap: 2.5vmin;
+  border-left-color: var(--bc);
+}
+.stats-color-hdr .stats-section-chevron {
+  color: color-mix(in srgb, var(--bc) 90%, white);
+}
+
+/* Collapsible body — CSS grid row-height trick for smooth animation */
+.stats-section-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+}
+.stats-section-body.stats-collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Inner wrapper required for grid-row animation */
+.stats-section-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1vmin;
+  padding-top: 1.8vmin;
+}
+
+/* ─── Stat rows ──── */
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2vmin 3vmin;
+  border-radius: 2vmin;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stats-row:last-child { border-bottom: none; }
+
+.stats-row-lbl {
+  font-size: clamp(0.68rem, 2.2vmin, 0.82rem);
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.82);
+  text-transform: uppercase;
+}
+
+.stats-row-val {
+  font-size: clamp(0.88rem, 2.9vmin, 1.05rem);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0.04em;
+}
+
+/* Semantic value colors — match game accent palette */
+.stats-val-gold  { color: #ffe566; text-shadow: 0 0 8px rgba(255, 229, 102, 0.45); }
+.stats-val-green { color: #4fffb0; text-shadow: 0 0 8px rgba(79, 255, 176, 0.45); }
+.stats-val-cyan  { color: #42d4ff; text-shadow: 0 0 8px rgba(66, 212, 255, 0.45); }
+
+.stats-color-orb {
+  width: 3.5vmin;
+  height: 3.5vmin;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.stats-color-name {
+  font-size: clamp(0.78rem, 2.5vmin, 0.92rem);
+  font-weight: 900;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.stats-empty-msg {
+  font-size: clamp(0.80rem, 2.6vmin, 0.96rem);
+  color: rgba(255, 255, 255, 0.70);
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 8vmin 0;
+}
+
+/* Hide stats UI during intro ─────────────────────────────────── */
+body.intro-active #stats-mini,
+body.intro-active #stats-screen { display: none !important; }
 
 /* ─── Shop toggle (bottom-right) ──────────────────────────── */
 
@@ -86,30 +466,41 @@ canvas {
   color: #ffe566;
 }
 
-/* ─── Shop panel (slides up from bottom) ──────────────────── */
+/* ─── Shop panel (full-screen) ─────────────────────────────── */
 
 #shop-panel {
   position: fixed;
-  left: 0; right: 0;
-  bottom: var(--qb-h);   /* sits directly above the quick-buy bar */
-  z-index: 15;
-  max-height: 72dvh;
+  inset: 0;
+  z-index: 50;
   display: flex;
   flex-direction: column;
-  background: rgba(6, 10, 22, 0.97);
-  border-top: 1px solid rgba(255,255,255,0.09);
-  border-radius: 16px 16px 0 0;
-  backdrop-filter: blur(14px);
-  padding-bottom: 14px;
-  transform: translateY(0);
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-              opacity  0.35s ease;
+  background: rgba(6, 10, 22, 0.99);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: var(--qb-h);
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.22s ease-out;
 }
 
 #shop-panel.hidden {
-  transform: translateY(105%);
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.18s ease-in;
+}
+
+.shop-inner {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(0);
+  transition: transform 0.22s ease-out;
+}
+
+#shop-panel.hidden .shop-inner {
+  transform: translateY(24px);
+  transition: transform 0.18s ease-in;
 }
 
 .shop-header {
@@ -157,10 +548,10 @@ canvas {
 #shop-body {
   overflow-y: auto;
   flex: 1;
-  padding: 14px 16px 18px;
+  padding: 12px 14px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   scrollbar-width: none;        /* Firefox */
   -ms-overflow-style: none;     /* IE / Edge legacy */
 }
@@ -325,6 +716,436 @@ canvas {
   flex-shrink: 0;
 }
 
+/* ─── Reactor panel — new upgrades UI ─────────────────────── */
+
+/* Currency header */
+.reactor-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.reactor-coin-icon {
+  font-size: clamp(1.2rem, 4vmin, 1.6rem);
+  color: #ffe566;
+  filter: drop-shadow(0 0 7px rgba(255,229,102,0.85));
+  line-height: 1;
+}
+
+.reactor-coin-val {
+  font-size: clamp(1.6rem, 5vmin, 2.4rem);
+  font-weight: 700;
+  color: #ffe566;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 18px rgba(255,229,102,0.5);
+}
+
+@keyframes cv-coins-bump {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes cv-coins-flash {
+  0%, 100% { color: #ffe566; text-shadow: 0 0 18px rgba(255,229,102,0.5); }
+  50% { color: #ff4f6a; text-shadow: 0 0 14px rgba(255,79,106,0.6); }
+}
+
+.reactor-coin-val.cv-bump {
+  animation: cv-coins-bump 0.15s ease-out;
+}
+
+.reactor-coin-val.cv-flash {
+  animation: cv-coins-flash 0.20s ease-out;
+}
+
+/* Spectrum track: 7 orbs in a row */
+.spectrum-track {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 6px;
+}
+
+.spec-orb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--oc);
+  flex-shrink: 0;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.spec-orb--owned {
+  opacity: 0.85;
+  box-shadow: 0 0 6px var(--oc), 0 0 10px var(--oc);
+}
+
+.spec-orb--next {
+  opacity: 1;
+  transform: scale(1.4);
+  box-shadow: 0 0 8px var(--oc), 0 0 16px var(--oc), 0 0 24px var(--oc);
+  animation: spec-pulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes spec-pulse {
+  from { box-shadow: 0 0 6px var(--oc), 0 0 12px var(--oc); }
+  to   { box-shadow: 0 0 10px var(--oc), 0 0 20px var(--oc), 0 0 30px var(--oc); }
+}
+
+.spec-orb--future {
+  opacity: 0.18;
+  background: rgba(255,255,255,0.20);
+  box-shadow: none;
+}
+
+/* Next ball card */
+.next-ball-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 72px;
+  padding: 13px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+  font-family: 'Orbitron', monospace;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s, transform 80ms;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.next-ball-card:not(:disabled) {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.14);
+}
+
+.next-ball-card:active {
+  background: rgba(255,255,255,0.09) !important;
+  transform: scale(0.98);
+}
+
+.next-ball-card:disabled {
+  cursor: default;
+  background: rgba(255, 159, 67, 0.03);
+  border-color: rgba(255, 159, 67, 0.20);
+}
+
+/* Ball orb: muted */
+.next-ball-card:disabled .nbc-orb {
+  opacity: 0.38;
+}
+
+/* Color name ("VIOLET", "BLUE" etc.): muted */
+.next-ball-card:disabled .nbc-name {
+  opacity: 0.32;
+}
+
+/* "NEXT BALL" label: full-brightness warning */
+.next-ball-card:disabled .nbc-label {
+  color: #ff9f43;
+  opacity: 1;
+}
+
+/* BUY pill: warning text + border */
+.next-ball-card:disabled .nbc-buy-pill {
+  color: #ff9f43;
+  border-color: rgba(255, 159, 67, 0.40);
+}
+
+.nbc-orb {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Highlight on next-ball orb */
+.nbc-orb::after {
+  content: '';
+  position: absolute;
+  top: 16%; left: 20%;
+  width: 33%; height: 26%;
+  background: rgba(255,255,255,0.55);
+  border-radius: 50%;
+  filter: blur(3px);
+}
+
+.nbc-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.nbc-label {
+  font-size: clamp(0.55rem, 1.75vmin, 0.68rem);
+  letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.28);
+  text-transform: uppercase;
+}
+
+.nbc-name {
+  font-size: clamp(1.05rem, 3.8vmin, 1.4rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.nbc-cost-text {
+  font-size: clamp(0.72rem, 2.3vmin, 0.88rem);
+  font-weight: 700;
+  color: #ffe566;
+  letter-spacing: 0.04em;
+}
+
+.next-ball-card:disabled .nbc-cost-text {
+  color: #ff9f43;
+}
+
+/* Buy pill — visual zone only, pointer-events go to parent */
+.nbc-buy-pill {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.14);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.62rem, 1.95vmin, 0.76rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(255,255,255,0.30);
+  white-space: nowrap;
+  flex-shrink: 0;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+/* Bucket card */
+.bucket-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-left: 3px solid var(--bc);
+  border-radius: 12px;
+  padding: 11px 12px 10px;
+}
+
+.bucket-card-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 3vmin;
+}
+
+/* Color indicator orb in card header */
+.bucket-orb {
+  width: 6.5vmin;
+  height: 6.5vmin;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bucket-orb::after { display: none; }
+
+/* Tap card orb — hollow with icon */
+.tap-orb {
+  width: 32px !important;
+  height: 32px !important;
+  background: rgba(66,212,255,0.10) !important;
+  border: 1px solid rgba(66,212,255,0.40) !important;
+  box-shadow: 0 0 10px rgba(66,212,255,0.35) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.95rem;
+  color: rgba(66,212,255,0.85);
+}
+
+.tap-orb::after { display: none; }
+
+.bucket-top-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bucket-name {
+  font-size: clamp(0.78rem, 2.5vmin, 0.94rem);
+  font-weight: 900;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: var(--bc);
+}
+
+.tap-name { color: rgba(66,212,255,0.85) !important; }
+
+/* Ball pip row */
+.bucket-pips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bucket-pip {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bucket-pip-more {
+  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
+  color: rgba(255,255,255,0.40);
+  letter-spacing: 0.04em;
+}
+
+/* Upgrade rows — flex column replaces the old 5-column tile grid */
+.bucket-upgrades {
+  display: flex;
+  flex-direction: column;
+  gap: 1vmin;
+}
+
+/* ─── Upgrade rows ─────────────────────────────────────────── */
+
+.upg-row {
+  display: flex;
+  align-items: center;
+  gap: 2.5vmin;
+  min-height: 12vmin;
+  padding: 1.5vmin 2.5vmin 1.5vmin 2vmin;
+  width: 100%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 2.5vmin;
+  font-family: 'Orbitron', monospace;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s, transform 80ms;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.upg-row--can {
+  background: color-mix(in srgb, var(--bc) 7%, transparent);
+  border-color: color-mix(in srgb, var(--bc) 38%, transparent);
+}
+
+.upg-row:active {
+  transform: scale(0.97);
+  background: color-mix(in srgb, var(--bc) 14%, transparent) !important;
+}
+
+.upg-row:disabled {
+  cursor: default;
+  background: rgba(255, 159, 67, 0.03);
+  border-color: rgba(255, 159, 67, 0.20);
+  /* no blanket opacity — each child handled individually */
+}
+
+/* Icon: barely muted, warning-tinted outline */
+.upg-row:disabled .upg-row-icon {
+  opacity: 0.72;
+  background: rgba(255, 159, 67, 0.06);
+  border-color: rgba(255, 159, 67, 0.35);
+}
+
+/* Upgrade name ("VALUE", "SPEED" etc.): full-brightness warning */
+.upg-row:disabled .upg-row-label {
+  color: #ff9f43;
+}
+
+/* Level badge: muted */
+.upg-row:disabled .upg-row-lv {
+  opacity: 0.36;
+}
+
+/* Left: icon in a rounded square — color driven by --ut-color set in JS */
+.upg-row-icon {
+  width: 8vmin;
+  height: 8vmin;
+  border-radius: 2vmin;
+  background: color-mix(in srgb, var(--ut-color, white) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ut-color, white) 18%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.95rem, 3.1vmin, 1.2rem);
+  flex-shrink: 0;
+  line-height: 1;
+  color: var(--ut-color, rgba(255,255,255,0.75));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ut-color, white) 55%, transparent));
+}
+
+.upg-row--can .upg-row-icon {
+  background: color-mix(in srgb, var(--ut-color, var(--bc)) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ut-color, var(--bc)) 40%, transparent);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ut-color, var(--bc)) 75%, transparent));
+}
+
+.upg-row:disabled .upg-row-icon {
+  filter: none;
+}
+
+/* Center: label + level badge */
+.upg-row-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vmin;
+  min-width: 0;
+}
+
+.upg-row-label-line {
+  display: flex;
+  align-items: center;
+  gap: 1.5vmin;
+}
+
+.upg-row-label {
+  font-size: clamp(0.75rem, 2.4vmin, 0.92rem);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: rgba(255,255,255,0.88);
+  text-transform: uppercase;
+}
+
+.upg-row-lv {
+  font-size: clamp(0.56rem, 1.75vmin, 0.68rem);
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--bc) 90%, white);
+  background: color-mix(in srgb, var(--bc) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bc) 32%, transparent);
+  border-radius: 0.8vmin;
+  padding: 0.3vmin 1vmin;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Right: cost right-aligned */
+.upg-row-cost {
+  font-size: clamp(0.78rem, 2.5vmin, 0.95rem);
+  font-weight: 700;
+  color: #ffe566;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-shadow: 0 0 8px rgba(255, 229, 102, 0.60);
+}
+
+/* Cost: full-brightness warning */
+.upg-row:disabled .upg-row-cost {
+  color: #ff9f43;
+}
+
+
 /* ─── Unlock slot button ───────────────────────────────────── */
 
 .unlock-slot-btn {
@@ -353,7 +1174,7 @@ canvas {
 
 #dev-toggle {
   position: fixed;
-  bottom: calc(var(--qb-h) + 10px);
+  bottom: calc(var(--qb-h) + 2.5vmin);
   left: 4vw;
   z-index: 22;
   width: clamp(48px, 12vmin, 64px);
@@ -379,7 +1200,7 @@ canvas {
 
 #dev-panel {
   position: fixed;
-  bottom: calc(var(--qb-h) + clamp(36px, 9vmin, 48px) + 18px);
+  bottom: calc(var(--qb-h) + 9vmin + 4.5vmin);
   left: 4vw;
   z-index: 22;
   min-width: 180px;
@@ -481,16 +1302,39 @@ canvas {
   letter-spacing: 0.08em;
 }
 
+/* ─── Chain bonus popup ────────────────────────────────────── */
+/* Format: "6 CHAIN ×9  +1,250"  — fires once per chain resolution. */
+/* Larger and more vivid than regular coin labels.                    */
+
+.chain-float {
+  color: #4fffb0 !important;
+  font-size: clamp(1.3rem, 4.8vmin, 1.9rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  text-shadow:
+    0 0 10px rgba(79, 255, 176, 0.95),
+    0 0 28px rgba(79, 255, 176, 0.55) !important;
+  animation: chain-float-up 1.80s ease-out forwards !important;
+}
+
+@keyframes chain-float-up {
+  0%   { transform: translateX(-50%) translateY(0)     scale(0.70); opacity: 0; }
+  10%  { transform: translateX(-50%) translateY(-6px)  scale(1.10); opacity: 1; }
+  65%  { transform: translateX(-50%) translateY(-44px) scale(1.00); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-72px) scale(0.88); opacity: 0; }
+}
+
 /* ─── Board-clear bonus label ──────────────────────────────── */
 
 .clear-float {
-  color: #ffffff !important;
-  font-size: clamp(1rem, 3.4vmin, 1.3rem) !important;
+  color: #4fffb0 !important;
+  font-size: clamp(1.5rem, 6vmin, 2.3rem) !important;
   font-weight: 900 !important;
-  letter-spacing: 0.12em !important;
+  letter-spacing: 0.14em !important;
   text-shadow:
-    0 0 10px rgba(255, 255, 255, 0.95),
-    0 0 24px rgba(66, 212, 255, 0.65) !important;
+    0 0 12px rgba(79, 255, 176, 0.95),
+    0 0 32px rgba(79, 255, 176, 0.55),
+    0 0 60px rgba(79, 255, 176, 0.25) !important;
 }
 
 /* ─── Debug overlay (toggle with D key) ───────────────────── */
@@ -545,98 +1389,74 @@ body.intro-completing #hud {
   bottom: 0;
   left: 0; right: 0;
   height: var(--qb-h);
-  /* 8px top padding + buttons fill the 50px slot + safe-area bottom padding */
-  padding: 8px 8px env(safe-area-inset-bottom, 0px);
+  padding: 1.2dvh 2vw env(safe-area-inset-bottom, 0px);
   display: flex;
-  gap: 6px;
+  gap: 1.5vw;
   background: rgba(6, 10, 22, 0.97);
   border-top: 1px solid rgba(255,255,255,0.09);
   backdrop-filter: blur(14px);
-  z-index: 20;
+  z-index: 60;   /* above shop panel (z-index 50) so it stays visible */
 }
 
 .qb-btn {
   flex: 1;
-  height: 50px;
+  height: 12.5dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  background: rgba(66, 212, 255, 0.045);
-  border: 1px solid rgba(66, 212, 255, 0.15);
-  border-radius: 8px;
+  gap: 1dvh;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 2vw;
   font-family: 'Orbitron', monospace;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 2vw;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-/* Affordable — mild glow so active buttons stand out from disabled ones */
+/* Affordable — highlight = colored border + glow, background stays neutral */
 .qb-btn:not(:disabled):not(.qb-btn-store) {
-  background: rgba(66, 212, 255, 0.09);
-  border-color: rgba(66, 212, 255, 0.28);
-  box-shadow: 0 0 7px 0 rgba(66, 212, 255, 0.16);
+  background: rgba(255,255,255,0.05);
+  border-color: color-mix(in srgb, var(--qb-color, #42d4ff) 55%, transparent);
+  box-shadow: 0 0 9px 0 color-mix(in srgb, var(--qb-color, #42d4ff) 30%, transparent);
 }
 
-.qb-btn:active  { background: rgba(66, 212, 255, 0.18) !important; }
+.qb-btn:active:not(.qb-btn-store) {
+  background: color-mix(in srgb, var(--qb-color, #42d4ff) 14%, transparent) !important;
+}
 
 .qb-btn:disabled {
   cursor: default;
-  border-color: rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.008);
+  border-color: rgba(255, 159, 67, 0.22);
+  background: rgba(255, 159, 67, 0.025);
   box-shadow: none;
 }
 
-/* Dim the action label; cost in orange — clearly "saving toward" */
-.qb-btn:disabled .qb-btn-top {
-  opacity: 0.36;
-}
-.qb-btn:disabled .qb-btn-sub {
-  color: rgba(255, 130, 50, 0.88);
+/* ── Button content: icon / label / cost ───────────────────────── */
+
+/* Icon — large emoji or symbol */
+.qb-btn-icon {
+  font-size: clamp(1.4rem, 4.5dvh, 2.0rem);
+  line-height: 1;
 }
 
-/* Top row: the upgrade name / ball label */
-.qb-btn-top {
-  font-size: clamp(0.6rem, 2.2vmin, 0.8rem);
+/* Dual-icon wrapper (ball ● + upgrade type) on the BUY button */
+.qb-btn-icons {
+  display: flex;
+  align-items: center;
+  gap: 1.5vw;
+  line-height: 1;
+}
+.qb-btn-icons .qb-btn-icon {
+  font-size: clamp(1.15rem, 3.5dvh, 1.6rem);
+}
+
+/* Label — single uppercase word */
+.qb-btn-label {
+  font-size: clamp(0.82rem, 2.5dvh, 1.0rem);
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: rgba(255,255,255,0.72);
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-/* Bottom row: cost */
-.qb-btn-sub {
-  font-size: clamp(0.65rem, 2.2vmin, 0.82rem);
-  letter-spacing: 0.06em;
-  color: #ffe566;
-  white-space: nowrap;
-}
-
-/* ── Upgrade button 3-row layout ───────────────────────────────── */
-
-/* Row 1: tiny muted header ("LOWEST COST" / "BEST NEXT") */
-.qb-btn-hd {
-  font-size: clamp(0.46rem, 1.6vmin, 0.58rem);
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: rgba(255,255,255,0.32);
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-/* Row 2: main target line ("B1 Speed") — bright and readable */
-.qb-btn-target {
-  font-size: clamp(0.62rem, 2.15vmin, 0.76rem);
-  font-weight: 700;
-  letter-spacing: 0.09em;
   color: rgba(255,255,255,0.88);
   text-transform: uppercase;
   white-space: nowrap;
@@ -644,43 +1464,42 @@ body.intro-completing #hud {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-/* Dim target when button is disabled */
-.qb-btn:disabled .qb-btn-target { opacity: 0.38; }
 
-/* Row 3: reason text for Best Next ("Longer chains · ◆35")
-   or "Need ◆35" when unaffordable — styled like .qb-btn-sub */
-.qb-btn-reason {
-  font-size: clamp(0.48rem, 1.65vmin, 0.60rem);
-  letter-spacing: 0.05em;
-  color: rgba(79, 255, 176, 0.80);
+/* Cost badge */
+.qb-btn-cost {
+  font-size: clamp(0.74rem, 2.2dvh, 0.92rem);
+  letter-spacing: 0.04em;
+  color: #ffe566;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
-/* Orange "Need ◆X" when button is disabled */
-.qb-btn:disabled .qb-btn-reason { color: rgba(255, 130, 50, 0.88); }
 
-/* Target-change flash — brief cyan highlight when target switches */
+/* Flash when BUY target changes — uses the button's current --qb-color */
 @keyframes qb-target-flash {
-  0%   { color: rgba(66, 212, 255, 0.95); }
-  60%  { color: rgba(66, 212, 255, 0.70); }
+  0%   { color: color-mix(in srgb, var(--qb-color, #42d4ff) 95%, white); }
+  60%  { color: color-mix(in srgb, var(--qb-color, #42d4ff) 70%, transparent); }
   100% { color: rgba(255, 255, 255, 0.88); }
 }
-.qb-target-changed {
-  animation: qb-target-flash 0.5s ease-out forwards;
-}
-/* Don't flash when button is disabled (target is dimmed anyway) */
+.qb-target-changed { animation: qb-target-flash 0.5s ease-out forwards; }
 .qb-btn:disabled .qb-target-changed { animation: none; }
 
-/* Store button — slightly different accent */
+/* BALL disabled: mute the orb icon + color name; warning on cost */
+#qb-ball:disabled .qb-btn-icon  { opacity: 0.40; }
+#qb-ball:disabled .qb-btn-label { opacity: 0.38; }
+#qb-ball:disabled .qb-btn-cost  { color: #ff9f43; }
+
+/* BUY disabled: barely mute icon; warning amber on name + cost */
+#qb-buy:disabled .qb-btn-icon  { opacity: 0.65; }
+#qb-buy:disabled .qb-btn-label { color: #ff9f43; }
+#qb-buy:disabled .qb-btn-cost  { color: #ff9f43; }
+
+/* Store button — green accent, never disabled */
 .qb-btn-store {
   background: rgba(79, 255, 176, 0.045);
   border-color: rgba(79, 255, 176, 0.18);
 }
 .qb-btn-store:active { background: rgba(79, 255, 176, 0.15); }
-.qb-btn-store .qb-btn-top { color: rgba(79, 255, 176, 0.85); }
-.qb-btn-store .qb-btn-sub { color: rgba(79, 255, 176, 0.7); font-size: 1rem; }
+.qb-btn-store .qb-btn-icon  { color: rgba(79, 255, 176, 0.85); font-size: clamp(1.5rem, 4.8dvh, 2.1rem); }
+.qb-btn-store .qb-btn-label { color: rgba(79, 255, 176, 0.85); }
 
 
 /* Stronger pulse applied while the first-ball cue is animating ──── */
