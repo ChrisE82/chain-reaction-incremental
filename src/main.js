@@ -54,6 +54,11 @@ let devFreeUpgradesEnabled = false
 let statsMiniOpen  = false
 let statsActiveTab = 'run'
 
+// ── Shop currency animation ──
+// Tracks the coin count the last time buildShop() rendered, so we can
+// detect purchases and trigger the bump/flash animation.
+let shopLastCoins = -1
+
 // ── Quick-buy bar ──
 const qbBar         = document.getElementById('quick-buy-bar')
 const qbBallBtn     = document.getElementById('qb-ball')
@@ -2299,12 +2304,13 @@ function makeSectionTitle(icon, text) {
 }
 
 // Per-type icon and label for upgrade tiles in the reactor panel.
+// Icons follow the CHROMATIC VOID spec: ✦ ⚡ ◉ ⏳ ⊕
 const UPGRADE_TYPE_DEFS = [
-  { type: 'value',      icon: '◆',  label: 'Value'  },
-  { type: 'speed',      icon: '▸▸', label: 'Speed'  },
-  { type: 'diameter',   icon: '◉',  label: 'Size'   },
-  { type: 'duration',   icon: '◑',  label: 'Hold'   },
-  { type: 'chainPower', icon: '✦',  label: 'Chain'  },
+  { type: 'value',      icon: '✦', label: 'Value'  },
+  { type: 'speed',      icon: '⚡', label: 'Speed'  },
+  { type: 'diameter',   icon: '◉', label: 'Size'   },
+  { type: 'duration',   icon: '⏳', label: 'Hold'   },
+  { type: 'chainPower', icon: '⊕', label: 'Chain'  },
 ]
 
 function buildShop() {
@@ -2320,6 +2326,13 @@ function buildShop() {
     icon.className = 'reactor-coin-icon'; icon.textContent = '◆'
     const val = document.createElement('span')
     val.className = 'reactor-coin-val'; val.textContent = fmt(st.coins)
+    // Trigger bump animation when coins changed since last render
+    if (shopLastCoins >= 0 && st.coins !== shopLastCoins) {
+      const cls = st.coins > shopLastCoins ? 'cv-bump' : 'cv-flash'
+      val.classList.add(cls)
+      val.addEventListener('animationend', () => val.classList.remove(cls), { once: true })
+    }
+    shopLastCoins = st.coins
     hdr.appendChild(icon); hdr.appendChild(val)
     shopBody.appendChild(hdr)
   }
@@ -2352,11 +2365,13 @@ function buildShop() {
     card.className = 'next-ball-card'
     card.disabled  = !canBuy
 
+    // Left zone: feature orb
     const orbEl = document.createElement('div')
     orbEl.className = 'nbc-orb'
     orbEl.style.background = COLOR_HEX[nextColor]
-    orbEl.style.boxShadow  = `0 0 20px ${COLOR_HEX[nextColor]}, 0 0 40px ${COLOR_HEX[nextColor]}`
+    orbEl.style.boxShadow  = `0 0 16px ${COLOR_HEX[nextColor]}, 0 0 32px ${COLOR_HEX[nextColor]}`
 
+    // Center zone: label + name + cost
     const infoEl = document.createElement('div')
     infoEl.className = 'nbc-info'
     const lblEl = document.createElement('span')
@@ -2365,18 +2380,19 @@ function buildShop() {
     nameEl.className = 'nbc-name'
     nameEl.textContent = colorLabel.toUpperCase()
     nameEl.style.color = COLOR_HEX[nextColor]
-    infoEl.appendChild(lblEl); infoEl.appendChild(nameEl)
+    const costTextEl = document.createElement('span')
+    costTextEl.className = 'nbc-cost-text'
+    costTextEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(ballCost)}`
+    infoEl.appendChild(lblEl); infoEl.appendChild(nameEl); infoEl.appendChild(costTextEl)
 
-    const costWrap = document.createElement('div')
-    costWrap.className = 'nbc-cost'
-    const costIcon = document.createElement('span')
-    costIcon.className = 'nbc-cost-icon'; costIcon.textContent = '◆'
-    const costVal = document.createElement('span')
-    costVal.className = 'nbc-cost-val'
-    costVal.textContent = devFreeUpgradesEnabled ? 'FREE' : fmt(ballCost)
-    costWrap.appendChild(costIcon); costWrap.appendChild(costVal)
+    // Right zone: buy pill (visual only, pointer-events: none in CSS)
+    const buyPill = document.createElement('div')
+    buyPill.className = 'nbc-buy-pill'
+    buyPill.textContent = 'BUY'
+    buyPill.style.borderColor = canBuy ? `${COLOR_HEX[nextColor]}88` : 'rgba(255,255,255,0.10)'
+    buyPill.style.color = canBuy ? COLOR_HEX[nextColor] : 'rgba(255,255,255,0.22)'
 
-    card.appendChild(orbEl); card.appendChild(infoEl); card.appendChild(costWrap)
+    card.appendChild(orbEl); card.appendChild(infoEl); card.appendChild(buyPill)
     card.addEventListener('click', () => {
       const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
       if (colorKey) {
@@ -2556,6 +2572,7 @@ function toggleShop() {
   const opening = shopPanel.classList.contains('hidden')
   shopPanel.classList.toggle('hidden')
   if (opening) {
+    shopLastCoins = -1   // reset so first render doesn't animate
     buildShop()
     // Close stats panels when opening shop
     closeStatsMini()
@@ -2579,6 +2596,11 @@ statsScreen.querySelectorAll('.stats-tab').forEach(tab => {
 
 shopToggle.addEventListener('click', toggleShop)   // legacy button (hidden)
 shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); updateQuickBuy() })
+
+// Close shop when tapping the backdrop (outside the inner card)
+shopPanel.addEventListener('click', e => {
+  if (e.target === shopPanel) { shopPanel.classList.add('hidden'); updateQuickBuy() }
+})
 
 // ── Quick-buy bar ──────────────────────────────────────────────────────────
 

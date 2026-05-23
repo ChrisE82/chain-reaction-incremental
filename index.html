@@ -61,16 +61,18 @@
   <div id="stats-tab-body"></div>
 </div>
 
-<!-- ── Shop panel (slides up from bottom) ───────────────────────── -->
+<!-- ── Shop panel (full-screen overlay) ─────────────────────────── -->
 <div id="shop-panel" class="hidden">
-  <div class="shop-header">
-    <div class="shop-title-wrap">
-      <span class="shop-header-icon">&#11042;</span>
-      <span class="shop-title">Upgrades</span>
+  <div class="shop-inner">
+    <div class="shop-header">
+      <div class="shop-title-wrap">
+        <span class="shop-header-icon">&#11042;</span>
+        <span class="shop-title">Upgrades</span>
+      </div>
+      <button id="shop-close" aria-label="Close">&#215;</button>
     </div>
-    <button id="shop-close" aria-label="Close">&#215;</button>
+    <div id="shop-body"><!-- built by JS --></div>
   </div>
-  <div id="shop-body"><!-- built by JS --></div>
 </div>
 
 <!-- ── Quick-buy bar (always visible, bottom) ───────────────────── -->
