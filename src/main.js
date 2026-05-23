@@ -2597,10 +2597,7 @@ statsScreen.querySelectorAll('.stats-tab').forEach(tab => {
 shopToggle.addEventListener('click', toggleShop)   // legacy button (hidden)
 shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); updateQuickBuy() })
 
-// Close shop when tapping the backdrop (outside the inner card)
-shopPanel.addEventListener('click', e => {
-  if (e.target === shopPanel) { shopPanel.classList.add('hidden'); updateQuickBuy() }
-})
+// Full-screen panel — no backdrop tap-to-close needed
 
 // ── Quick-buy bar ──────────────────────────────────────────────────────────
 
