@@ -672,8 +672,8 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .spec-orb {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--oc);
   flex-shrink: 0;
@@ -761,21 +761,21 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .nbc-label {
-  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
-  letter-spacing: 0.20em;
+  font-size: clamp(0.55rem, 1.75vmin, 0.68rem);
+  letter-spacing: 0.18em;
   color: rgba(255,255,255,0.28);
   text-transform: uppercase;
 }
 
 .nbc-name {
-  font-size: clamp(1rem, 3.5vmin, 1.3rem);
+  font-size: clamp(1.05rem, 3.8vmin, 1.4rem);
   font-weight: 900;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .nbc-cost-text {
-  font-size: clamp(0.68rem, 2.1vmin, 0.82rem);
+  font-size: clamp(0.72rem, 2.3vmin, 0.88rem);
   font-weight: 700;
   color: #ffe566;
   letter-spacing: 0.04em;
@@ -787,13 +787,13 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Buy pill — visual zone only, pointer-events go to parent */
 .nbc-buy-pill {
-  padding: 7px 12px;
+  padding: 8px 14px;
   border-radius: 20px;
   border: 1px solid rgba(255,255,255,0.14);
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.52rem, 1.6vmin, 0.64rem);
+  font-size: clamp(0.62rem, 1.95vmin, 0.76rem);
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: rgba(255,255,255,0.30);
   white-space: nowrap;
   flex-shrink: 0;
@@ -817,27 +817,27 @@ body.intro-active #stats-screen { display: none !important; }
   margin-bottom: 10px;
 }
 
-/* Small color dot in card header */
+/* Color indicator orb in card header */
 .bucket-orb {
-  width: 12px;
-  height: 12px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .bucket-orb::after { display: none; }
 
-/* Tap card orb — hollow with icon, kept larger than bucket-orb */
+/* Tap card orb — hollow with icon */
 .tap-orb {
-  width: 22px !important;
-  height: 22px !important;
-  background: rgba(66,212,255,0.12) !important;
+  width: 32px !important;
+  height: 32px !important;
+  background: rgba(66,212,255,0.10) !important;
   border: 1px solid rgba(66,212,255,0.40) !important;
-  box-shadow: 0 0 8px rgba(66,212,255,0.40) !important;
+  box-shadow: 0 0 10px rgba(66,212,255,0.35) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   color: rgba(66,212,255,0.85);
 }
 
@@ -852,9 +852,9 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .bucket-name {
-  font-size: clamp(0.70rem, 2.3vmin, 0.86rem);
+  font-size: clamp(0.78rem, 2.5vmin, 0.94rem);
   font-weight: 900;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.20em;
   text-transform: uppercase;
   color: var(--bc);
 }
@@ -878,7 +878,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .bucket-pip-more {
-  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
+  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
   color: rgba(255,255,255,0.40);
   letter-spacing: 0.04em;
 }
@@ -893,9 +893,9 @@ body.intro-active #stats-screen { display: none !important; }
 /* Wide single-tile variant (tap card) */
 .upg-tile--wide {
   grid-column: 1 / -1;
-  max-width: 200px;
+  max-width: 220px;
   margin: 0 auto;
-  min-height: 60px !important;
+  min-height: 68px !important;
 }
 
 /* Upgrade tile */
@@ -904,9 +904,9 @@ body.intro-active #stats-screen { display: none !important; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 7px 2px 6px;
-  min-height: 52px;
+  gap: 4px;
+  padding: 9px 2px 8px;
+  min-height: 68px;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 10px;
@@ -936,26 +936,26 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .upg-tile-icon {
-  font-size: clamp(0.9rem, 3vmin, 1.15rem);
+  font-size: clamp(1.1rem, 3.6vmin, 1.4rem);
   line-height: 1;
 }
 
 .upg-tile-lv {
-  font-size: clamp(0.42rem, 1.38vmin, 0.54rem);
+  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
   letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.42);
+  color: rgba(255,255,255,0.45);
   line-height: 1.2;
 }
 
 .upg-tile-cost {
-  font-size: clamp(0.48rem, 1.55vmin, 0.60rem);
+  font-size: clamp(0.62rem, 2.0vmin, 0.76rem);
   font-weight: 700;
   color: #ffe566;
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
-/* Cost color is absorbed by parent opacity: 0.5 when disabled */
+/* Cost color absorbed by parent opacity: 0.5 when disabled */
 /* ─── Unlock slot button ───────────────────────────────────── */
 
 .unlock-slot-btn {
