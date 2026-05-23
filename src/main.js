@@ -63,6 +63,11 @@ let shopLastCoins = -1
 // Keys: 'tap' | colorKey string
 const shopCollapsed = new Set()
 
+// ── Chain escalation ──────────────────────────────────────────────────────
+// Set to a positive value on each ball trigger; decays to 0 within a few frames.
+// Applied as a random world-space translate each frame for a physical "thump" feel.
+let chainShakeAmt = 0
+
 // ── Quick-buy bar ──
 const qbBar         = document.getElementById('quick-buy-bar')
 const qbBallBtn     = document.getElementById('qb-ball')
@@ -749,6 +754,7 @@ function triggerBall(b, src) {
   b.flash = 1.0
 
   const chainIndex = currentChain ? currentChain.index : 0
+  b.chainTriggerIdx = chainIndex   // stored so drawBall can scale the glow
   const coins = b.value
   if (currentChain) {
     currentChain.index++
@@ -767,9 +773,18 @@ function triggerBall(b, src) {
     recordBallPopped(b.colorKey, coins, /* isManual: */ !src?.colorKey)
     cycleTriggerOccurrences++   // every pop counts, including re-triggers after respawn
     cycleBaseEarned += coins    // raw earn before chain-end bonuses
+    // Screen shake — scales with chain depth, capped so it never feels nauseating
+    chainShakeAmt = Math.max(chainShakeAmt, Math.min(chainIndex * 0.08, 1.0))
+    // HUD chain number pulse
+    hudChain.classList.remove('chain-hud-pulse')
+    void hudChain.offsetWidth   // force reflow so animation restarts
+    hudChain.classList.add('chain-hud-pulse')
   }
-  spawnCoinLabel(b.x, b.y, coins)
-  spawnParticles(b.x, b.y, b.color, 22, b.maxRadius)
+  spawnCoinLabel(b.x, b.y, coins, chainIndex)
+  // Particle count and spread scale with chain depth
+  const pCount = Math.min(22 + chainIndex * 2, 55)
+  const pMaxR  = b.maxRadius * (1 + chainIndex * 0.04)
+  spawnParticles(b.x, b.y, b.color, pCount, pMaxR)
   playTrigger(chainIndex + 1)
 
   if (src) {
@@ -865,6 +880,13 @@ function loop(ts) {
   const cameraS = 1.0 / currentArenaScale
   ctx.save()
   ctx.scale(cameraS, cameraS)
+  // Screen shake — random offset in world space, decays within a few frames
+  if (chainShakeAmt > 0 && !introCompleting) {
+    ctx.translate(
+      (Math.random() - 0.5) * 2 * chainShakeAmt,
+      (Math.random() - 0.5) * 2 * chainShakeAmt
+    )
+  }
   drawGrid()
 
   // Board-clear refill ripple — single ring expanding from arena centre
@@ -1147,6 +1169,12 @@ function update(dt) {
   }
   if (refillInputLock > 0) refillInputLock = Math.max(0, refillInputLock - dt)
 
+  // Decay screen shake — fast falloff creates a sharp "thump" rather than sustained rattle
+  if (chainShakeAmt > 0) {
+    chainShakeAmt *= 0.65
+    if (chainShakeAmt < 0.01) chainShakeAmt = 0
+  }
+
   updateParticles(dt)
   updateRadiusGhosts(dt)
   updateFirstBallCue(dt)
@@ -1216,7 +1244,12 @@ function drawBall(b) {
   const inSpawnGrow = b.spawnInTimer >= 0
     && (b.spawnInTimer - b.spawnInDelay) >= 0
     && (b.spawnInTimer - b.spawnInDelay) < SPAWN_GROW_DURATION
-  if (isActive || inSpawnGrow) { ctx.shadowColor = b.color; ctx.shadowBlur = 3 * gameScale }
+  if (isActive || inSpawnGrow) {
+    ctx.shadowColor = b.color
+    // Glow intensifies with chain depth — more dramatic the deeper into a chain
+    const glowMult = 1 + Math.min((b.chainTriggerIdx ?? 0) * 0.14, 1.8)
+    ctx.shadowBlur  = 3 * gameScale * glowMult
+  }
 
   const grad = ctx.createRadialGradient(b.x - r * 0.3, b.y - r * 0.3, 0, b.x, b.y, r)
   grad.addColorStop(0, lighten(b.color))
@@ -1292,7 +1325,7 @@ function updateDebug(st) {
 
 
 // ─── Floating coin label ──────────────────────────────────────────────────
-function spawnCoinLabel(vx, vy, coins) {
+function spawnCoinLabel(vx, vy, coins, chainIdx = 0) {
   const sx = Math.round((vx / currentArenaScale) * gameScale + gameOffsetX)
   const sy = Math.round((vy / currentArenaScale) * gameScale + gameOffsetY)
   const el = document.createElement('div')
@@ -1300,14 +1333,29 @@ function spawnCoinLabel(vx, vy, coins) {
   el.textContent = `+${coins}`
   el.style.left  = `${sx}px`
   el.style.top   = `${sy}px`
+  // Scale font size and brightness with chain position (caps at 2× to stay readable)
+  if (chainIdx > 0) {
+    const scale = Math.min(1 + chainIdx * 0.10, 2.0)
+    el.style.fontSize = `${scale}rem`
+    if (chainIdx >= 8) {
+      el.style.color      = '#ffffff'
+      el.style.textShadow = '0 0 12px rgba(255,255,255,0.95), 0 0 28px rgba(255,229,102,0.75)'
+    } else if (chainIdx >= 4) {
+      el.style.textShadow = '0 0 14px rgba(255,229,102,1.0), 0 0 28px rgba(255,229,102,0.60)'
+    }
+  }
   document.body.appendChild(el)
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
 
 // Shows "6 CHAIN ×9  +1,250" — length, multiplier, and bonus coins.
+// Size scales up for big chains: 5–9 = big, 10+ = epic.
 function spawnChainBonusLabel(chainLen, mult, bonus) {
   const el = document.createElement('div')
-  el.className   = 'coin-float chain-float'
+  const sizeClass = chainLen >= 10 ? ' chain-float--epic'
+                  : chainLen >= 5  ? ' chain-float--big'
+                  : ''
+  el.className   = 'coin-float chain-float' + sizeClass
   el.textContent = `${chainLen} CHAIN  ×${fmtMult(mult)}  +${fmtBonus(bonus)}`
   el.style.left  = `${Math.round(W / 2)}px`
   el.style.top   = `${Math.round(H * 0.40)}px`
