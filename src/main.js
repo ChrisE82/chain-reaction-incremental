@@ -1358,7 +1358,7 @@ function spawnChainBonusLabel(chainLen, mult, bonus) {
   el.className   = 'coin-float chain-float' + sizeClass
   el.textContent = `${chainLen} CHAIN  ×${fmtMult(mult)}  +${fmtBonus(bonus)}`
   el.style.left  = `${Math.round(W / 2)}px`
-  el.style.top   = `${Math.round(H * 0.40)}px`
+  el.style.top   = `${Math.round(H * 0.30)}px`
   document.body.appendChild(el)
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
@@ -1380,7 +1380,7 @@ function spawnClearLabel(bonus) {
   el.className   = 'coin-float clear-float'
   el.textContent = `CLEAR  ◆+${fmt(bonus)}`
   el.style.left  = `${Math.round(W / 2)}px`
-  el.style.top   = `${Math.round(H * 0.38)}px`
+  el.style.top   = `${Math.round(H * 0.57)}px`
   document.body.appendChild(el)
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
