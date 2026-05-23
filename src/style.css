@@ -325,6 +325,188 @@ canvas {
   flex-shrink: 0;
 }
 
+/* ─── Color-bucket shop UI ─────────────────────────────────── */
+
+/* Color tracker: 7 dots in a row showing the purchase cycle */
+.color-tracker {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.tracker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  opacity: 0.25;
+  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+  flex-shrink: 0;
+}
+
+.tracker-dot.owned { opacity: 0.65; }
+
+.tracker-dot.next {
+  opacity: 1;
+  transform: scale(1.55);
+  box-shadow: 0 0 7px currentColor;
+}
+
+/* Next-ball buy button */
+.next-ball-btn {
+  width: 100%;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(79, 255, 176, 0.055);
+  border: 1px solid rgba(79, 255, 176, 0.22);
+  border-radius: 8px;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.82rem, 2.7vmin, 1rem);
+  letter-spacing: 0.1em;
+  color: #4fffb0;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.next-ball-btn:active { background: rgba(79, 255, 176, 0.16); }
+
+.next-ball-btn:disabled {
+  cursor: default;
+  color: rgba(255, 130, 50, 0.85);
+  border-color: rgba(255, 130, 50, 0.18);
+  background: rgba(255, 130, 50, 0.03);
+}
+
+.next-ball-orb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.next-ball-cost {
+  margin-left: auto;
+  color: #ffe566;
+  font-size: clamp(0.78rem, 2.5vmin, 0.95rem);
+  flex-shrink: 0;
+}
+
+.next-ball-btn:disabled .next-ball-cost { color: rgba(255, 130, 50, 0.88); }
+
+/* Color card */
+.color-card { /* extends .upgrade-card — no extra rules needed beyond header */ }
+
+.color-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.color-orb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.color-card-name {
+  font-size: clamp(0.78rem, 2.5vmin, 0.92rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.color-balls-badge {
+  font-size: clamp(0.58rem, 1.8vmin, 0.68rem);
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* 2-column upgrade grid for 5 per-color upgrades */
+.upgrade-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+/* Compact upgrade button — icon + name + stat + level + cost stacked vertically */
+.upg-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 5px 6px;
+  background: rgba(66, 212, 255, 0.04);
+  border: 1px solid rgba(66, 212, 255, 0.14);
+  border-radius: 7px;
+  font-family: 'Orbitron', monospace;
+  cursor: pointer;
+  text-align: center;
+  min-height: 72px;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.upg-btn:not(:disabled) {
+  background: rgba(66, 212, 255, 0.09);
+  border-color: rgba(66, 212, 255, 0.30);
+  box-shadow: 0 0 6px rgba(66, 212, 255, 0.14);
+}
+
+.upg-btn:active { background: rgba(66, 212, 255, 0.18) !important; }
+
+.upg-btn:disabled {
+  cursor: default;
+  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.006);
+  box-shadow: none;
+}
+
+.upg-icon {
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.upg-name {
+  font-size: clamp(0.50rem, 1.65vmin, 0.62rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.80);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.upg-stat {
+  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.32);
+  white-space: nowrap;
+}
+
+.upg-level {
+  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
+  color: rgba(66, 212, 255, 0.70);
+  letter-spacing: 0.05em;
+}
+
+.upg-cost {
+  font-size: clamp(0.52rem, 1.7vmin, 0.66rem);
+  color: #ffe566;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+
+.upg-btn:disabled .upg-cost  { color: rgba(255, 130, 50, 0.88); }
+.upg-btn:disabled .upg-icon,
+.upg-btn:disabled .upg-name,
+.upg-btn:disabled .upg-stat,
+.upg-btn:disabled .upg-level { opacity: 0.35; }
+
 /* ─── Unlock slot button ───────────────────────────────────── */
 
 .unlock-slot-btn {
@@ -479,6 +661,28 @@ canvas {
   font-size: clamp(0.85rem, 2.8vmin, 1.1rem) !important;
   text-shadow: 0 0 12px rgba(79, 255, 176, 0.9) !important;
   letter-spacing: 0.08em;
+}
+
+/* ─── Chain bonus popup ────────────────────────────────────── */
+/* Format: "6 CHAIN ×9  +1,250"  — fires once per chain resolution. */
+/* Larger and more vivid than regular coin labels.                    */
+
+.chain-float {
+  color: #ff9f43 !important;
+  font-size: clamp(1.05rem, 3.8vmin, 1.5rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  text-shadow:
+    0 0 8px  rgba(255, 159, 67, 0.95),
+    0 0 24px rgba(255, 90,  20, 0.60) !important;
+  animation: chain-float-up 1.80s ease-out forwards !important;
+}
+
+@keyframes chain-float-up {
+  0%   { transform: translateX(-50%) translateY(0)     scale(0.70); opacity: 0; }
+  10%  { transform: translateX(-50%) translateY(-6px)  scale(1.10); opacity: 1; }
+  65%  { transform: translateX(-50%) translateY(-44px) scale(1.00); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-72px) scale(0.88); opacity: 0; }
 }
 
 /* ─── Board-clear bonus label ──────────────────────────────── */

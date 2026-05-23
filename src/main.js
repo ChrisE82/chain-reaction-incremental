@@ -1,15 +1,17 @@
-// main.js — Chain Reaction: Idle  (game loop, input, rendering)
+﻿// main.js — Chain Reaction: Idle  (game loop, input, rendering)
 
 import {
   getState, addCoins, recordChainEnd, recordKickstart,
-  tryUpgrade, tryUnlockSlot,
-  ballStats, ballUpgradeCost, slotCost,
+  tryPurchaseNextBall, tryPurchaseColorUpgrade,
+  getDerivedBallStats, statsFromBucket, colorUpgradeCost, nextBallCost,
+  COLOR_ORDER, COLOR_HEX, EconomyConfig,
   clickStats, tapUpgradeCost, tryUpgradeClick,
-  chainReward, chainEndBonus, EconomyConfig,
+  chainEndBonus, getChainMultiplier,
+  getNextPurchaseColor, getColorOrderProgress, getColorBucket,
   setAutoUpgrade,
   setIntroComplete, devResetIntro, setFirstBallCueShown,
   devAddCoins, devAddPrestige, devReset,
-  devFreeUpgrade, devFreeUpgradeClick, devFreeUnlockSlot,
+  devFreeColorUpgrade, devFreeUpgradeClick, devFreeUnlockNextBall,
 } from './store.js'
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────
@@ -105,15 +107,10 @@ let arenaW = VIRTUAL_W      // world width in virtual units  (updated every fram
 let arenaH = VIRTUAL_H      // world height in virtual units (updated every frame)
 
 // Expansion phase durations live on each ball object (growMs / holdMs / shrinkMs)
-// and are derived from GameConfig + upgrade level in ballStats(). No global
+// and are derived from GameConfig + upgrade level in getDerivedBallStats(). No global
 // EXPAND_DURATION / SHRINK_DURATION constants — those have been removed.
 const WIGGLE_FREQ = 0.016  // rad/ms
 const WIGGLE_DUR  = 380    // ms
-
-const BALL_COLORS = [
-  '#ff4f6a', '#ff8c42', '#ffe566', '#4fffb0',
-  '#42d4ff', '#a78bfa', '#f472b6', '#34ebc6',
-]
 
 // ─── Game state ───────────────────────────────────────────────────────────
 let balls       = []
@@ -132,7 +129,7 @@ let wasBoardActiveSinceLastKickstart = false
 // Per-cycle stats — reset to 0 after each clear fires.
 let cyclePlayerStarts       = 0   // valid player taps (not UI, not auto, not refill)
 let cycleTriggerOccurrences = 0   // every ball pop, including re-triggers after respawn
-let cycleBaseEarned         = 0   // coins from chainReward() only (no chain-end bonuses)
+let cycleBaseEarned         = 0   // coins from b.value only (no chain-end bonuses)
 
 // ─── Intro mode ───────────────────────────────────────────────────────────
 // Separate from real-game state. Intro balls, intro coins, and intro chains
@@ -180,25 +177,27 @@ function runAutoUpgrade(dt) {
   if (autoUpgradeTimer < AUTO_UPGRADE_INTERVAL) return
   autoUpgradeTimer = 0
 
-  // Find the cheapest affordable upgrade across all owned standard balls
-  let bestCost    = Infinity
-  let bestBallIdx = -1
-  let bestStat    = null
+  // Find the cheapest affordable upgrade across all color buckets that own balls
+  let bestCost  = Infinity
+  let bestColor = null
+  let bestType  = null
 
-  for (let i = 0; i < st.unlockedSlots; i++) {
-    const ball = st.balls[i]
-    for (const stat of ['speed', 'radius', 'duration']) {
-      const cost = ballUpgradeCost(stat, ball[stat + 'Level'], i)
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey]
+    if (!bkt || bkt.ballsOwned === 0) continue
+    for (const upgradeType of ['value', 'speed', 'diameter', 'duration', 'chainPower']) {
+      const level = bkt[upgradeType + 'Level'] ?? 0
+      const cost  = colorUpgradeCost(upgradeType, level)
       if (cost <= st.coins && cost < bestCost) {
-        bestCost    = cost
-        bestBallIdx = i
-        bestStat    = stat
+        bestCost  = cost
+        bestColor = colorKey
+        bestType  = upgradeType
       }
     }
   }
 
-  if (bestBallIdx >= 0 && tryUpgrade(bestBallIdx, bestStat)) {
-    syncBallStats(bestBallIdx)
+  if (bestColor && tryPurchaseColorUpgrade(bestColor, bestType)) {
+    syncColorBalls(bestColor)
     if (!shopPanel.classList.contains('hidden')) buildShop()
     updateHUD()
   }
@@ -232,10 +231,11 @@ const FB_TRAIL_MS = 2200
 function startChain() {
   wasBoardActiveSinceLastKickstart = true
   currentChain = {
-    id:        nextChainId++,
-    index:     0,       // number of balls triggered so far
-    coins:     0,       // coins earned this chain
-    triggered: new Set(),
+    id:           nextChainId++,
+    index:        0,       // number of balls triggered so far
+    coins:        0,       // per-pop coins earned this chain
+    chainContrib: 0,       // sum of (b.value * b.chainPowerMult) — base for chain bonus
+    triggered:    new Set(),
   }
 }
 
@@ -243,12 +243,16 @@ function endChain() {
   if (!currentChain) return
   // Intro: skip saving chain stats and tutorial hooks
   if (!introMode) {
-    const bonus = chainEndBonus(currentChain.index, currentChain.coins)
+    const chainLen   = currentChain.index
+    const chainCoins = currentChain.coins
+    const chainBase  = currentChain.chainContrib   // weighted sum for bonus calc
+    const mult       = getChainMultiplier(chainLen)
+    const bonus      = chainEndBonus(chainLen, chainBase)
     if (bonus > 0) {
       addCoins(bonus)
-      spawnChainBonusLabel(bonus)
+      spawnChainBonusLabel(chainLen, mult, bonus)
     }
-    recordChainEnd(currentChain.index, currentChain.coins + bonus)
+    recordChainEnd(chainLen, chainCoins + bonus)
   }
   currentChain = null
   if (!introMode) checkFirstBallCue()
@@ -342,11 +346,13 @@ function drawTapCircles() {
 const radiusGhosts     = []
 const RADIUS_GHOST_DUR = 750  // ms
 
-function spawnRadiusGhost(ballIdx, oldMaxR) {
-  const b = balls[ballIdx]
-  if (!b) return
-  const newMaxR = ballStats(getState().balls[ballIdx]).maxRadius
-  radiusGhosts.push({ x: b.x, y: b.y, oldR: oldMaxR, newR: newMaxR, timer: 0 })
+// Spawns diameter-change ghost on every ball of that color.
+function spawnRadiusGhost(colorKey, oldMaxR) {
+  const newMaxR = getDerivedBallStats(getState(), colorKey).maxRadius
+  for (const b of balls) {
+    if (b.colorKey === colorKey)
+      radiusGhosts.push({ x: b.x, y: b.y, oldR: oldMaxR, newR: newMaxR, timer: 0 })
+  }
 }
 
 function updateRadiusGhosts(dt) {
@@ -595,8 +601,8 @@ function lighten(hex) {
 }
 
 // ─── Ball factory ─────────────────────────────────────────────────────────
-function makeBall(storeData, idx) {
-  const stats = ballStats(storeData)
+function makeBall(colorKey) {
+  const stats = getDerivedBallStats(getState(), colorKey)
   const r     = BALL_RADIUS
   const angle = Math.random() * Math.PI * 2
   return {
@@ -606,7 +612,8 @@ function makeBall(storeData, idx) {
     y:        r + Math.random() * (arenaH - r * 2),
     vx:       Math.cos(angle) * stats.speed,
     vy:       Math.sin(angle) * stats.speed,
-    color:    BALL_COLORS[idx % BALL_COLORS.length],
+    color:    COLOR_HEX[colorKey],
+    colorKey,
     state:    'idle',
     expTimer:  0,
     curRadius: 0,
@@ -615,20 +622,22 @@ function makeBall(storeData, idx) {
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
     spawnInTimer: -1, spawnInDelay: 0,
-    storeIdx:     idx,
-    maxRadius:    stats.maxRadius,
-    growMs:       stats.growMs,
-    holdMs:       stats.holdMs,
-    shrinkMs:     stats.shrinkMs,
-    respawnMs:    stats.respawnMs,
-    respawnTimer: 0,
+    value:          stats.value,
+    chainPowerMult: stats.chainPowerMult,
+    maxRadius:      stats.maxRadius,
+    growMs:         stats.growMs,
+    holdMs:         stats.holdMs,
+    shrinkMs:       stats.shrinkMs,
+    respawnMs:      stats.respawnMs,
+    respawnTimer:   0,
   }
 }
 
 // ─── Intro ball factory ───────────────────────────────────────────────────
 function makeIntroBall(i) {
-  const r     = BALL_RADIUS
-  const angle = Math.random() * Math.PI * 2
+  const colorKey = COLOR_ORDER[i % COLOR_ORDER.length]
+  const r        = BALL_RADIUS
+  const angle    = Math.random() * Math.PI * 2
   return {
     id:          nextBallId++,
     spawnGen:    1,
@@ -636,7 +645,8 @@ function makeIntroBall(i) {
     y:           r + Math.random() * (arenaH - r * 2),
     vx:          Math.cos(angle) * INTRO_STATS.speed,
     vy:          Math.sin(angle) * INTRO_STATS.speed,
-    color:       BALL_COLORS[i % BALL_COLORS.length],
+    color:       COLOR_HEX[colorKey],
+    colorKey,
     state:       'idle',
     expTimer:    0,
     curRadius:   0,
@@ -645,7 +655,8 @@ function makeIntroBall(i) {
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
     spawnInTimer: -1, spawnInDelay: 0,
-    storeIdx:    0,
+    value:          EconomyConfig.baseCoinValue,
+    chainPowerMult: 1,
     maxRadius:   INTRO_STATS.maxRadius,
     growMs:      INTRO_STATS.growMs,
     holdMs:      INTRO_STATS.holdMs,
@@ -712,10 +723,11 @@ function triggerBall(b, src) {
   b.flash = 1.0
 
   const chainIndex = currentChain ? currentChain.index : 0
-  const coins = chainReward()
+  const coins = b.value
   if (currentChain) {
     currentChain.index++
-    currentChain.coins += coins
+    currentChain.coins        += coins
+    currentChain.chainContrib += b.value * b.chainPowerMult
     // Intro: flag ready-to-complete once any chain reaches length 5
     if (introMode && !introReadyToComplete && currentChain.index >= 5) {
       introReadyToComplete = true
@@ -757,30 +769,32 @@ function triggerAtPoint(vx, vy) {
 }
 
 // ─── Sync live ball stats after upgrade ───────────────────────────────────
-function syncBallStats(ballIdx) {
-  const b = balls[ballIdx]
-  if (!b) return
-  const stats = ballStats(getState().balls[ballIdx])
-  b.maxRadius = stats.maxRadius
-  b.growMs    = stats.growMs
-  b.holdMs    = stats.holdMs
-  b.shrinkMs  = stats.shrinkMs
-  b.respawnMs = stats.respawnMs
-  const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy)
-  if (spd > 0) {
-    const ratio = stats.speed / spd
-    b.vx *= ratio; b.vy *= ratio
-  } else {
-    const a = Math.random() * Math.PI * 2
-    b.vx = Math.cos(a) * stats.speed
-    b.vy = Math.sin(a) * stats.speed
+// Updates all balls of a given color from their bucket (used after any upgrade).
+function syncColorBalls(colorKey) {
+  const stats = getDerivedBallStats(getState(), colorKey)
+  for (const b of balls) {
+    if (b.colorKey !== colorKey) continue
+    b.maxRadius     = stats.maxRadius
+    b.growMs        = stats.growMs
+    b.holdMs        = stats.holdMs
+    b.shrinkMs      = stats.shrinkMs
+    b.respawnMs     = stats.respawnMs
+    b.value         = stats.value
+    b.chainPowerMult = stats.chainPowerMult
+    const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy)
+    if (spd > 0) {
+      const ratio = stats.speed / spd
+      b.vx *= ratio; b.vy *= ratio
+    } else {
+      const a = Math.random() * Math.PI * 2
+      b.vx = Math.cos(a) * stats.speed
+      b.vy = Math.sin(a) * stats.speed
+    }
   }
 }
 
-function addBall() {
-  const st  = getState()
-  const idx = balls.length
-  balls.push(makeBall(st.balls[idx], idx))
+function addBallForColor(colorKey) {
+  balls.push(makeBall(colorKey))
 }
 
 // ─── Main loop ────────────────────────────────────────────────────────────
@@ -790,7 +804,7 @@ function loop(ts) {
 
   // Lerp arena scale toward target (ball-count driven; intro uses INTRO_BALL_COUNT).
   {
-    const target = getArenaScale(introMode ? INTRO_BALL_COUNT : getState().unlockedSlots)
+    const target = getArenaScale(introMode ? INTRO_BALL_COUNT : getState().totalBallsPurchased)
     currentArenaScale += (target - currentArenaScale) * Math.min(1, dt * 0.004)
     if (introTweening && Math.abs(currentArenaScale - target) < 0.008) introTweening = false
   }
@@ -915,15 +929,17 @@ function refillAllOwnedBalls() {
   })
 
   sorted.forEach((b, i) => {
-    const stats = ballStats(st.balls[b.storeIdx])
+    const stats = b.isIntro ? INTRO_STATS : getDerivedBallStats(st, b.colorKey)
     const angle = Math.random() * Math.PI * 2
     b.x = r + Math.random() * (arenaW - r * 2)
     b.y = r + Math.random() * (arenaH - r * 2)
     b.vx = Math.cos(angle) * stats.speed
     b.vy = Math.sin(angle) * stats.speed
-    b.maxRadius    = stats.maxRadius
-    b.holdMs       = stats.holdMs
-    b.respawnMs    = stats.respawnMs
+    b.maxRadius     = stats.maxRadius
+    b.holdMs        = stats.holdMs
+    b.respawnMs     = stats.respawnMs
+    b.value         = stats.value         ?? b.value
+    b.chainPowerMult = stats.chainPowerMult ?? b.chainPowerMult
     b.respawnTimer = 0
     b.curRadius    = 0
     b.sqx = 1; b.sqy = 1
@@ -962,15 +978,17 @@ function update(dt) {
     if (b.state === 'respawning') {
       b.respawnTimer -= dt
       if (b.respawnTimer <= 0) {
-        const stats = b.isIntro ? INTRO_STATS : ballStats(getState().balls[b.storeIdx])
+        const stats = b.isIntro ? INTRO_STATS : getDerivedBallStats(getState(), b.colorKey)
         const angle = Math.random() * Math.PI * 2
         b.x  = r + Math.random() * (arenaW - r * 2)
         b.y  = r + Math.random() * (arenaH - r * 2)
         b.vx = Math.cos(angle) * stats.speed
         b.vy = Math.sin(angle) * stats.speed
-        b.maxRadius = stats.maxRadius
-        b.holdMs    = stats.holdMs
-        b.respawnMs = stats.respawnMs
+        b.maxRadius     = stats.maxRadius
+        b.holdMs        = stats.holdMs
+        b.respawnMs     = stats.respawnMs
+        b.value         = stats.value         ?? b.value
+        b.chainPowerMult = stats.chainPowerMult ?? b.chainPowerMult
         b.sqx = 1; b.sqy = 1
         b.spawnGen++        // new spawn generation — can be caught again in active chain
         b.state = 'idle'
@@ -1196,14 +1214,30 @@ function fmt(n) {
   return Math.floor(n).toString()
 }
 
+// Formats a chain multiplier for display ("0", "0.5", "1.25", "9", "52").
+function fmtMult(m) {
+  if (m === 0) return '0'
+  if (Number.isInteger(m)) return m.toString()
+  return m % 1 === 0.5 || m < 2 ? m.toFixed(2).replace(/\.?0+$/, '') : m.toFixed(1).replace(/\.?0+$/, '')
+}
+
+// Formats a bonus amount with commas for values under 10 000, then falls back to fmt.
+// "1250" → "1,250"   "12500" → "12.5K"
+function fmtBonus(n) {
+  n = Math.floor(n)
+  if (n >= 10000) return fmt(n)
+  if (n >= 1000)  return Math.floor(n / 1000) + ',' + String(n % 1000).padStart(3, '0')
+  return n.toString()
+}
+
 function updateHUD() {
   const st = getState()
   // During intro show temporary visual coins (discarded on completion)
   hudCoins.textContent = fmt(introMode ? introCoins : st.coins)
 
   const chainIndex = currentChain ? currentChain.index : 0
-  const mult = Math.pow(EconomyConfig.chainMultiplier, chainIndex)
-  hudChain.textContent = '×' + mult.toFixed(2)
+  const mult = getChainMultiplier(chainIndex)
+  hudChain.textContent = '×' + fmtMult(mult)
 
   if (!introMode) updateQuickBuy()
   if (debugVisible) updateDebug(st)
@@ -1215,7 +1249,7 @@ function updateDebug(st) {
   const chainIndex = currentChain ? currentChain.index : 0
   debugOverlay.innerHTML =
     `<b>── DEBUG ──</b><br>` +
-    `Balls: ${active} active / ${balls.length} total  |  Expanding: ${expanding}<br>` +
+    `Balls: ${active} active / ${balls.length} total (${st.totalBallsPurchased} purchased)  |  Expanding: ${expanding}<br>` +
     `Chain now: ${chainIndex} balls<br>` +
     `Last chain: ${st.stats.lastChainLength} balls / ◆${fmt(st.stats.lastChainCoins)}<br>` +
     `Best chain: ${st.stats.bestChainLength} balls<br>` +
@@ -1241,12 +1275,13 @@ function spawnCoinLabel(vx, vy, coins) {
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
 
-function spawnChainBonusLabel(bonus) {
+// Shows "6 CHAIN ×9  +1,250" — length, multiplier, and bonus coins.
+function spawnChainBonusLabel(chainLen, mult, bonus) {
   const el = document.createElement('div')
-  el.className   = 'coin-float kickstart-float'
-  el.textContent = `CHAIN BONUS +${fmt(bonus)}`
+  el.className   = 'coin-float chain-float'
+  el.textContent = `${chainLen} CHAIN  ×${fmtMult(mult)}  +${fmtBonus(bonus)}`
   el.style.left  = `${Math.round(W / 2)}px`
-  el.style.top   = `${Math.round(H * 0.42)}px`
+  el.style.top   = `${Math.round(H * 0.40)}px`
   document.body.appendChild(el)
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
@@ -1513,7 +1548,7 @@ function drawIntroTransition() {
       // Sub-phase D: the real ball grows in at the centre
       const phase = (t - T_BURST) / (1 - T_BURST)
       const eased = 1 - Math.pow(1 - phase, 2)   // ease-out
-      const color = BALL_COLORS[0]
+      const color = COLOR_HEX.violet
       const ballR = BALL_RADIUS * eased
 
       if (ballR > 0) {
@@ -1558,17 +1593,21 @@ function finishIntro() {
   // Compute the target arena dims so the first ball is placed at the destination
   // centre (safely inside bounds as the world shrinks around it).
   const st = getState()
-  const targetScale  = getArenaScale(st.unlockedSlots)
+  const targetScale  = getArenaScale(st.totalBallsPurchased)
   const targetArenaW = VIRTUAL_W * targetScale
   const targetArenaH = gamePlayH * targetScale
 
   // Rebuild the playfield. Place the first ball at the target centre so it
   // appears to emerge from the spiral and stays in bounds during the tween.
   balls = []
-  for (let i = 0; i < st.unlockedSlots; i++) {
-    const b = makeBall(st.balls[i], i)
-    if (i === 0) { b.x = targetArenaW / 2; b.y = targetArenaH / 2 }
-    balls.push(b)
+  let isFirstBall = true
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey]
+    for (let i = 0; i < (bkt?.ballsOwned ?? 0); i++) {
+      const b = makeBall(colorKey)
+      if (isFirstBall) { b.x = targetArenaW / 2; b.y = targetArenaH / 2; isFirstBall = false }
+      balls.push(b)
+    }
   }
   currentChain = null
   wasBoardActiveSinceLastKickstart = false
@@ -1586,7 +1625,7 @@ function checkFirstBallCue() {
   if (!shopPanel.classList.contains('hidden')) return  // don't fire while store is open
   const st = getState()
   if (st.firstBallCueShown) return
-  if (st.unlockedSlots !== 1) return         // only for the very first extra ball
+  if (st.totalBallsPurchased !== 1) return   // only for the very first extra ball
   if (st.coins < 100) return                  // full animation fires only at 100+ coins
   fbCueState = 'waiting'
   fbCueTimer = 0
@@ -1831,91 +1870,92 @@ function drawFirstBallCue() {
 
 // ─── Quick-buy helpers ────────────────────────────────────────────────────
 
-const QB_STAT_LABEL  = { speed: 'Speed', radius: 'Radius', duration: 'Duration' }
+const COLOR_SHORT = {
+  violet: 'Vlt', indigo: 'Ind', blue: 'Blu',
+  green: 'Grn', yellow: 'Ylw', orange: 'Org', red: 'Red',
+}
+
+const UPGRADE_TYPE_LABEL = {
+  value: 'Value', speed: 'Speed', diameter: 'Size',
+  duration: 'Hold', chainPower: 'Chain',
+}
+
 // Reason label shown on the Suggested button.
-// "Big gain" fires when the marginal improvement is ≥20%; otherwise stat-specific.
-function sugReason(stat, marginalGain) {
+function sugReason(upgradeType, marginalGain) {
   if (marginalGain >= 0.20) return 'Big gain'
-  return { duration: 'Longer chain', speed: 'Reach more',
-           radius: 'Wider catch' }[stat] ?? 'Upgrade'
+  return {
+    value:      'More coins',
+    speed:      'Reach more',
+    diameter:   'Wider catch',
+    duration:   'Longer chain',
+    chainPower: 'Bigger bonus',
+  }[upgradeType] ?? 'Upgrade'
 }
 
 // Track last displayed target so we can flash the text when it changes
 let prevCheapKey   = ''
 let prevSuggestKey = ''
 
-// Returns { ballIdx, stat, cost } for the single cheapest ball upgrade,
-// or null if there are no ball slots.
-function findCheapestUpgrade(st) {
+// Returns { color, upgradeType, cost } for the cheapest upgrade across all
+// color buckets that own at least one ball.
+function findCheapestColorUpgrade(st) {
   let best = null
-  for (let i = 0; i < st.unlockedSlots; i++) {
-    const ball = st.balls[i]
-    for (const stat of ['speed', 'radius', 'duration']) {
-      const cost = ballUpgradeCost(stat, ball[stat + 'Level'], i)
-      if (!best || cost < best.cost) best = { ballIdx: i, stat, cost }
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey]
+    if (!bkt || bkt.ballsOwned === 0) continue
+    for (const upgradeType of ['value', 'speed', 'diameter', 'duration', 'chainPower']) {
+      const level = bkt[upgradeType + 'Level'] ?? 0
+      const cost  = colorUpgradeCost(upgradeType, level)
+      if (!best || cost < best.cost) best = { color: colorKey, upgradeType, cost }
     }
   }
   return best
 }
 
 // ── Suggested upgrade scoring ─────────────────────────────────────────────
-// score = statWeight * marginalGainPercent / cost^0.65
-// where marginalGainPercent = (nextValue − currentValue) / currentValue
-//
-// Using actual next-level deltas means early big-gain upgrades score high
-// naturally, and any stat with diminishing returns falls in priority on its
-// own — no fixed target levels needed.
+// score = typeWeight * marginalGain / cost^0.65
 
-const SUG_STAT_WEIGHT = { duration: 1.15, speed: 1.10, radius: 1.00 }
-const SUG_TIE_ORDER   = ['duration', 'speed', 'radius']
+const UPGRADE_TYPE_WEIGHT = { value: 1.20, chainPower: 1.15, duration: 1.10, speed: 1.05, diameter: 1.00 }
+const UPGRADE_TYPE_ORDER  = ['value', 'chainPower', 'duration', 'speed', 'diameter']
 
-// Scalar value used to measure one upgrade's marginal improvement.
-function getStatValue(stat, ball) {
-  const s = ballStats(ball)
-  switch (stat) {
-    case 'speed':    return s.speed
-    case 'radius':   return s.maxRadius
-    case 'duration': return s.growMs + s.holdMs   // full active window
+function getUpgradeStatValue(upgradeType, bkt) {
+  const stats = statsFromBucket(bkt)
+  switch (upgradeType) {
+    case 'value':      return stats.value
+    case 'speed':      return stats.speed
+    case 'diameter':   return stats.maxRadius
+    case 'duration':   return stats.growMs + stats.holdMs
+    case 'chainPower': return stats.chainPowerMult
+    default:           return 1
   }
 }
 
-function sugIsBetter(a, b) {
-  if (Math.abs(a.score - b.score) > 1e-9) return a.score > b.score
-  // Tie-break: prefer the larger raw gain, then cheaper, then stat order
-  if (Math.abs(a.marginalGain - b.marginalGain) > 1e-9) return a.marginalGain > b.marginalGain
-  if (a.cost !== b.cost) return a.cost < b.cost
-  return SUG_TIE_ORDER.indexOf(a.stat) < SUG_TIE_ORDER.indexOf(b.stat)
-}
-
-// Returns { ballIdx, stat, cost, score, marginalGain } for the best upgrade.
-// Falls back to the best-scoring upgrade overall (button disabled) when broke.
-function findSuggestedUpgrade(st) {
-  const ownedCount   = st.unlockedSlots
+// Returns { color, upgradeType, cost, score, marginalGain } for the best upgrade.
+// Falls back to best-scoring overall (button disabled) when broke.
+function findSuggestedColorUpgrade(st) {
   let bestAffordable = null
   let bestAny        = null
 
-  for (let i = 0; i < ownedCount; i++) {
-    const ball = st.balls[i]
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey]
+    if (!bkt || bkt.ballsOwned === 0) continue
 
-    for (const stat of SUG_TIE_ORDER) {
-      const level    = ball[stat + 'Level']
-      const cost     = ballUpgradeCost(stat, level, i)
-      const curVal   = getStatValue(stat, ball)
-      const nextBall = { ...ball, [stat + 'Level']: level + 1 }
-      const nextVal  = getStatValue(stat, nextBall)
-
+    for (const upgradeType of UPGRADE_TYPE_ORDER) {
+      const level    = bkt[upgradeType + 'Level'] ?? 0
+      const cost     = colorUpgradeCost(upgradeType, level)
+      const curVal   = getUpgradeStatValue(upgradeType, bkt)
+      const nextBkt  = { ...bkt, [upgradeType + 'Level']: level + 1 }
+      const nextVal  = getUpgradeStatValue(upgradeType, nextBkt)
       if (curVal <= 0) continue
       const marginalGain = (nextVal - curVal) / curVal
-      const score        = SUG_STAT_WEIGHT[stat] * marginalGain / Math.pow(cost, 0.65)
-      const cand         = { ballIdx: i, stat, cost, score, marginalGain }
-
+      const score        = UPGRADE_TYPE_WEIGHT[upgradeType] * marginalGain / Math.pow(cost, 0.65)
+      const cand         = { color: colorKey, upgradeType, cost, score, marginalGain }
       if (cost <= st.coins) {
-        if (!bestAffordable || sugIsBetter(cand, bestAffordable)) bestAffordable = cand
+        if (!bestAffordable || score > bestAffordable.score) bestAffordable = cand
       }
-      if (!bestAny || sugIsBetter(cand, bestAny)) bestAny = cand
+      if (!bestAny || score > bestAny.score) bestAny = cand
     }
   }
-
   return bestAffordable ?? bestAny
 }
 
@@ -1934,28 +1974,29 @@ function spawnQbToast(text) {
 // Refreshes labels, costs, and disabled states on the quick-buy bar.
 // Called from updateHUD() every frame — only updates text/disabled, no DOM rebuild.
 function updateQuickBuy() {
-  const st = getState()
+  const st        = getState()
+  const nextColor = getNextPurchaseColor(st)
+  const ballCost  = nextBallCost(st)
+  const colorName = nextColor.charAt(0).toUpperCase() + nextColor.slice(1)
 
   // ── + Ball ──
-  const ballCost = slotCost(st.unlockedSlots)
+  qbBallBtn.querySelector('.qb-btn-top').textContent = `+ ${colorName.toUpperCase()}`
   qbBallCostEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(ballCost)}`
   qbBallBtn.disabled = !devFreeUpgradesEnabled && st.coins < ballCost
-  // Glow as soon as Ball 2 is affordable; the full canvas cue fires separately at 100 coins.
-  // cancelFirstBallCue() removes the class (and sets firstBallCueShown) on purchase.
   qbBallBtn.classList.toggle('qb-btn-cue-pulse',
-    st.unlockedSlots === 1 && st.coins >= ballCost && !st.firstBallCueShown)
+    st.totalBallsPurchased === 1 && st.coins >= ballCost && !st.firstBallCueShown)
 
-  // ── Lowest Cost upgrade ──
-  const cheap = findCheapestUpgrade(st)
+  // ── Cheapest upgrade ──
+  const cheap = findCheapestColorUpgrade(st)
   if (cheap) {
-    const cheapKey = `${cheap.ballIdx}-${cheap.stat}`
+    const cheapKey = `${cheap.color}-${cheap.upgradeType}`
     if (cheapKey !== prevCheapKey && prevCheapKey !== '') {
       qbCheapTarget.classList.remove('qb-target-changed')
-      void qbCheapTarget.offsetWidth   // force reflow so animation restarts
+      void qbCheapTarget.offsetWidth
       qbCheapTarget.classList.add('qb-target-changed')
     }
     prevCheapKey              = cheapKey
-    qbCheapTarget.textContent = `B${cheap.ballIdx + 1} ${QB_STAT_LABEL[cheap.stat]}`
+    qbCheapTarget.textContent = `${COLOR_SHORT[cheap.color]} ${UPGRADE_TYPE_LABEL[cheap.upgradeType]}`
     qbCheapCost.textContent   = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cheap.cost)}`
     qbCheapBtn.disabled       = !devFreeUpgradesEnabled && st.coins < cheap.cost
   } else {
@@ -1965,10 +2006,10 @@ function updateQuickBuy() {
     qbCheapBtn.disabled       = !devFreeUpgradesEnabled
   }
 
-  // ── Best Next upgrade ──
-  const sug = findSuggestedUpgrade(st)
+  // ── Suggested upgrade ──
+  const sug = findSuggestedColorUpgrade(st)
   if (sug) {
-    const sugKey     = `${sug.ballIdx}-${sug.stat}`
+    const sugKey     = `${sug.color}-${sug.upgradeType}`
     const affordable = devFreeUpgradesEnabled || st.coins >= sug.cost
     if (sugKey !== prevSuggestKey && prevSuggestKey !== '') {
       qbSuggestTarget.classList.remove('qb-target-changed')
@@ -1976,11 +2017,11 @@ function updateQuickBuy() {
       qbSuggestTarget.classList.add('qb-target-changed')
     }
     prevSuggestKey              = sugKey
-    qbSuggestTarget.textContent = `B${sug.ballIdx + 1} ${QB_STAT_LABEL[sug.stat]}`
+    qbSuggestTarget.textContent = `${COLOR_SHORT[sug.color]} ${UPGRADE_TYPE_LABEL[sug.upgradeType]}`
     qbSuggestReason.textContent = devFreeUpgradesEnabled
-      ? `${sugReason(sug.stat, sug.marginalGain)} · FREE`
+      ? `${sugReason(sug.upgradeType, sug.marginalGain)} · FREE`
       : affordable
-        ? `${sugReason(sug.stat, sug.marginalGain)} · ◆${fmt(sug.cost)}`
+        ? `${sugReason(sug.upgradeType, sug.marginalGain)} · ◆${fmt(sug.cost)}`
         : `Need ◆${fmt(sug.cost)}`
     qbSuggestBtn.disabled = !affordable
   } else {
@@ -1995,57 +2036,15 @@ function updateQuickBuy() {
 }
 
 // ─── Shop UI ──────────────────────────────────────────────────────────────
-const BALL_UPGRADE_DEFS = [
-  {
-    stat: 'speed',
-    label: 'Speed',
-    icon: '▶',
-    statLabel: (ball) => {
-      const s = ballStats(ball)
-      return `${s.speed.toFixed(3)} u/t`
-    },
-  },
-  {
-    stat: 'radius',
-    label: 'Radius',
-    icon: '◉',
-    statLabel: (ball) => {
-      const s = ballStats(ball)
-      return `${s.maxRadius.toFixed(1)} u`
-    },
-  },
-  {
-    stat: 'duration',
-    label: 'Duration',
-    icon: '⏱',
-    statLabel: (ball) => {
-      const s = ballStats(ball)
-      // Show active window = grow + hold (the window that can trigger neighbours)
-      return `${((s.growMs + s.holdMs) / 1000).toFixed(2)}s`
-    },
-  },
-]
-
-const TAP_UPGRADE_DEFS = [
-  {
-    stat: 'radius',
-    label: 'Tap Radius',
-    icon: '✦',
-    statLabel: (cl) => `${clickStats(cl).tapRadius.toFixed(1)} u`,
-  },
-]
-
 function makeUpgradeBtn(icon, label, level, statText, costText, canAfford, onClick) {
   const btn = document.createElement('button')
   btn.className = 'upgrade-btn'
   btn.disabled  = !canAfford
 
-  // Left: icon box
   const iconEl = document.createElement('span')
   iconEl.className   = 'upgrade-btn-icon'
   iconEl.textContent = icon
 
-  // Middle: name + level badge + stat
   const infoEl = document.createElement('div')
   infoEl.className = 'upgrade-btn-info'
 
@@ -2070,7 +2069,6 @@ function makeUpgradeBtn(icon, label, level, statText, costText, canAfford, onCli
   infoEl.appendChild(nameRow)
   infoEl.appendChild(statEl)
 
-  // Right: cost
   const costEl = document.createElement('span')
   costEl.className   = 'upgrade-btn-cost'
   costEl.textContent = costText
@@ -2081,9 +2079,6 @@ function makeUpgradeBtn(icon, label, level, statText, costText, canAfford, onCli
   btn.addEventListener('click', onClick)
   return btn
 }
-
-// Circled number icons for up to 8 balls; fallback to plain number after that.
-const BALL_SECTION_ICONS = ['①','②','③','④','⑤','⑥','⑦','⑧']
 
 function makeSectionTitle(icon, text) {
   const wrap = document.createElement('div')
@@ -2106,91 +2101,193 @@ function makeSectionTitle(icon, text) {
   return wrap
 }
 
+// Per-type icon, label, and stat display for compact upgrade buttons.
+const UPGRADE_TYPE_DEFS = [
+  { type: 'value',      icon: '◆', label: 'Value',  statFn: bkt => `◆${statsFromBucket(bkt).value}/pop` },
+  { type: 'speed',      icon: '▶', label: 'Speed',  statFn: bkt => `${statsFromBucket(bkt).speed.toFixed(3)}` },
+  { type: 'diameter',   icon: '◎', label: 'Size',   statFn: bkt => `${statsFromBucket(bkt).maxRadius.toFixed(1)}u` },
+  { type: 'duration',   icon: '⏱', label: 'Hold',   statFn: bkt => `${((statsFromBucket(bkt).growMs + statsFromBucket(bkt).holdMs)/1000).toFixed(2)}s` },
+  { type: 'chainPower', icon: '✦', label: 'Chain',  statFn: bkt => `\xd7${statsFromBucket(bkt).chainPowerMult.toFixed(2)}` },
+]
+
 function buildShop() {
   shopBody.innerHTML = ''
-  const st = getState()
+  const st       = getState()
+  const progress = getColorOrderProgress(st)
 
-  // ── Clicks card ──────────────────────────────────────────────
+  // -- Next ball section ---------------------------------------------------
+  {
+    const section = document.createElement('div')
+    section.className = 'upgrade-card'
+
+    // Color cycle tracker: 7 dots
+    const tracker = document.createElement('div')
+    tracker.className = 'color-tracker'
+    for (let i = 0; i < COLOR_ORDER.length; i++) {
+      const ck  = COLOR_ORDER[i]
+      const dot = document.createElement('div')
+      dot.className  = 'tracker-dot'
+      dot.style.background = COLOR_HEX[ck]
+      if (i < progress.position)   dot.classList.add('owned')
+      if (i === progress.position) dot.classList.add('next')
+      tracker.appendChild(dot)
+    }
+    section.appendChild(tracker)
+
+    const nextColor  = COLOR_ORDER[progress.position]
+    const ballCost   = nextBallCost(st)
+    const colorLabel = nextColor.charAt(0).toUpperCase() + nextColor.slice(1)
+
+    const buyBtn = document.createElement('button')
+    buyBtn.className = 'next-ball-btn'
+    buyBtn.disabled  = !devFreeUpgradesEnabled && st.coins < ballCost
+
+    const orbEl = document.createElement('span')
+    orbEl.className        = 'next-ball-orb'
+    orbEl.style.background = COLOR_HEX[nextColor]
+    orbEl.style.boxShadow  = `0 0 8px ${COLOR_HEX[nextColor]}`
+
+    const nameSpan = document.createElement('span')
+    nameSpan.style.flex    = '1'
+    nameSpan.textContent   = `Unlock ${colorLabel} Ball`
+
+    const costSpan = document.createElement('span')
+    costSpan.className     = 'next-ball-cost'
+    costSpan.textContent   = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(ballCost)}`
+
+    buyBtn.appendChild(orbEl)
+    buyBtn.appendChild(nameSpan)
+    buyBtn.appendChild(costSpan)
+    buyBtn.addEventListener('click', () => {
+      const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
+      if (colorKey) {
+        addBallForColor(colorKey)
+        cancelFirstBallCue()
+        buildShop(); updateHUD()
+        const n = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
+        spawnQbToast(`${n} ball unlocked!`)
+      }
+    })
+    section.appendChild(buyBtn)
+    shopBody.appendChild(section)
+  }
+
+  // -- Color cards (one per owned color) -----------------------------------
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey]
+    if (!bkt || bkt.ballsOwned === 0) continue
+
+    const card = document.createElement('div')
+    card.className = 'upgrade-card color-card'
+
+    const header = document.createElement('div')
+    header.className = 'color-card-header'
+
+    const orb = document.createElement('div')
+    orb.className        = 'color-orb'
+    orb.style.background = COLOR_HEX[colorKey]
+    orb.style.boxShadow  = `0 0 8px ${COLOR_HEX[colorKey]}`
+
+    const nameEl = document.createElement('span')
+    nameEl.className   = 'color-card-name'
+    nameEl.textContent = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
+    nameEl.style.color = COLOR_HEX[colorKey]
+
+    const badge = document.createElement('span')
+    badge.className   = 'color-balls-badge'
+    badge.textContent = `${bkt.ballsOwned} ball${bkt.ballsOwned !== 1 ? 's' : ''}`
+
+    header.appendChild(orb)
+    header.appendChild(nameEl)
+    header.appendChild(badge)
+    card.appendChild(header)
+
+    const grid = document.createElement('div')
+    grid.className = 'upgrade-grid-2'
+
+    for (const { type, icon, label, statFn } of UPGRADE_TYPE_DEFS) {
+      const level     = bkt[type + 'Level'] ?? 0
+      const cost      = colorUpgradeCost(type, level)
+      const canAfford = devFreeUpgradesEnabled || st.coins >= cost
+
+      const btn = document.createElement('button')
+      btn.className = 'upg-btn'
+      btn.disabled  = !canAfford
+
+      const iconEl  = document.createElement('span')
+      iconEl.className   = 'upg-icon'
+      iconEl.textContent = icon
+
+      const labelEl = document.createElement('span')
+      labelEl.className   = 'upg-name'
+      labelEl.textContent = label
+
+      const statEl  = document.createElement('span')
+      statEl.className   = 'upg-stat'
+      statEl.textContent = statFn(bkt)
+
+      const lvlEl   = document.createElement('span')
+      lvlEl.className   = 'upg-level'
+      lvlEl.textContent = `Lv ${level}`
+
+      const costEl  = document.createElement('span')
+      costEl.className   = 'upg-cost'
+      costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+
+      btn.appendChild(iconEl)
+      btn.appendChild(labelEl)
+      btn.appendChild(statEl)
+      btn.appendChild(lvlEl)
+      btn.appendChild(costEl)
+
+      btn.addEventListener('click', () => {
+        const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
+        const ok   = devFreeUpgradesEnabled
+          ? devFreeColorUpgrade(colorKey, type)
+          : tryPurchaseColorUpgrade(colorKey, type)
+        if (ok) {
+          syncColorBalls(colorKey)
+          if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
+          buildShop(); updateHUD()
+        }
+      })
+
+      grid.appendChild(btn)
+    }
+
+    card.appendChild(grid)
+    shopBody.appendChild(card)
+  }
+
+  // -- Tap upgrade card ----------------------------------------------------
   {
     const card = document.createElement('div')
     card.className = 'upgrade-card'
-    card.appendChild(makeSectionTitle('✋', 'Clicks'))
-
-    const grid = document.createElement('div')
-    grid.className = 'upgrade-btns'
-    for (const { stat, label, icon, statLabel } of TAP_UPGRADE_DEFS) {
-      const level    = st.clicks[stat + 'Level']
-      const cost     = tapUpgradeCost(stat, level)
-      const costText = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
-      const canAfford = devFreeUpgradesEnabled || st.coins >= cost
-      grid.appendChild(makeUpgradeBtn(
-        icon,
-        label,
-        level,
-        statLabel(st.clicks),
-        costText,
-        canAfford,
-        () => {
-          const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
-          if (ok) { buildShop(); updateHUD() }
-        }
-      ))
-    }
-    card.appendChild(grid)
-    shopBody.appendChild(card)
-  }
-
-  // ── Ball cards ───────────────────────────────────────────────
-  for (let i = 0; i < st.unlockedSlots; i++) {
-    const ball = st.balls[i]
-    const card = document.createElement('div')
-    card.className = 'upgrade-card'
-
-    card.appendChild(makeSectionTitle(BALL_SECTION_ICONS[i] ?? String(i + 1), `Ball ${i + 1}`))
+    card.appendChild(makeSectionTitle('✦', 'Tap'))
 
     const grid = document.createElement('div')
     grid.className = 'upgrade-btns'
 
-    for (const { stat, label, icon, statLabel } of BALL_UPGRADE_DEFS) {
-      const level     = ball[stat + 'Level']
-      const cost      = ballUpgradeCost(stat, level, i)   // pass ball index for per-ball multiplier
-      const costText  = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
-      const canAfford = devFreeUpgradesEnabled || st.coins >= cost
-      grid.appendChild(makeUpgradeBtn(
-        icon,
-        label,
-        level,
-        statLabel(ball),
-        costText,
-        canAfford,
-        () => {
-          const oldR = stat === 'radius' ? ballStats(getState().balls[i]).maxRadius : 0
-          const ok = devFreeUpgradesEnabled ? devFreeUpgrade(i, stat) : tryUpgrade(i, stat)
-          if (ok) {
-            syncBallStats(i)
-            if (stat === 'radius') spawnRadiusGhost(i, oldR)
-            buildShop(); updateHUD()
-          }
-        }
-      ))
-    }
+    const level     = st.clicks.radiusLevel
+    const cost      = tapUpgradeCost('radius', level)
+    const costText  = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+    const canAfford = devFreeUpgradesEnabled || st.coins >= cost
+    grid.appendChild(makeUpgradeBtn(
+      '✦',
+      'Tap Radius',
+      level,
+      `${clickStats(st.clicks).tapRadius.toFixed(1)} u`,
+      costText,
+      canAfford,
+      () => {
+        const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick('radius') : tryUpgradeClick('radius')
+        if (ok) { buildShop(); updateHUD() }
+      }
+    ))
+
     card.appendChild(grid)
     shopBody.appendChild(card)
   }
-
-  // ── Unlock next ball ─────────────────────────────────────────
-  const n         = st.unlockedSlots
-  const cost      = slotCost(n)
-  const costLabel = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
-  const unlockBtn = document.createElement('button')
-  unlockBtn.className   = 'unlock-slot-btn'
-  unlockBtn.disabled    = !devFreeUpgradesEnabled && st.coins < cost
-  unlockBtn.textContent = `Unlock Ball ${n + 1}  ${costLabel}`
-  unlockBtn.addEventListener('click', () => {
-    const ok = devFreeUpgradesEnabled ? devFreeUnlockSlot() : tryUnlockSlot()
-    if (ok) { addBall(); buildShop(); updateHUD() }
-  })
-  shopBody.appendChild(unlockBtn)
 }
 
 // ─── Input ────────────────────────────────────────────────────────────────
@@ -2237,43 +2334,48 @@ qbBar.addEventListener('pointerdown', e => e.stopPropagation())
 
 qbBallBtn.addEventListener('click', e => {
   e.stopPropagation()
-  const ok = devFreeUpgradesEnabled ? devFreeUnlockSlot() : tryUnlockSlot()
-  if (ok) {
-    addBall()
+  const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
+  if (colorKey) {
+    addBallForColor(colorKey)
     cancelFirstBallCue()
     updateHUD()
     if (!shopPanel.classList.contains('hidden')) buildShop()
-    spawnQbToast(`Ball ${getState().unlockedSlots} Unlocked!`)
+    const n = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
+    spawnQbToast(`${n} ball unlocked!`)
   }
 })
 
 qbCheapBtn.addEventListener('click', e => {
   e.stopPropagation()
-  const up = findCheapestUpgrade(getState())
+  const up = findCheapestColorUpgrade(getState())
   if (!up) return
-  const oldR = up.stat === 'radius' ? ballStats(getState().balls[up.ballIdx]).maxRadius : 0
-  const ok = devFreeUpgradesEnabled ? devFreeUpgrade(up.ballIdx, up.stat) : tryUpgrade(up.ballIdx, up.stat)
+  const oldR = up.upgradeType === 'diameter' ? getDerivedBallStats(getState(), up.color).maxRadius : 0
+  const ok = devFreeUpgradesEnabled
+    ? devFreeColorUpgrade(up.color, up.upgradeType)
+    : tryPurchaseColorUpgrade(up.color, up.upgradeType)
   if (ok) {
-    syncBallStats(up.ballIdx)
-    if (up.stat === 'radius') spawnRadiusGhost(up.ballIdx, oldR)
+    syncColorBalls(up.color)
+    if (up.upgradeType === 'diameter') spawnRadiusGhost(up.color, oldR)
     updateHUD()
     if (!shopPanel.classList.contains('hidden')) buildShop()
-    spawnQbToast(`${QB_STAT_LABEL[up.stat]} B${up.ballIdx + 1} upgraded!`)
+    spawnQbToast(`${COLOR_SHORT[up.color]} ${UPGRADE_TYPE_LABEL[up.upgradeType]} upgraded!`)
   }
 })
 
 qbSuggestBtn.addEventListener('click', e => {
   e.stopPropagation()
-  const up = findSuggestedUpgrade(getState())
+  const up = findSuggestedColorUpgrade(getState())
   if (!up) return
-  const oldR = up.stat === 'radius' ? ballStats(getState().balls[up.ballIdx]).maxRadius : 0
-  const ok = devFreeUpgradesEnabled ? devFreeUpgrade(up.ballIdx, up.stat) : tryUpgrade(up.ballIdx, up.stat)
+  const oldR = up.upgradeType === 'diameter' ? getDerivedBallStats(getState(), up.color).maxRadius : 0
+  const ok = devFreeUpgradesEnabled
+    ? devFreeColorUpgrade(up.color, up.upgradeType)
+    : tryPurchaseColorUpgrade(up.color, up.upgradeType)
   if (ok) {
-    syncBallStats(up.ballIdx)
-    if (up.stat === 'radius') spawnRadiusGhost(up.ballIdx, oldR)
+    syncColorBalls(up.color)
+    if (up.upgradeType === 'diameter') spawnRadiusGhost(up.color, oldR)
     updateHUD()
     if (!shopPanel.classList.contains('hidden')) buildShop()
-    spawnQbToast(`${QB_STAT_LABEL[up.stat]} B${up.ballIdx + 1} upgraded!`)
+    spawnQbToast(`${COLOR_SHORT[up.color]} ${UPGRADE_TYPE_LABEL[up.upgradeType]} upgraded!`)
   }
 })
 
@@ -2326,7 +2428,7 @@ devResetBtn.addEventListener('click', () => {
   introTransTimer      = 0
   introTransScale      = 1
 
-  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.unlockedSlots)
+  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.totalBallsPurchased)
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
 
@@ -2335,7 +2437,10 @@ devResetBtn.addEventListener('click', () => {
     document.body.classList.add('intro-active')
     shopPanel.classList.add('hidden')
   } else {
-    for (let i = 0; i < st.unlockedSlots; i++) balls.push(makeBall(st.balls[i], i))
+    for (const colorKey of COLOR_ORDER) {
+      const bkt = st.colorBuckets[colorKey]
+      for (let i = 0; i < (bkt?.ballsOwned ?? 0); i++) balls.push(makeBall(colorKey))
+    }
     document.body.classList.remove('intro-active')
     if (!shopPanel.classList.contains('hidden')) buildShop()
   }
@@ -2393,7 +2498,7 @@ function init() {
   introMode = !st.introComplete
 
   // Snap arena scale to the correct starting value (no lerp on fresh load)
-  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.unlockedSlots)
+  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.totalBallsPurchased)
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
 
@@ -2403,7 +2508,10 @@ function init() {
     for (let i = 0; i < INTRO_BALL_COUNT; i++) balls.push(makeIntroBall(i))
     document.body.classList.add('intro-active')
   } else {
-    for (let i = 0; i < st.unlockedSlots; i++) balls.push(makeBall(st.balls[i], i))
+    for (const colorKey of COLOR_ORDER) {
+      const bkt = st.colorBuckets[colorKey]
+      for (let i = 0; i < (bkt?.ballsOwned ?? 0); i++) balls.push(makeBall(colorKey))
+    }
   }
 
   updateHUD()
