@@ -911,12 +911,15 @@ function loop(ts) {
 
   ctx.restore()   // virtual
 
+  // Field border — bottom edge is clamped to the top of the quick-buy bar so
+  // the glow is never hidden behind the bar overlay.
+  const fieldBorderH = (H - (qbBar.offsetHeight || 0)) - gameOffsetY
   ctx.shadowColor = 'rgba(66,212,255,0.55)'
   ctx.shadowBlur  = 12
   ctx.strokeStyle = 'rgba(66,212,255,0.32)'
   ctx.lineWidth   = 1
   ctx.strokeRect(gameOffsetX + 0.5, gameOffsetY + 0.5,
-                 VIRTUAL_W * gameScale - 1, VIRTUAL_H * gameScale - 1)
+                 VIRTUAL_W * gameScale - 1, fieldBorderH - 1)
   ctx.shadowBlur = 0
   drawFirstBallCue()
 
