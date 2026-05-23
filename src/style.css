@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
   --qb-h: calc(66px + env(safe-area-inset-bottom, 0px));
 }
@@ -601,188 +601,346 @@ body.intro-active #stats-screen { display: none !important; }
   flex-shrink: 0;
 }
 
-/* ─── Color-bucket shop UI ─────────────────────────────────── */
+/* ─── Reactor panel — new upgrades UI ─────────────────────── */
 
-/* Color tracker: 7 dots in a row showing the purchase cycle */
-.color-tracker {
+/* Currency header */
+.reactor-header {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.reactor-coin-icon {
+  font-size: clamp(1.2rem, 4vmin, 1.6rem);
+  color: #ffe566;
+  filter: drop-shadow(0 0 7px rgba(255,229,102,0.85));
+  line-height: 1;
+}
+
+.reactor-coin-val {
+  font-size: clamp(1.5rem, 5.5vmin, 2.2rem);
+  font-weight: 900;
+  color: #ffe566;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 18px rgba(255,229,102,0.5);
+}
+
+/* Spectrum track: 7 orbs in a row */
+.spectrum-track {
+  display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 10px;
+  gap: clamp(5px, 2vw, 10px);
+  padding: 8px 0 6px;
 }
 
-.tracker-dot {
-  width: 8px;
-  height: 8px;
+.spec-orb {
+  width:  clamp(26px, 7vw, 36px);
+  height: clamp(26px, 7vw, 36px);
   border-radius: 50%;
-  opacity: 0.25;
-  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+  background: var(--oc);
   flex-shrink: 0;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+  position: relative;
 }
 
-.tracker-dot.owned { opacity: 0.65; }
+/* Highlight dot on owned orbs */
+.spec-orb--owned::after,
+.spec-orb--next::after {
+  content: '';
+  position: absolute;
+  top: 16%; left: 20%;
+  width: 32%; height: 24%;
+  background: rgba(255,255,255,0.55);
+  border-radius: 50%;
+  filter: blur(2px);
+}
 
-.tracker-dot.next {
+.spec-orb--owned {
+  opacity: 0.80;
+  box-shadow: 0 0 8px var(--oc);
+}
+
+.spec-orb--next {
   opacity: 1;
-  transform: scale(1.55);
-  box-shadow: 0 0 7px currentColor;
+  transform: scale(1.38);
+  box-shadow: 0 0 10px var(--oc), 0 0 22px var(--oc);
+  animation: spec-pulse 1.5s ease-in-out infinite alternate;
 }
 
-/* Next-ball buy button */
-.next-ball-btn {
-  width: 100%;
-  padding: 12px 14px;
+@keyframes spec-pulse {
+  from { box-shadow: 0 0 7px var(--oc), 0 0 16px var(--oc); }
+  to   { box-shadow: 0 0 16px var(--oc), 0 0 34px var(--oc); }
+}
+
+.spec-orb--future {
+  opacity: 0.16;
+  background: rgba(255,255,255,0.28);
+  box-shadow: none;
+}
+.spec-orb--future::after { display: none; }
+
+/* Next ball card */
+.next-ball-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: rgba(79, 255, 176, 0.055);
-  border: 1px solid rgba(79, 255, 176, 0.22);
-  border-radius: 8px;
+  gap: 14px;
+  width: 100%;
+  min-height: 76px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.82rem, 2.7vmin, 1rem);
-  letter-spacing: 0.1em;
-  color: #4fffb0;
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.next-ball-btn:active { background: rgba(79, 255, 176, 0.16); }
-
-.next-ball-btn:disabled {
-  cursor: default;
-  color: rgba(255, 130, 50, 0.85);
-  border-color: rgba(255, 130, 50, 0.18);
-  background: rgba(255, 130, 50, 0.03);
+.next-ball-card:not(:disabled) {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.18);
 }
 
-.next-ball-orb {
-  width: 14px;
-  height: 14px;
+.next-ball-card:active { background: rgba(255,255,255,0.11) !important; }
+
+.next-ball-card:disabled { cursor: default; opacity: 0.65; }
+
+.nbc-orb {
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   flex-shrink: 0;
+  position: relative;
 }
 
-.next-ball-cost {
-  margin-left: auto;
-  color: #ffe566;
-  font-size: clamp(0.78rem, 2.5vmin, 0.95rem);
-  flex-shrink: 0;
-}
-
-.next-ball-btn:disabled .next-ball-cost { color: rgba(255, 130, 50, 0.88); }
-
-/* Color card */
-.color-card { /* extends .upgrade-card — no extra rules needed beyond header */ }
-
-.color-card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.color-orb {
-  width: 14px;
-  height: 14px;
+/* Highlight on next-ball orb */
+.nbc-orb::after {
+  content: '';
+  position: absolute;
+  top: 16%; left: 20%;
+  width: 33%; height: 26%;
+  background: rgba(255,255,255,0.55);
   border-radius: 50%;
-  flex-shrink: 0;
+  filter: blur(3px);
 }
 
-.color-card-name {
-  font-size: clamp(0.78rem, 2.5vmin, 0.92rem);
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+.nbc-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.color-balls-badge {
-  font-size: clamp(0.58rem, 1.8vmin, 0.68rem);
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.35);
+.nbc-label {
+  font-size: clamp(0.48rem, 1.6vmin, 0.60rem);
+  letter-spacing: 0.20em;
+  color: rgba(255,255,255,0.28);
+  text-transform: uppercase;
 }
 
-/* 2-column upgrade grid for 5 per-color upgrades */
-.upgrade-grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
+.nbc-name {
+  font-size: clamp(1.05rem, 3.8vmin, 1.4rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-/* Compact upgrade button — icon + name + stat + level + cost stacked vertically */
-.upg-btn {
+.nbc-cost {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 7px 5px 6px;
-  background: rgba(66, 212, 255, 0.04);
-  border: 1px solid rgba(66, 212, 255, 0.14);
-  border-radius: 7px;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.nbc-cost-icon {
+  font-size: clamp(1rem, 3.2vmin, 1.2rem);
+  color: #ffe566;
+  filter: drop-shadow(0 0 5px rgba(255,229,102,0.75));
+  line-height: 1;
+}
+
+.nbc-cost-val {
+  font-size: clamp(0.80rem, 2.6vmin, 0.98rem);
+  font-weight: 700;
+  color: #ffe566;
+  letter-spacing: 0.04em;
+}
+
+.next-ball-card:disabled .nbc-cost-icon,
+.next-ball-card:disabled .nbc-cost-val {
+  color: rgba(255,130,50,0.85);
+  filter: none;
+}
+
+/* Bucket card */
+.bucket-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  padding: 13px 12px 11px;
+}
+
+.bucket-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+
+/* Large colored orb */
+.bucket-orb {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Highlight pseudo-element for depth */
+.bucket-orb::after {
+  content: '';
+  position: absolute;
+  top: 17%; left: 22%;
+  width: 34%; height: 26%;
+  background: rgba(255,255,255,0.50);
+  border-radius: 50%;
+  filter: blur(3px);
+  pointer-events: none;
+}
+
+/* Tap card orb — hollow with icon */
+.tap-orb {
+  background: rgba(66,212,255,0.12) !important;
+  border: 2px solid rgba(66,212,255,0.40);
+  box-shadow: 0 0 12px rgba(66,212,255,0.45) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: rgba(66,212,255,0.90);
+}
+
+.tap-orb::after { display: none; }
+
+.bucket-top-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bucket-name {
+  font-size: clamp(0.70rem, 2.3vmin, 0.86rem);
+  font-weight: 900;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--bc);
+}
+
+.tap-name { color: rgba(66,212,255,0.85) !important; }
+
+/* Ball pip row */
+.bucket-pips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bucket-pip {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bucket-pip-more {
+  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
+  color: rgba(255,255,255,0.40);
+  letter-spacing: 0.04em;
+}
+
+/* 5-column upgrade tile grid */
+.bucket-upgrades {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+/* Wide single-tile variant (tap card) */
+.upg-tile--wide {
+  grid-column: 1 / -1;
+  max-width: 200px;
+  margin: 0 auto;
+  min-height: 60px !important;
+}
+
+/* Upgrade tile */
+.upg-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 2px 7px;
+  min-height: 72px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
   font-family: 'Orbitron', monospace;
   cursor: pointer;
-  text-align: center;
-  min-height: 72px;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.upg-btn:not(:disabled) {
-  background: rgba(66, 212, 255, 0.09);
-  border-color: rgba(66, 212, 255, 0.30);
-  box-shadow: 0 0 6px rgba(66, 212, 255, 0.14);
+/* Affordable state — glows */
+.upg-tile--can {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
-.upg-btn:active { background: rgba(66, 212, 255, 0.18) !important; }
+.upg-tile:active { background: rgba(255,255,255,0.14) !important; }
 
-.upg-btn:disabled {
+.upg-tile:disabled {
   cursor: default;
-  border-color: rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.006);
+  background: rgba(255,255,255,0.014);
+  border-color: rgba(255,255,255,0.04);
   box-shadow: none;
 }
 
-.upg-icon {
-  font-size: 1rem;
-  line-height: 1.1;
+.upg-tile-icon {
+  font-size: clamp(0.95rem, 3.2vmin, 1.2rem);
+  line-height: 1;
 }
 
-.upg-name {
-  font-size: clamp(0.50rem, 1.65vmin, 0.62rem);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.80);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
+.upg-tile:disabled .upg-tile-icon { opacity: 0.25; }
 
-.upg-stat {
-  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
+.upg-tile-lv {
+  font-size: clamp(0.44rem, 1.45vmin, 0.56rem);
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.32);
-  white-space: nowrap;
+  color: rgba(255,255,255,0.42);
+  line-height: 1.2;
 }
 
-.upg-level {
-  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
-  color: rgba(66, 212, 255, 0.70);
-  letter-spacing: 0.05em;
-}
+.upg-tile:disabled .upg-tile-lv { opacity: 0.38; }
 
-.upg-cost {
-  font-size: clamp(0.52rem, 1.7vmin, 0.66rem);
+.upg-tile-cost {
+  font-size: clamp(0.50rem, 1.65vmin, 0.63rem);
+  font-weight: 700;
   color: #ffe566;
-  white-space: nowrap;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
-.upg-btn:disabled .upg-cost  { color: rgba(255, 130, 50, 0.88); }
-.upg-btn:disabled .upg-icon,
-.upg-btn:disabled .upg-name,
-.upg-btn:disabled .upg-stat,
-.upg-btn:disabled .upg-level { opacity: 0.35; }
-
+.upg-tile:disabled .upg-tile-cost { color: rgba(255,130,50,0.75); }
 /* ─── Unlock slot button ───────────────────────────────────── */
 
 .unlock-slot-btn {

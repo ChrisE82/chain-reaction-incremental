@@ -2298,13 +2298,13 @@ function makeSectionTitle(icon, text) {
   return wrap
 }
 
-// Per-type icon, label, and stat display for compact upgrade buttons.
+// Per-type icon and label for upgrade tiles in the reactor panel.
 const UPGRADE_TYPE_DEFS = [
-  { type: 'value',      icon: '◆', label: 'Value',  statFn: bkt => `◆${statsFromBucket(bkt).value}/pop` },
-  { type: 'speed',      icon: '▶', label: 'Speed',  statFn: bkt => `${statsFromBucket(bkt).speed.toFixed(3)}` },
-  { type: 'diameter',   icon: '◎', label: 'Size',   statFn: bkt => `${statsFromBucket(bkt).maxRadius.toFixed(1)}u` },
-  { type: 'duration',   icon: '⏱', label: 'Hold',   statFn: bkt => `${((statsFromBucket(bkt).growMs + statsFromBucket(bkt).holdMs)/1000).toFixed(2)}s` },
-  { type: 'chainPower', icon: '✦', label: 'Chain',  statFn: bkt => `\xd7${statsFromBucket(bkt).chainPowerMult.toFixed(2)}` },
+  { type: 'value',      icon: '◆',  label: 'Value'  },
+  { type: 'speed',      icon: '▸▸', label: 'Speed'  },
+  { type: 'diameter',   icon: '◉',  label: 'Size'   },
+  { type: 'duration',   icon: '◑',  label: 'Hold'   },
+  { type: 'chainPower', icon: '✦',  label: 'Chain'  },
 ]
 
 function buildShop() {
@@ -2312,132 +2312,151 @@ function buildShop() {
   const st       = getState()
   const progress = getColorOrderProgress(st)
 
-  // -- Next ball section ---------------------------------------------------
+  // -- Currency header
   {
-    const section = document.createElement('div')
-    section.className = 'upgrade-card'
+    const hdr = document.createElement('div')
+    hdr.className = 'reactor-header'
+    const icon = document.createElement('span')
+    icon.className = 'reactor-coin-icon'; icon.textContent = '◆'
+    const val = document.createElement('span')
+    val.className = 'reactor-coin-val'; val.textContent = fmt(st.coins)
+    hdr.appendChild(icon); hdr.appendChild(val)
+    shopBody.appendChild(hdr)
+  }
 
-    // Color cycle tracker: 7 dots
-    const tracker = document.createElement('div')
-    tracker.className = 'color-tracker'
+  // -- Spectrum track (7 orbs)
+  {
+    const track = document.createElement('div')
+    track.className = 'spectrum-track'
     for (let i = 0; i < COLOR_ORDER.length; i++) {
       const ck  = COLOR_ORDER[i]
-      const dot = document.createElement('div')
-      dot.className  = 'tracker-dot'
-      dot.style.background = COLOR_HEX[ck]
-      if (i < progress.position)   dot.classList.add('owned')
-      if (i === progress.position) dot.classList.add('next')
-      tracker.appendChild(dot)
+      const orb = document.createElement('div')
+      orb.className = 'spec-orb'
+      if      (i < progress.position)  orb.classList.add('spec-orb--owned')
+      else if (i === progress.position) orb.classList.add('spec-orb--next')
+      else                              orb.classList.add('spec-orb--future')
+      orb.style.setProperty('--oc', COLOR_HEX[ck])
+      track.appendChild(orb)
     }
-    section.appendChild(tracker)
+    shopBody.appendChild(track)
+  }
 
+  // -- Next ball card
+  {
     const nextColor  = COLOR_ORDER[progress.position]
     const ballCost   = nextBallCost(st)
     const colorLabel = nextColor.charAt(0).toUpperCase() + nextColor.slice(1)
+    const canBuy     = devFreeUpgradesEnabled || st.coins >= ballCost
 
-    const buyBtn = document.createElement('button')
-    buyBtn.className = 'next-ball-btn'
-    buyBtn.disabled  = !devFreeUpgradesEnabled && st.coins < ballCost
+    const card = document.createElement('button')
+    card.className = 'next-ball-card'
+    card.disabled  = !canBuy
 
-    const orbEl = document.createElement('span')
-    orbEl.className        = 'next-ball-orb'
+    const orbEl = document.createElement('div')
+    orbEl.className = 'nbc-orb'
     orbEl.style.background = COLOR_HEX[nextColor]
-    orbEl.style.boxShadow  = `0 0 8px ${COLOR_HEX[nextColor]}`
+    orbEl.style.boxShadow  = `0 0 20px ${COLOR_HEX[nextColor]}, 0 0 40px ${COLOR_HEX[nextColor]}`
 
-    const nameSpan = document.createElement('span')
-    nameSpan.style.flex    = '1'
-    nameSpan.textContent   = `Unlock ${colorLabel} Ball`
+    const infoEl = document.createElement('div')
+    infoEl.className = 'nbc-info'
+    const lblEl = document.createElement('span')
+    lblEl.className = 'nbc-label'; lblEl.textContent = 'NEXT BALL'
+    const nameEl = document.createElement('span')
+    nameEl.className = 'nbc-name'
+    nameEl.textContent = colorLabel.toUpperCase()
+    nameEl.style.color = COLOR_HEX[nextColor]
+    infoEl.appendChild(lblEl); infoEl.appendChild(nameEl)
 
-    const costSpan = document.createElement('span')
-    costSpan.className     = 'next-ball-cost'
-    costSpan.textContent   = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(ballCost)}`
+    const costWrap = document.createElement('div')
+    costWrap.className = 'nbc-cost'
+    const costIcon = document.createElement('span')
+    costIcon.className = 'nbc-cost-icon'; costIcon.textContent = '◆'
+    const costVal = document.createElement('span')
+    costVal.className = 'nbc-cost-val'
+    costVal.textContent = devFreeUpgradesEnabled ? 'FREE' : fmt(ballCost)
+    costWrap.appendChild(costIcon); costWrap.appendChild(costVal)
 
-    buyBtn.appendChild(orbEl)
-    buyBtn.appendChild(nameSpan)
-    buyBtn.appendChild(costSpan)
-    buyBtn.addEventListener('click', () => {
+    card.appendChild(orbEl); card.appendChild(infoEl); card.appendChild(costWrap)
+    card.addEventListener('click', () => {
       const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
       if (colorKey) {
         addBallForColor(colorKey)
         cancelFirstBallCue()
         buildShop(); updateHUD()
-        const n = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
-        spawnQbToast(`${n} ball unlocked!`)
+        spawnQbToast(`${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} ball unlocked!`)
       }
     })
-    section.appendChild(buyBtn)
-    shopBody.appendChild(section)
+    shopBody.appendChild(card)
   }
 
-  // -- Color cards (one per owned color) -----------------------------------
+  // -- Color bucket cards
   for (const colorKey of COLOR_ORDER) {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
 
     const card = document.createElement('div')
-    card.className = 'upgrade-card color-card'
+    card.className = 'bucket-card'
+    card.style.setProperty('--bc', COLOR_HEX[colorKey])
 
-    const header = document.createElement('div')
-    header.className = 'color-card-header'
+    const top = document.createElement('div')
+    top.className = 'bucket-card-top'
 
-    const orb = document.createElement('div')
-    orb.className        = 'color-orb'
-    orb.style.background = COLOR_HEX[colorKey]
-    orb.style.boxShadow  = `0 0 8px ${COLOR_HEX[colorKey]}`
+    const orbEl = document.createElement('div')
+    orbEl.className = 'bucket-orb'
+    orbEl.style.background = COLOR_HEX[colorKey]
+    orbEl.style.boxShadow  = `0 0 16px ${COLOR_HEX[colorKey]}`
+
+    const right = document.createElement('div')
+    right.className = 'bucket-top-right'
 
     const nameEl = document.createElement('span')
-    nameEl.className   = 'color-card-name'
-    nameEl.textContent = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
-    nameEl.style.color = COLOR_HEX[colorKey]
+    nameEl.className   = 'bucket-name'
+    nameEl.textContent = colorKey.toUpperCase()
 
-    const badge = document.createElement('span')
-    badge.className   = 'color-balls-badge'
-    badge.textContent = `${bkt.ballsOwned} ball${bkt.ballsOwned !== 1 ? 's' : ''}`
+    const pips = document.createElement('div')
+    pips.className = 'bucket-pips'
+    const pipCount = Math.min(bkt.ballsOwned, 9)
+    for (let i = 0; i < pipCount; i++) {
+      const pip = document.createElement('span')
+      pip.className = 'bucket-pip'
+      pip.style.background = COLOR_HEX[colorKey]
+      pip.style.boxShadow  = `0 0 4px ${COLOR_HEX[colorKey]}`
+      pips.appendChild(pip)
+    }
+    if (bkt.ballsOwned > 9) {
+      const more = document.createElement('span')
+      more.className = 'bucket-pip-more'
+      more.textContent = `+${bkt.ballsOwned - 9}`
+      pips.appendChild(more)
+    }
 
-    header.appendChild(orb)
-    header.appendChild(nameEl)
-    header.appendChild(badge)
-    card.appendChild(header)
+    right.appendChild(nameEl); right.appendChild(pips)
+    top.appendChild(orbEl); top.appendChild(right)
+    card.appendChild(top)
 
     const grid = document.createElement('div')
-    grid.className = 'upgrade-grid-2'
+    grid.className = 'bucket-upgrades'
 
-    for (const { type, icon, label, statFn } of UPGRADE_TYPE_DEFS) {
+    for (const { type, icon, label } of UPGRADE_TYPE_DEFS) {
       const level     = bkt[type + 'Level'] ?? 0
       const cost      = colorUpgradeCost(type, level)
       const canAfford = devFreeUpgradesEnabled || st.coins >= cost
 
-      const btn = document.createElement('button')
-      btn.className = 'upg-btn'
-      btn.disabled  = !canAfford
+      const tile = document.createElement('button')
+      tile.className = 'upg-tile' + (canAfford ? ' upg-tile--can' : '')
+      tile.disabled  = !canAfford
+      tile.title     = label
 
-      const iconEl  = document.createElement('span')
-      iconEl.className   = 'upg-icon'
-      iconEl.textContent = icon
+      const iconEl = document.createElement('span')
+      iconEl.className = 'upg-tile-icon'; iconEl.textContent = icon
+      const lvEl = document.createElement('span')
+      lvEl.className = 'upg-tile-lv'; lvEl.textContent = `Lv ${level}`
+      const costEl = document.createElement('span')
+      costEl.className = 'upg-tile-cost'
+      costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : fmt(cost)
 
-      const labelEl = document.createElement('span')
-      labelEl.className   = 'upg-name'
-      labelEl.textContent = label
-
-      const statEl  = document.createElement('span')
-      statEl.className   = 'upg-stat'
-      statEl.textContent = statFn(bkt)
-
-      const lvlEl   = document.createElement('span')
-      lvlEl.className   = 'upg-level'
-      lvlEl.textContent = `Lv ${level}`
-
-      const costEl  = document.createElement('span')
-      costEl.className   = 'upg-cost'
-      costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
-
-      btn.appendChild(iconEl)
-      btn.appendChild(labelEl)
-      btn.appendChild(statEl)
-      btn.appendChild(lvlEl)
-      btn.appendChild(costEl)
-
-      btn.addEventListener('click', () => {
+      tile.appendChild(iconEl); tile.appendChild(lvEl); tile.appendChild(costEl)
+      tile.addEventListener('click', () => {
         const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
         const ok   = devFreeUpgradesEnabled
           ? devFreeColorUpgrade(colorKey, type)
@@ -2448,45 +2467,64 @@ function buildShop() {
           buildShop(); updateHUD()
         }
       })
-
-      grid.appendChild(btn)
+      grid.appendChild(tile)
     }
 
     card.appendChild(grid)
     shopBody.appendChild(card)
   }
 
-  // -- Tap upgrade card ----------------------------------------------------
+  // -- Tap upgrade card
   {
     const card = document.createElement('div')
-    card.className = 'upgrade-card'
-    card.appendChild(makeSectionTitle('✦', 'Tap'))
+    card.className = 'bucket-card tap-card'
+
+    const top = document.createElement('div')
+    top.className = 'bucket-card-top'
+
+    const orbEl = document.createElement('div')
+    orbEl.className = 'bucket-orb tap-orb'
+    orbEl.textContent = '✶'
+
+    const right = document.createElement('div')
+    right.className = 'bucket-top-right'
+    const nameEl = document.createElement('span')
+    nameEl.className = 'bucket-name tap-name'; nameEl.textContent = 'TAP'
+    right.appendChild(nameEl)
+
+    top.appendChild(orbEl); top.appendChild(right)
+    card.appendChild(top)
 
     const grid = document.createElement('div')
-    grid.className = 'upgrade-btns'
+    grid.className = 'bucket-upgrades'
 
     const level     = st.clicks.radiusLevel
     const cost      = tapUpgradeCost('radius', level)
-    const costText  = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
     const canAfford = devFreeUpgradesEnabled || st.coins >= cost
-    grid.appendChild(makeUpgradeBtn(
-      '✦',
-      'Tap Radius',
-      level,
-      `${clickStats(st.clicks).tapRadius.toFixed(1)} u`,
-      costText,
-      canAfford,
-      () => {
-        const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick('radius') : tryUpgradeClick('radius')
-        if (ok) { buildShop(); updateHUD() }
-      }
-    ))
 
+    const tile = document.createElement('button')
+    tile.className = 'upg-tile upg-tile--wide' + (canAfford ? ' upg-tile--can' : '')
+    tile.disabled  = !canAfford
+    tile.title     = 'Tap Radius'
+
+    const iconEl = document.createElement('span')
+    iconEl.className = 'upg-tile-icon'; iconEl.textContent = '◎'
+    const lvEl = document.createElement('span')
+    lvEl.className = 'upg-tile-lv'; lvEl.textContent = `Lv ${level}`
+    const costEl = document.createElement('span')
+    costEl.className = 'upg-tile-cost'
+    costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : fmt(cost)
+
+    tile.appendChild(iconEl); tile.appendChild(lvEl); tile.appendChild(costEl)
+    tile.addEventListener('click', () => {
+      const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick('radius') : tryUpgradeClick('radius')
+      if (ok) { buildShop(); updateHUD() }
+    })
+    grid.appendChild(tile)
     card.appendChild(grid)
     shopBody.appendChild(card)
   }
 }
-
 // ─── Input ────────────────────────────────────────────────────────────────
 function screenToWorld(sx, sy) {
   // screen → virtual → world (virtual = world / arenaScale, so world = virtual * arenaScale)
