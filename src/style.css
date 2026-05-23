@@ -725,7 +725,33 @@ body.intro-active #stats-screen { display: none !important; }
   transform: scale(0.98);
 }
 
-.next-ball-card:disabled { cursor: default; opacity: 0.55; }
+.next-ball-card:disabled {
+  cursor: default;
+  background: rgba(255, 159, 67, 0.03);
+  border-color: rgba(255, 159, 67, 0.20);
+}
+
+/* Ball orb: muted */
+.next-ball-card:disabled .nbc-orb {
+  opacity: 0.38;
+}
+
+/* Color name ("VIOLET", "BLUE" etc.): muted */
+.next-ball-card:disabled .nbc-name {
+  opacity: 0.32;
+}
+
+/* "NEXT BALL" label: full-brightness warning */
+.next-ball-card:disabled .nbc-label {
+  color: #ff9f43;
+  opacity: 1;
+}
+
+/* BUY pill: warning text + border */
+.next-ball-card:disabled .nbc-buy-pill {
+  color: #ff9f43;
+  border-color: rgba(255, 159, 67, 0.40);
+}
 
 .nbc-orb {
   width: 48px;
@@ -776,7 +802,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .next-ball-card:disabled .nbc-cost-text {
-  color: rgba(255, 130, 50, 0.80);
+  color: #ff9f43;
 }
 
 /* Buy pill — visual zone only, pointer-events go to parent */
@@ -915,9 +941,26 @@ body.intro-active #stats-screen { display: none !important; }
 
 .upg-row:disabled {
   cursor: default;
-  background: transparent;
-  border-color: rgba(255,255,255,0.06);
-  opacity: 0.48;
+  background: rgba(255, 159, 67, 0.03);
+  border-color: rgba(255, 159, 67, 0.20);
+  /* no blanket opacity — each child handled individually */
+}
+
+/* Icon: barely muted, warning-tinted outline */
+.upg-row:disabled .upg-row-icon {
+  opacity: 0.72;
+  background: rgba(255, 159, 67, 0.06);
+  border-color: rgba(255, 159, 67, 0.35);
+}
+
+/* Upgrade name ("VALUE", "SPEED" etc.): full-brightness warning */
+.upg-row:disabled .upg-row-label {
+  color: #ff9f43;
+}
+
+/* Level badge: muted */
+.upg-row:disabled .upg-row-lv {
+  opacity: 0.36;
 }
 
 /* Left: icon in a rounded square */
@@ -985,8 +1028,9 @@ body.intro-active #stats-screen { display: none !important; }
   flex-shrink: 0;
 }
 
+/* Cost: full-brightness warning */
 .upg-row:disabled .upg-row-cost {
-  color: rgba(255, 130, 50, 0.88);
+  color: #ff9f43;
 }
 
 
@@ -1269,17 +1313,19 @@ body.intro-completing #hud {
 
 .qb-btn:disabled {
   cursor: default;
-  border-color: rgba(255,255,255,0.06);
-  background: rgba(255,255,255,0.008);
+  border-color: rgba(255, 159, 67, 0.22);
+  background: rgba(255, 159, 67, 0.025);
   box-shadow: none;
 }
 
-/* Dim the action label; cost in orange — clearly "saving toward" */
+/* Action label: full-brightness warning */
 .qb-btn:disabled .qb-btn-top {
-  opacity: 0.36;
+  color: #ff9f43;
+  opacity: 1;
 }
+/* Cost: full-brightness warning */
 .qb-btn:disabled .qb-btn-sub {
-  color: rgba(255, 130, 50, 0.88);
+  color: #ff9f43;
 }
 
 /* Top row: the upgrade name / ball label */
@@ -1330,8 +1376,8 @@ body.intro-completing #hud {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-/* Dim target when button is disabled */
-.qb-btn:disabled .qb-btn-target { opacity: 0.38; }
+/* Target: full-brightness warning when disabled */
+.qb-btn:disabled .qb-btn-target { color: #ff9f43; opacity: 1; }
 
 /* Row 3: reason text for Best Next ("Longer chains · ◆35")
    or "Need ◆35" when unaffordable — styled like .qb-btn-sub */
@@ -1344,8 +1390,8 @@ body.intro-completing #hud {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-/* Orange "Need ◆X" when button is disabled */
-.qb-btn:disabled .qb-btn-reason { color: rgba(255, 130, 50, 0.88); }
+/* Warning color when disabled */
+.qb-btn:disabled .qb-btn-reason { color: #ff9f43; }
 
 /* Target-change flash — brief cyan highlight when target switches */
 @keyframes qb-target-flash {
