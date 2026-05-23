@@ -59,6 +59,10 @@ let statsActiveTab = 'run'
 // detect purchases and trigger the bump/flash animation.
 let shopLastCoins = -1
 
+// ── Shop collapsed sections — persists while shop stays open ──
+// Keys: 'tap' | colorKey string
+const shopCollapsed = new Set()
+
 // ── Quick-buy bar ──
 const qbBar         = document.getElementById('quick-buy-bar')
 const qbBallBtn     = document.getElementById('qb-ball')
@@ -2386,6 +2390,23 @@ const UPGRADE_TYPE_DEFS = [
   { type: 'chainPower', icon: '⊕', label: 'Chain'  },
 ]
 
+// Compact square chip used in collapsed card view (icon + cost only).
+// Clicking it still buys the upgrade; stopPropagation prevents header toggle.
+function makeUpgChip(icon, utColor, bc, costText, canAfford, onClick) {
+  const chip = document.createElement('button')
+  chip.className = 'upg-chip' + (canAfford ? ' upg-chip--can' : '')
+  chip.disabled  = !canAfford
+  chip.style.setProperty('--bc', bc)
+  if (utColor) chip.style.setProperty('--ut-color', utColor)
+  const iconEl = document.createElement('span')
+  iconEl.className = 'upg-chip-icon'; iconEl.textContent = icon
+  const costEl = document.createElement('span')
+  costEl.className = 'upg-chip-cost'; costEl.textContent = costText
+  chip.appendChild(iconEl); chip.appendChild(costEl)
+  chip.addEventListener('click', e => { e.stopPropagation(); onClick() })
+  return chip
+}
+
 function buildShop() {
   shopBody.innerHTML = ''
   const st       = getState()
@@ -2406,7 +2427,23 @@ function buildShop() {
       val.addEventListener('animationend', () => val.classList.remove(cls), { once: true })
     }
     shopLastCoins = st.coins
-    hdr.appendChild(icon); hdr.appendChild(val)
+
+    // Compact-mode toggle — collapses / expands all cards at once
+    const allKeys    = ['tap', ...COLOR_ORDER.filter(ck => {
+      const b = st.colorBuckets[ck]; return b && b.ballsOwned > 0
+    })]
+    const anyExpanded = allKeys.some(k => !shopCollapsed.has(k))
+    const compactBtn = document.createElement('button')
+    compactBtn.className   = 'shop-compact-btn'
+    compactBtn.textContent = anyExpanded ? '⊟' : '⊞'
+    compactBtn.title       = anyExpanded ? 'Collapse all' : 'Expand all'
+    compactBtn.addEventListener('click', () => {
+      if (anyExpanded) allKeys.forEach(k => shopCollapsed.add(k))
+      else             shopCollapsed.clear()
+      buildShop()
+    })
+
+    hdr.appendChild(icon); hdr.appendChild(val); hdr.appendChild(compactBtn)
     shopBody.appendChild(hdr)
   }
 
@@ -2478,13 +2515,21 @@ function buildShop() {
     shopBody.appendChild(card)
   }
 
-  // -- Tap upgrades (radius + duration) — just below the ball section
+  // -- Tap upgrades (radius + duration) — collapsible
   {
+    const TAP_ROW_DEFS = [
+      { stat: 'radius',   icon: '◎', label: 'TAP RADIUS',   color: '#42d4ff' },
+      { stat: 'duration', icon: '⏳', label: 'TAP DURATION', color: '#fb923c' },
+    ]
+    const cardKey     = 'tap'
+    const isCollapsed = shopCollapsed.has(cardKey)
+    const bc          = 'rgb(66,212,255)'
+
     const card = document.createElement('div')
     card.className = 'bucket-card tap-card'
-    card.style.setProperty('--bc', 'rgb(66,212,255)')
+    card.style.setProperty('--bc', bc)
 
-    const top = document.createElement('div')
+    const top = document.createElement('button')
     top.className = 'bucket-card-top'
     const orbEl = document.createElement('div')
     orbEl.className = 'bucket-orb tap-orb'; orbEl.textContent = '✶'
@@ -2494,55 +2539,64 @@ function buildShop() {
     nameEl.className = 'bucket-name tap-name'; nameEl.textContent = 'TAP'
     right.appendChild(nameEl)
     top.appendChild(orbEl); top.appendChild(right)
+    const chevron = document.createElement('span')
+    chevron.className = 'bucket-chevron'; chevron.textContent = isCollapsed ? '▸' : '▾'
+    top.appendChild(chevron)
+    top.addEventListener('click', () => {
+      shopCollapsed.has(cardKey) ? shopCollapsed.delete(cardKey) : shopCollapsed.add(cardKey)
+      buildShop()
+    })
     card.appendChild(top)
 
-    const grid = document.createElement('div')
-    grid.className = 'bucket-upgrades'
-
-    const TAP_ROW_DEFS = [
-      { stat: 'radius',   icon: '◎', label: 'TAP RADIUS',   color: '#42d4ff' },
-      { stat: 'duration', icon: '⏳', label: 'TAP DURATION', color: '#fb923c' },
-    ]
-
-    for (const { stat, icon, label, color } of TAP_ROW_DEFS) {
-      const level     = st.clicks[stat + 'Level'] ?? 0
-      const cost      = tapUpgradeCost(stat, level)
-      const canAfford = devFreeUpgradesEnabled || st.coins >= cost
-
-      const row = document.createElement('button')
-      row.className = 'upg-row' + (canAfford ? ' upg-row--can' : '')
-      row.disabled  = !canAfford
-
-      const iconEl = document.createElement('span')
-      iconEl.className = 'upg-row-icon'; iconEl.textContent = icon
-      iconEl.style.setProperty('--ut-color', color)
-
-      const infoEl = document.createElement('span')
-      infoEl.className = 'upg-row-info'
-      const labelLine = document.createElement('span')
-      labelLine.className = 'upg-row-label-line'
-      const labelEl = document.createElement('span')
-      labelEl.className = 'upg-row-label'; labelEl.textContent = label
-      const lvEl = document.createElement('span')
-      lvEl.className = 'upg-row-lv'; lvEl.textContent = `Lv ${level}`
-      labelLine.appendChild(labelEl); labelLine.appendChild(lvEl)
-      infoEl.appendChild(labelLine)
-
-      const costEl = document.createElement('span')
-      costEl.className = 'upg-row-cost'
-      costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
-
-      row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
-      row.addEventListener('click', () => {
-        const ok = devFreeUpgradesEnabled
-          ? devFreeUpgradeClick(stat)
-          : tryUpgradeClick(stat)
-        if (ok) { buildShop(); updateHUD() }
-      })
-      grid.appendChild(row)
+    if (!isCollapsed) {
+      const grid = document.createElement('div')
+      grid.className = 'bucket-upgrades'
+      for (const { stat, icon, label, color } of TAP_ROW_DEFS) {
+        const level     = st.clicks[stat + 'Level'] ?? 0
+        const cost      = tapUpgradeCost(stat, level)
+        const canAfford = devFreeUpgradesEnabled || st.coins >= cost
+        const row = document.createElement('button')
+        row.className = 'upg-row' + (canAfford ? ' upg-row--can' : '')
+        row.disabled  = !canAfford
+        const iconEl = document.createElement('span')
+        iconEl.className = 'upg-row-icon'; iconEl.textContent = icon
+        iconEl.style.setProperty('--ut-color', color)
+        const infoEl = document.createElement('span')
+        infoEl.className = 'upg-row-info'
+        const labelLine = document.createElement('span')
+        labelLine.className = 'upg-row-label-line'
+        const labelEl = document.createElement('span')
+        labelEl.className = 'upg-row-label'; labelEl.textContent = label
+        const lvEl = document.createElement('span')
+        lvEl.className = 'upg-row-lv'; lvEl.textContent = `Lv ${level}`
+        labelLine.appendChild(labelEl); labelLine.appendChild(lvEl)
+        infoEl.appendChild(labelLine)
+        const costEl = document.createElement('span')
+        costEl.className = 'upg-row-cost'
+        costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+        row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
+        row.addEventListener('click', () => {
+          const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
+          if (ok) { buildShop(); updateHUD() }
+        })
+        grid.appendChild(row)
+      }
+      card.appendChild(grid)
+    } else {
+      const chips = document.createElement('div')
+      chips.className = 'bucket-collapsed-row'
+      for (const { stat, icon, color } of TAP_ROW_DEFS) {
+        const level     = st.clicks[stat + 'Level'] ?? 0
+        const cost      = tapUpgradeCost(stat, level)
+        const canAfford = devFreeUpgradesEnabled || st.coins >= cost
+        chips.appendChild(makeUpgChip(icon, color, bc,
+          devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`, canAfford, () => {
+            const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
+            if (ok) { buildShop(); updateHUD() }
+          }))
+      }
+      card.appendChild(chips)
     }
-
-    card.appendChild(grid)
     shopBody.appendChild(card)
   }
 
@@ -2551,17 +2605,21 @@ function buildShop() {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
 
+    const cardKey     = colorKey
+    const isCollapsed = shopCollapsed.has(cardKey)
+    const bc          = COLOR_HEX[colorKey]
+
     const card = document.createElement('div')
     card.className = 'bucket-card'
-    card.style.setProperty('--bc', COLOR_HEX[colorKey])
+    card.style.setProperty('--bc', bc)
 
-    const top = document.createElement('div')
+    const top = document.createElement('button')
     top.className = 'bucket-card-top'
 
     const orbEl = document.createElement('div')
     orbEl.className = 'bucket-orb'
-    orbEl.style.background = COLOR_HEX[colorKey]
-    orbEl.style.boxShadow  = `0 0 16px ${COLOR_HEX[colorKey]}`
+    orbEl.style.background = bc
+    orbEl.style.boxShadow  = `0 0 16px ${bc}`
 
     const right = document.createElement('div')
     right.className = 'bucket-top-right'
@@ -2576,8 +2634,8 @@ function buildShop() {
     for (let i = 0; i < pipCount; i++) {
       const pip = document.createElement('span')
       pip.className = 'bucket-pip'
-      pip.style.background = COLOR_HEX[colorKey]
-      pip.style.boxShadow  = `0 0 4px ${COLOR_HEX[colorKey]}`
+      pip.style.background = bc
+      pip.style.boxShadow  = `0 0 4px ${bc}`
       pips.appendChild(pip)
     }
     if (bkt.ballsOwned > 9) {
@@ -2589,56 +2647,91 @@ function buildShop() {
 
     right.appendChild(nameEl); right.appendChild(pips)
     top.appendChild(orbEl); top.appendChild(right)
+
+    const chevron = document.createElement('span')
+    chevron.className = 'bucket-chevron'; chevron.textContent = isCollapsed ? '▸' : '▾'
+    top.appendChild(chevron)
+
+    top.addEventListener('click', () => {
+      shopCollapsed.has(cardKey) ? shopCollapsed.delete(cardKey) : shopCollapsed.add(cardKey)
+      buildShop()
+    })
+
     card.appendChild(top)
 
-    const grid = document.createElement('div')
-    grid.className = 'bucket-upgrades'
+    if (!isCollapsed) {
+      const grid = document.createElement('div')
+      grid.className = 'bucket-upgrades'
 
-    for (const { type, icon, label } of UPGRADE_TYPE_DEFS) {
-      const level     = bkt[type + 'Level'] ?? 0
-      const cost      = colorUpgradeCost(type, level)
-      const canAfford = devFreeUpgradesEnabled || st.coins >= cost
+      for (const { type, icon, label } of UPGRADE_TYPE_DEFS) {
+        const level     = bkt[type + 'Level'] ?? 0
+        const cost      = colorUpgradeCost(type, level)
+        const canAfford = devFreeUpgradesEnabled || st.coins >= cost
 
-      const row = document.createElement('button')
-      row.className = 'upg-row' + (canAfford ? ' upg-row--can' : '')
-      row.disabled  = !canAfford
+        const row = document.createElement('button')
+        row.className = 'upg-row' + (canAfford ? ' upg-row--can' : '')
+        row.disabled  = !canAfford
 
-      const iconEl = document.createElement('span')
-      iconEl.className = 'upg-row-icon'; iconEl.textContent = icon
-      const typeColor = UPGRADE_TYPE_COLOR[type]
-      if (typeColor) iconEl.style.setProperty('--ut-color', typeColor)
+        const iconEl = document.createElement('span')
+        iconEl.className = 'upg-row-icon'; iconEl.textContent = icon
+        const typeColor = UPGRADE_TYPE_COLOR[type]
+        if (typeColor) iconEl.style.setProperty('--ut-color', typeColor)
 
-      const infoEl = document.createElement('span')
-      infoEl.className = 'upg-row-info'
-      const labelLine = document.createElement('span')
-      labelLine.className = 'upg-row-label-line'
-      const labelEl = document.createElement('span')
-      labelEl.className = 'upg-row-label'; labelEl.textContent = label.toUpperCase()
-      const lvEl = document.createElement('span')
-      lvEl.className = 'upg-row-lv'; lvEl.textContent = `Lv ${level}`
-      labelLine.appendChild(labelEl); labelLine.appendChild(lvEl)
-      infoEl.appendChild(labelLine)
+        const infoEl = document.createElement('span')
+        infoEl.className = 'upg-row-info'
+        const labelLine = document.createElement('span')
+        labelLine.className = 'upg-row-label-line'
+        const labelEl = document.createElement('span')
+        labelEl.className = 'upg-row-label'; labelEl.textContent = label.toUpperCase()
+        const lvEl = document.createElement('span')
+        lvEl.className = 'upg-row-lv'; lvEl.textContent = `Lv ${level}`
+        labelLine.appendChild(labelEl); labelLine.appendChild(lvEl)
+        infoEl.appendChild(labelLine)
 
-      const costEl = document.createElement('span')
-      costEl.className = 'upg-row-cost'
-      costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+        const costEl = document.createElement('span')
+        costEl.className = 'upg-row-cost'
+        costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
 
-      row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
-      row.addEventListener('click', () => {
-        const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
-        const ok   = devFreeUpgradesEnabled
-          ? devFreeColorUpgrade(colorKey, type)
-          : tryPurchaseColorUpgrade(colorKey, type)
-        if (ok) {
-          syncColorBalls(colorKey)
-          if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
-          buildShop(); updateHUD()
-        }
-      })
-      grid.appendChild(row)
+        row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
+        row.addEventListener('click', () => {
+          const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
+          const ok   = devFreeUpgradesEnabled
+            ? devFreeColorUpgrade(colorKey, type)
+            : tryPurchaseColorUpgrade(colorKey, type)
+          if (ok) {
+            syncColorBalls(colorKey)
+            if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
+            buildShop(); updateHUD()
+          }
+        })
+        grid.appendChild(row)
+      }
+
+      card.appendChild(grid)
+    } else {
+      const chips = document.createElement('div')
+      chips.className = 'bucket-collapsed-row'
+      for (const { type, icon } of UPGRADE_TYPE_DEFS) {
+        const level     = bkt[type + 'Level'] ?? 0
+        const cost      = colorUpgradeCost(type, level)
+        const canAfford = devFreeUpgradesEnabled || st.coins >= cost
+        const utColor   = UPGRADE_TYPE_COLOR[type]
+        chips.appendChild(makeUpgChip(icon, utColor, bc,
+          devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`, canAfford, () => {
+            const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
+            const ok   = devFreeUpgradesEnabled
+              ? devFreeColorUpgrade(colorKey, type)
+              : tryPurchaseColorUpgrade(colorKey, type)
+            if (ok) {
+              syncColorBalls(colorKey)
+              if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
+              buildShop(); updateHUD()
+            }
+          }))
+      }
+      card.appendChild(chips)
     }
 
-    card.appendChild(grid)
     shopBody.appendChild(card)
   }
 
