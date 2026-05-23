@@ -2458,21 +2458,30 @@ function buildShop() {
       const cost      = colorUpgradeCost(type, level)
       const canAfford = devFreeUpgradesEnabled || st.coins >= cost
 
-      const tile = document.createElement('button')
-      tile.className = 'upg-tile' + (canAfford ? ' upg-tile--can' : '')
-      tile.disabled  = !canAfford
-      tile.title     = label
+      const row = document.createElement('button')
+      row.className = 'upg-row' + (canAfford ? ' upg-row--can' : '')
+      row.disabled  = !canAfford
 
       const iconEl = document.createElement('span')
-      iconEl.className = 'upg-tile-icon'; iconEl.textContent = icon
-      const lvEl = document.createElement('span')
-      lvEl.className = 'upg-tile-lv'; lvEl.textContent = `Lv ${level}`
-      const costEl = document.createElement('span')
-      costEl.className = 'upg-tile-cost'
-      costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : fmt(cost)
+      iconEl.className = 'upg-row-icon'; iconEl.textContent = icon
 
-      tile.appendChild(iconEl); tile.appendChild(lvEl); tile.appendChild(costEl)
-      tile.addEventListener('click', () => {
+      const infoEl = document.createElement('span')
+      infoEl.className = 'upg-row-info'
+      const labelLine = document.createElement('span')
+      labelLine.className = 'upg-row-label-line'
+      const labelEl = document.createElement('span')
+      labelEl.className = 'upg-row-label'; labelEl.textContent = label.toUpperCase()
+      const lvEl = document.createElement('span')
+      lvEl.className = 'upg-row-lv'; lvEl.textContent = `Lv ${level}`
+      labelLine.appendChild(labelEl); labelLine.appendChild(lvEl)
+      infoEl.appendChild(labelLine)
+
+      const costEl = document.createElement('span')
+      costEl.className = 'upg-row-cost'
+      costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+
+      row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
+      row.addEventListener('click', () => {
         const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
         const ok   = devFreeUpgradesEnabled
           ? devFreeColorUpgrade(colorKey, type)
@@ -2483,7 +2492,7 @@ function buildShop() {
           buildShop(); updateHUD()
         }
       })
-      grid.appendChild(tile)
+      grid.appendChild(row)
     }
 
     card.appendChild(grid)
@@ -2494,6 +2503,7 @@ function buildShop() {
   {
     const card = document.createElement('div')
     card.className = 'bucket-card tap-card'
+    card.style.setProperty('--bc', 'rgb(66,212,255)')
 
     const top = document.createElement('div')
     top.className = 'bucket-card-top'
@@ -2518,25 +2528,34 @@ function buildShop() {
     const cost      = tapUpgradeCost('radius', level)
     const canAfford = devFreeUpgradesEnabled || st.coins >= cost
 
-    const tile = document.createElement('button')
-    tile.className = 'upg-tile upg-tile--wide' + (canAfford ? ' upg-tile--can' : '')
-    tile.disabled  = !canAfford
-    tile.title     = 'Tap Radius'
+    const row = document.createElement('button')
+    row.className = 'upg-row' + (canAfford ? ' upg-row--can' : '')
+    row.disabled  = !canAfford
 
     const iconEl = document.createElement('span')
-    iconEl.className = 'upg-tile-icon'; iconEl.textContent = '◎'
-    const lvEl = document.createElement('span')
-    lvEl.className = 'upg-tile-lv'; lvEl.textContent = `Lv ${level}`
-    const costEl = document.createElement('span')
-    costEl.className = 'upg-tile-cost'
-    costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : fmt(cost)
+    iconEl.className = 'upg-row-icon'; iconEl.textContent = '◎'
 
-    tile.appendChild(iconEl); tile.appendChild(lvEl); tile.appendChild(costEl)
-    tile.addEventListener('click', () => {
+    const infoEl = document.createElement('span')
+    infoEl.className = 'upg-row-info'
+    const labelLine = document.createElement('span')
+    labelLine.className = 'upg-row-label-line'
+    const labelEl = document.createElement('span')
+    labelEl.className = 'upg-row-label'; labelEl.textContent = 'TAP RADIUS'
+    const lvEl = document.createElement('span')
+    lvEl.className = 'upg-row-lv'; lvEl.textContent = `Lv ${level}`
+    labelLine.appendChild(labelEl); labelLine.appendChild(lvEl)
+    infoEl.appendChild(labelLine)
+
+    const costEl = document.createElement('span')
+    costEl.className = 'upg-row-cost'
+    costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
+
+    row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
+    row.addEventListener('click', () => {
       const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick('radius') : tryUpgradeClick('radius')
       if (ok) { buildShop(); updateHUD() }
     })
-    grid.appendChild(tile)
+    grid.appendChild(row)
     card.appendChild(grid)
     shopBody.appendChild(card)
   }

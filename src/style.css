@@ -808,13 +808,13 @@ body.intro-active #stats-screen { display: none !important; }
   display: flex;
   align-items: center;
   gap: 9px;
-  margin-bottom: 10px;
+  margin-bottom: 3vmin;
 }
 
 /* Color indicator orb in card header */
 .bucket-orb {
-  width: 22px;
-  height: 22px;
+  width: 6.5vmin;
+  height: 6.5vmin;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -877,79 +877,119 @@ body.intro-active #stats-screen { display: none !important; }
   letter-spacing: 0.04em;
 }
 
-/* 5-column upgrade tile grid */
+/* Upgrade rows — flex column replaces the old 5-column tile grid */
 .bucket-upgrades {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 5px;
-}
-
-/* Wide single-tile variant (tap card) */
-.upg-tile--wide {
-  grid-column: 1 / -1;
-  max-width: 220px;
-  margin: 0 auto;
-  min-height: 68px !important;
-}
-
-/* Upgrade tile */
-.upg-tile {
   display: flex;
   flex-direction: column;
+  gap: 1vmin;
+}
+
+/* ─── Upgrade rows ─────────────────────────────────────────── */
+
+.upg-row {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 9px 2px 8px;
-  min-height: 68px;
+  gap: 2.5vmin;
+  min-height: 12vmin;
+  padding: 1.5vmin 2.5vmin 1.5vmin 2vmin;
+  width: 100%;
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
+  border-radius: 2.5vmin;
   font-family: 'Orbitron', monospace;
   cursor: pointer;
+  text-align: left;
   transition: background 0.15s, border-color 0.15s, transform 80ms;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Affordable state — color-tinted via parent's --bc variable */
-.upg-tile--can {
-  background: color-mix(in srgb, var(--bc) 6%, transparent);
-  border-color: color-mix(in srgb, var(--bc) 40%, transparent);
-  box-shadow: none;
+.upg-row--can {
+  background: color-mix(in srgb, var(--bc) 7%, transparent);
+  border-color: color-mix(in srgb, var(--bc) 38%, transparent);
 }
 
-.upg-tile:active {
-  transform: scale(0.94);
+.upg-row:active {
+  transform: scale(0.97);
+  background: color-mix(in srgb, var(--bc) 14%, transparent) !important;
 }
 
-.upg-tile:disabled {
+.upg-row:disabled {
   cursor: default;
   background: transparent;
-  border-color: rgba(255,255,255,0.08);
-  opacity: 0.50;
-  box-shadow: none;
+  border-color: rgba(255,255,255,0.06);
+  opacity: 0.48;
 }
 
-.upg-tile-icon {
-  font-size: clamp(1.1rem, 3.6vmin, 1.4rem);
+/* Left: icon in a rounded square */
+.upg-row-icon {
+  width: 8vmin;
+  height: 8vmin;
+  border-radius: 2vmin;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.95rem, 3.1vmin, 1.2rem);
+  flex-shrink: 0;
   line-height: 1;
 }
 
-.upg-tile-lv {
-  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
-  letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.45);
-  line-height: 1.2;
+.upg-row--can .upg-row-icon {
+  background: color-mix(in srgb, var(--bc) 12%, transparent);
+  border-color: color-mix(in srgb, var(--bc) 30%, transparent);
 }
 
-.upg-tile-cost {
-  font-size: clamp(0.62rem, 2.0vmin, 0.76rem);
+/* Center: label + level badge */
+.upg-row-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vmin;
+  min-width: 0;
+}
+
+.upg-row-label-line {
+  display: flex;
+  align-items: center;
+  gap: 1.5vmin;
+}
+
+.upg-row-label {
+  font-size: clamp(0.75rem, 2.4vmin, 0.92rem);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: rgba(255,255,255,0.88);
+  text-transform: uppercase;
+}
+
+.upg-row-lv {
+  font-size: clamp(0.56rem, 1.75vmin, 0.68rem);
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--bc) 90%, white);
+  background: color-mix(in srgb, var(--bc) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bc) 32%, transparent);
+  border-radius: 0.8vmin;
+  padding: 0.3vmin 1vmin;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Right: cost right-aligned */
+.upg-row-cost {
+  font-size: clamp(0.78rem, 2.5vmin, 0.95rem);
   font-weight: 700;
   color: #ffe566;
   letter-spacing: 0.02em;
-  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* Cost color absorbed by parent opacity: 0.5 when disabled */
+.upg-row:disabled .upg-row-cost {
+  color: rgba(255, 130, 50, 0.88);
+}
+
+
 /* ─── Unlock slot button ───────────────────────────────────── */
 
 .unlock-slot-btn {
