@@ -1,6 +1,6 @@
 ﻿:root {
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
-  --qb-h: calc(16vmin + env(safe-area-inset-bottom, 0px));
+  --qb-h: calc(15dvh + env(safe-area-inset-bottom, 0px));
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -47,8 +47,21 @@ canvas {
 
 .hud-coin-icon {
   color: #ffe566;
-  font-size: clamp(1.1rem, 4vmin, 1.5rem);
-  filter: drop-shadow(0 0 5px rgba(255, 229, 102, 0.65));
+  font-size: clamp(1.2rem, 5vmin, 1.9rem);
+  filter: drop-shadow(0 0 6px rgba(255, 229, 102, 0.75));
+  align-self: center;
+}
+
+/* ─── Coins value — epic gold, mirrors chain display ──────── */
+.hud-coins-btn .hud-value {
+  font-size: clamp(1.5rem, 6.5vmin, 2.4rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #ffe566;
+  text-shadow:
+    0 0 10px rgba(255, 229, 102, 0.80),
+    0 0 26px rgba(255, 229, 102, 0.35);
+  line-height: 1.05;
 }
 
 .hud-label {
@@ -60,6 +73,32 @@ canvas {
   font-weight: 700;
 }
 
+/* ─── Chain multiplier — epic, stacked, green ──────────────── */
+
+#hud-chain-wrap {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+
+#hud-chain-wrap .hud-label {
+  font-size: clamp(0.6rem, 2vmin, 0.78rem);
+  letter-spacing: 0.22em;
+  color: rgba(79, 255, 176, 0.55);
+  line-height: 1;
+}
+
+#hud-chain-wrap .hud-value {
+  font-size: clamp(1.5rem, 6.5vmin, 2.4rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #4fffb0;
+  text-shadow:
+    0 0 10px rgba(79, 255, 176, 0.80),
+    0 0 26px rgba(79, 255, 176, 0.35);
+  line-height: 1.05;
+}
+
 /* ─── HUD coin button (tappable, opens mini stats) ────────── */
 
 .hud-coins-btn {
@@ -67,7 +106,7 @@ canvas {
   all: unset;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 1.5vmin;
   font-family: 'Orbitron', monospace;
   font-size: clamp(0.9rem, 3.5vmin, 1.3rem);
   letter-spacing: 0.2em;
@@ -75,17 +114,24 @@ canvas {
   text-transform: uppercase;
   cursor: pointer;
   pointer-events: auto;
-  padding: 4px 8px 4px 2px;
-  border-radius: 6px;
-  transition: background 0.15s;
+  padding: 1.2vmin 2.5vmin 1.2vmin 1.5vmin;
+  border-radius: 2vmin;
+  border: 1px solid rgba(255, 229, 102, 0.28);
+  background: rgba(255, 229, 102, 0.05);
+  box-shadow: 0 0 10px rgba(255, 229, 102, 0.12);
+  transition: background 0.15s, box-shadow 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
 
-.hud-coins-btn:active { background: rgba(255, 229, 102, 0.10); }
+.hud-coins-btn:active {
+  background: rgba(255, 229, 102, 0.14);
+  box-shadow: 0 0 16px rgba(255, 229, 102, 0.28);
+}
 
 .hud-expand-arrow {
-  font-size: clamp(0.75rem, 2.8vmin, 1rem);
-  color: rgba(255, 255, 255, 0.28);
+  font-size: clamp(1.0rem, 3.5vmin, 1.4rem);
+  color: rgba(255, 229, 102, 0.75);
+  text-shadow: 0 0 8px rgba(255, 229, 102, 0.50);
   line-height: 1;
   transition: transform 0.2s;
 }
@@ -117,52 +163,58 @@ canvas {
 .stats-mini-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  margin-bottom: 9px;
+  gap: 1.8vmin;
+  margin-bottom: 2.5vmin;
 }
 
 .smt {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 8px 4px 7px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
+  gap: 1.2vmin;
+  padding: 2.5vmin 2vmin;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 2vmin;
 }
 
 .smt-val {
-  font-size: clamp(0.92rem, 3vmin, 1.15rem);
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.88);
+  font-size: clamp(1.15rem, 4.2vmin, 1.65rem);
+  font-weight: 900;
   letter-spacing: 0.04em;
 }
 
 .smt-lbl {
-  font-size: clamp(0.46rem, 1.5vmin, 0.58rem);
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.30);
+  font-size: clamp(0.60rem, 2vmin, 0.75rem);
+  letter-spacing: 0.10em;
+  color: rgba(255, 255, 255, 0.78);
   text-transform: uppercase;
   text-align: center;
 }
 
 .stats-full-btn {
   width: 100%;
-  padding: 8px 4px;
-  background: rgba(66, 212, 255, 0.05);
-  border: 1px solid rgba(66, 212, 255, 0.18);
-  border-radius: 6px;
+  padding: 3vmin 4vmin;
+  background: rgba(66, 212, 255, 0.08);
+  border: 1px solid rgba(66, 212, 255, 0.50);
+  border-radius: 2vmin;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.58rem, 1.9vmin, 0.72rem);
-  letter-spacing: 0.13em;
-  color: rgba(66, 212, 255, 0.78);
+  font-size: clamp(0.72rem, 2.3vmin, 0.86rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #42d4ff;
+  text-shadow: 0 0 10px rgba(66, 212, 255, 0.65);
   cursor: pointer;
   text-transform: uppercase;
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 0 14px rgba(66, 212, 255, 0.25),
+              inset 0 0 10px rgba(66, 212, 255, 0.05);
 }
 
-.stats-full-btn:active { background: rgba(66, 212, 255, 0.14); }
+.stats-full-btn:active {
+  background: rgba(66, 212, 255, 0.18);
+  box-shadow: 0 0 22px rgba(66, 212, 255, 0.45);
+}
 
 /* ─── Full stats screen ────────────────────────────────────── */
 
@@ -210,7 +262,7 @@ canvas {
 #stats-screen-close {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
@@ -218,42 +270,45 @@ canvas {
   transition: color 0.15s;
 }
 
-#stats-screen-close:active { color: rgba(255, 255, 255, 0.9); }
+#stats-screen-close:active { color: #ffffff; }
 
 .stats-tab-bar {
   display: flex;
-  padding: 10px 16px 0;
+  padding: 2.5vmin 4vmin;
+  gap: 1.5vmin;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   flex-shrink: 0;
 }
 
 .stats-tab {
   flex: 1;
-  padding: 8px 0;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
+  padding: 1.8vmin 0;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 1.5vmin;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.60rem, 1.95vmin, 0.75rem);
-  letter-spacing: 0.15em;
-  color: rgba(255, 255, 255, 0.35);
+  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.72);
   cursor: pointer;
   text-transform: uppercase;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, text-shadow 0.15s;
 }
 
 .stats-tab.active {
-  color: rgba(255, 229, 102, 0.88);
-  border-bottom-color: rgba(255, 229, 102, 0.60);
+  color: #ffe566;
+  background: rgba(255, 229, 102, 0.08);
+  border-color: rgba(255, 229, 102, 0.42);
+  text-shadow: 0 0 8px rgba(255, 229, 102, 0.45);
 }
 
 #stats-tab-body {
   overflow-y: auto;
   flex: 1;
-  padding: 14px 16px 18px;
+  padding: 4vmin 4vmin 6vmin;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 3vmin;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -263,73 +318,122 @@ canvas {
 .stats-section {
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
-.stats-section-title {
-  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
+/* ─── Collapsible section header ──── */
+.stats-section-hdr {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 2vmin 2.5vmin 2vmin 3vmin;
+  border-left: 2px solid rgba(66, 212, 255, 0.55);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.75rem, 2.5vmin, 0.92rem);
+  font-weight: 700;
   letter-spacing: 0.22em;
-  color: rgba(66, 212, 255, 0.50);
+  color: rgba(66, 212, 255, 0.88);
   text-transform: uppercase;
-  padding-bottom: 6px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid rgba(66, 212, 255, 0.10);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.stats-section-hdr:active { color: #42d4ff; }
+
+.stats-section-hdr > .stats-section-title-text { flex: 1; }
+
+.stats-section-chevron {
+  font-size: clamp(0.80rem, 2.6vmin, 1rem);
+  color: rgba(66, 212, 255, 0.90);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
 }
 
+/* Color-section header variant */
+.stats-color-hdr {
+  gap: 2.5vmin;
+  border-left-color: var(--bc);
+}
+.stats-color-hdr .stats-section-chevron {
+  color: color-mix(in srgb, var(--bc) 90%, white);
+}
+
+/* Collapsible body — CSS grid row-height trick for smooth animation */
+.stats-section-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+}
+.stats-section-body.stats-collapsed {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Inner wrapper required for grid-row animation */
+.stats-section-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1vmin;
+  padding-top: 1.8vmin;
+}
+
+/* ─── Stat rows ──── */
 .stats-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 2vmin 3vmin;
+  border-radius: 2vmin;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .stats-row:last-child { border-bottom: none; }
 
 .stats-row-lbl {
-  font-size: clamp(0.65rem, 2.1vmin, 0.78rem);
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.38);
+  font-size: clamp(0.68rem, 2.2vmin, 0.82rem);
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.82);
   text-transform: uppercase;
 }
 
 .stats-row-val {
-  font-size: clamp(0.75rem, 2.4vmin, 0.90rem);
+  font-size: clamp(0.88rem, 2.9vmin, 1.05rem);
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.95);
   letter-spacing: 0.04em;
 }
 
-.stats-color-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 6px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
+/* Semantic value colors — match game accent palette */
+.stats-val-gold  { color: #ffe566; text-shadow: 0 0 8px rgba(255, 229, 102, 0.45); }
+.stats-val-green { color: #4fffb0; text-shadow: 0 0 8px rgba(79, 255, 176, 0.45); }
+.stats-val-cyan  { color: #42d4ff; text-shadow: 0 0 8px rgba(66, 212, 255, 0.45); }
 
 .stats-color-orb {
-  width: 10px;
-  height: 10px;
+  width: 3.5vmin;
+  height: 3.5vmin;
   border-radius: 50%;
   flex-shrink: 0;
   display: inline-block;
 }
 
 .stats-color-name {
-  font-size: clamp(0.70rem, 2.2vmin, 0.84rem);
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-size: clamp(0.78rem, 2.5vmin, 0.92rem);
+  font-weight: 900;
+  letter-spacing: 0.20em;
   text-transform: uppercase;
+  flex: 1;
 }
 
 .stats-empty-msg {
-  font-size: clamp(0.70rem, 2.2vmin, 0.84rem);
-  color: rgba(255, 255, 255, 0.28);
+  font-size: clamp(0.80rem, 2.6vmin, 0.96rem);
+  color: rgba(255, 255, 255, 0.70);
   letter-spacing: 0.08em;
   text-align: center;
-  padding: 24px 0;
+  padding: 8vmin 0;
 }
 
 /* Hide stats UI during intro ─────────────────────────────────── */
@@ -963,24 +1067,31 @@ body.intro-active #stats-screen { display: none !important; }
   opacity: 0.36;
 }
 
-/* Left: icon in a rounded square */
+/* Left: icon in a rounded square — color driven by --ut-color set in JS */
 .upg-row-icon {
   width: 8vmin;
   height: 8vmin;
   border-radius: 2vmin;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.09);
+  background: color-mix(in srgb, var(--ut-color, white) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ut-color, white) 18%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: clamp(0.95rem, 3.1vmin, 1.2rem);
   flex-shrink: 0;
   line-height: 1;
+  color: var(--ut-color, rgba(255,255,255,0.75));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ut-color, white) 55%, transparent));
 }
 
 .upg-row--can .upg-row-icon {
-  background: color-mix(in srgb, var(--bc) 12%, transparent);
-  border-color: color-mix(in srgb, var(--bc) 30%, transparent);
+  background: color-mix(in srgb, var(--ut-color, var(--bc)) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ut-color, var(--bc)) 40%, transparent);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ut-color, var(--bc)) 75%, transparent));
+}
+
+.upg-row:disabled .upg-row-icon {
+  filter: none;
 }
 
 /* Center: label + level badge */
@@ -1026,6 +1137,7 @@ body.intro-active #stats-screen { display: none !important; }
   letter-spacing: 0.02em;
   white-space: nowrap;
   flex-shrink: 0;
+  text-shadow: 0 0 8px rgba(255, 229, 102, 0.60);
 }
 
 /* Cost: full-brightness warning */
@@ -1195,13 +1307,13 @@ body.intro-active #stats-screen { display: none !important; }
 /* Larger and more vivid than regular coin labels.                    */
 
 .chain-float {
-  color: #ff9f43 !important;
-  font-size: clamp(1.05rem, 3.8vmin, 1.5rem) !important;
+  color: #4fffb0 !important;
+  font-size: clamp(1.3rem, 4.8vmin, 1.9rem) !important;
   font-weight: 900 !important;
   letter-spacing: 0.08em !important;
   text-shadow:
-    0 0 8px  rgba(255, 159, 67, 0.95),
-    0 0 24px rgba(255, 90,  20, 0.60) !important;
+    0 0 10px rgba(79, 255, 176, 0.95),
+    0 0 28px rgba(79, 255, 176, 0.55) !important;
   animation: chain-float-up 1.80s ease-out forwards !important;
 }
 
@@ -1215,13 +1327,14 @@ body.intro-active #stats-screen { display: none !important; }
 /* ─── Board-clear bonus label ──────────────────────────────── */
 
 .clear-float {
-  color: #ffffff !important;
-  font-size: clamp(1rem, 3.4vmin, 1.3rem) !important;
+  color: #4fffb0 !important;
+  font-size: clamp(1.5rem, 6vmin, 2.3rem) !important;
   font-weight: 900 !important;
-  letter-spacing: 0.12em !important;
+  letter-spacing: 0.14em !important;
   text-shadow:
-    0 0 10px rgba(255, 255, 255, 0.95),
-    0 0 24px rgba(66, 212, 255, 0.65) !important;
+    0 0 12px rgba(79, 255, 176, 0.95),
+    0 0 32px rgba(79, 255, 176, 0.55),
+    0 0 60px rgba(79, 255, 176, 0.25) !important;
 }
 
 /* ─── Debug overlay (toggle with D key) ───────────────────── */
@@ -1276,9 +1389,9 @@ body.intro-completing #hud {
   bottom: 0;
   left: 0; right: 0;
   height: var(--qb-h);
-  padding: 1.5vmin 1.5vmin env(safe-area-inset-bottom, 0px);
+  padding: 1.2dvh 2vw env(safe-area-inset-bottom, 0px);
   display: flex;
-  gap: 1.5vmin;
+  gap: 1.5vw;
   background: rgba(6, 10, 22, 0.97);
   border-top: 1px solid rgba(255,255,255,0.09);
   backdrop-filter: blur(14px);
@@ -1287,29 +1400,31 @@ body.intro-completing #hud {
 
 .qb-btn {
   flex: 1;
-  height: 12vmin;
+  height: 12.5dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.8vmin;
-  background: rgba(66, 212, 255, 0.045);
-  border: 1px solid rgba(66, 212, 255, 0.15);
-  border-radius: 2vmin;
+  gap: 1dvh;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 2vw;
   font-family: 'Orbitron', monospace;
   cursor: pointer;
-  padding: 0 1.5vmin;
+  padding: 0 2vw;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-/* Affordable — mild glow so active buttons stand out from disabled ones */
+/* Affordable — highlight = colored border + glow, background stays neutral */
 .qb-btn:not(:disabled):not(.qb-btn-store) {
-  background: rgba(66, 212, 255, 0.09);
-  border-color: rgba(66, 212, 255, 0.28);
-  box-shadow: 0 0 7px 0 rgba(66, 212, 255, 0.16);
+  background: rgba(255,255,255,0.05);
+  border-color: color-mix(in srgb, var(--qb-color, #42d4ff) 55%, transparent);
+  box-shadow: 0 0 9px 0 color-mix(in srgb, var(--qb-color, #42d4ff) 30%, transparent);
 }
 
-.qb-btn:active  { background: rgba(66, 212, 255, 0.18) !important; }
+.qb-btn:active:not(.qb-btn-store) {
+  background: color-mix(in srgb, var(--qb-color, #42d4ff) 14%, transparent) !important;
+}
 
 .qb-btn:disabled {
   cursor: default;
@@ -1318,57 +1433,30 @@ body.intro-completing #hud {
   box-shadow: none;
 }
 
-/* Action label: full-brightness warning */
-.qb-btn:disabled .qb-btn-top {
-  color: #ff9f43;
-  opacity: 1;
-}
-/* Cost: full-brightness warning */
-.qb-btn:disabled .qb-btn-sub {
-  color: #ff9f43;
+/* ── Button content: icon / label / cost ───────────────────────── */
+
+/* Icon — large emoji or symbol */
+.qb-btn-icon {
+  font-size: clamp(1.4rem, 4.5dvh, 2.0rem);
+  line-height: 1;
 }
 
-/* Top row: the upgrade name / ball label */
-.qb-btn-top {
-  font-size: clamp(0.72rem, 2.5vmin, 0.88rem);
+/* Dual-icon wrapper (ball ● + upgrade type) on the BUY button */
+.qb-btn-icons {
+  display: flex;
+  align-items: center;
+  gap: 1.5vw;
+  line-height: 1;
+}
+.qb-btn-icons .qb-btn-icon {
+  font-size: clamp(1.15rem, 3.5dvh, 1.6rem);
+}
+
+/* Label — single uppercase word */
+.qb-btn-label {
+  font-size: clamp(0.82rem, 2.5dvh, 1.0rem);
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: rgba(255,255,255,0.72);
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-/* Bottom row: cost */
-.qb-btn-sub {
-  font-size: clamp(0.75rem, 2.5vmin, 0.88rem);
-  letter-spacing: 0.06em;
-  color: #ffe566;
-  white-space: nowrap;
-}
-
-/* ── Upgrade button 3-row layout ───────────────────────────────── */
-
-/* Row 1: tiny muted header ("LOWEST COST" / "BEST NEXT") */
-.qb-btn-hd {
-  font-size: clamp(0.60rem, 2.0vmin, 0.72rem);
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: rgba(255,255,255,0.32);
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-/* Row 2: main target line ("B1 Speed") — bright and readable */
-.qb-btn-target {
-  font-size: clamp(0.72rem, 2.5vmin, 0.88rem);
-  font-weight: 700;
-  letter-spacing: 0.09em;
   color: rgba(255,255,255,0.88);
   text-transform: uppercase;
   white-space: nowrap;
@@ -1376,43 +1464,42 @@ body.intro-completing #hud {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-/* Target: full-brightness warning when disabled */
-.qb-btn:disabled .qb-btn-target { color: #ff9f43; opacity: 1; }
 
-/* Row 3: reason text for Best Next ("Longer chains · ◆35")
-   or "Need ◆35" when unaffordable — styled like .qb-btn-sub */
-.qb-btn-reason {
-  font-size: clamp(0.60rem, 2.0vmin, 0.72rem);
-  letter-spacing: 0.05em;
-  color: rgba(79, 255, 176, 0.80);
+/* Cost badge */
+.qb-btn-cost {
+  font-size: clamp(0.74rem, 2.2dvh, 0.92rem);
+  letter-spacing: 0.04em;
+  color: #ffe566;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
-/* Warning color when disabled */
-.qb-btn:disabled .qb-btn-reason { color: #ff9f43; }
 
-/* Target-change flash — brief cyan highlight when target switches */
+/* Flash when BUY target changes — uses the button's current --qb-color */
 @keyframes qb-target-flash {
-  0%   { color: rgba(66, 212, 255, 0.95); }
-  60%  { color: rgba(66, 212, 255, 0.70); }
+  0%   { color: color-mix(in srgb, var(--qb-color, #42d4ff) 95%, white); }
+  60%  { color: color-mix(in srgb, var(--qb-color, #42d4ff) 70%, transparent); }
   100% { color: rgba(255, 255, 255, 0.88); }
 }
-.qb-target-changed {
-  animation: qb-target-flash 0.5s ease-out forwards;
-}
-/* Don't flash when button is disabled (target is dimmed anyway) */
+.qb-target-changed { animation: qb-target-flash 0.5s ease-out forwards; }
 .qb-btn:disabled .qb-target-changed { animation: none; }
 
-/* Store button — slightly different accent */
+/* BALL disabled: mute the orb icon + color name; warning on cost */
+#qb-ball:disabled .qb-btn-icon  { opacity: 0.40; }
+#qb-ball:disabled .qb-btn-label { opacity: 0.38; }
+#qb-ball:disabled .qb-btn-cost  { color: #ff9f43; }
+
+/* BUY disabled: barely mute icon; warning amber on name + cost */
+#qb-buy:disabled .qb-btn-icon  { opacity: 0.65; }
+#qb-buy:disabled .qb-btn-label { color: #ff9f43; }
+#qb-buy:disabled .qb-btn-cost  { color: #ff9f43; }
+
+/* Store button — green accent, never disabled */
 .qb-btn-store {
   background: rgba(79, 255, 176, 0.045);
   border-color: rgba(79, 255, 176, 0.18);
 }
 .qb-btn-store:active { background: rgba(79, 255, 176, 0.15); }
-.qb-btn-store .qb-btn-top { color: rgba(79, 255, 176, 0.85); }
-.qb-btn-store .qb-btn-sub { color: rgba(79, 255, 176, 0.7); font-size: 1rem; }
+.qb-btn-store .qb-btn-icon  { color: rgba(79, 255, 176, 0.85); font-size: clamp(1.5rem, 4.8dvh, 2.1rem); }
+.qb-btn-store .qb-btn-label { color: rgba(79, 255, 176, 0.85); }
 
 
 /* Stronger pulse applied while the first-ball cue is animating ──── */

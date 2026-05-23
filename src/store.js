@@ -110,7 +110,10 @@ export function nextBallCost(state) {
 
 // ─── Click / tap upgrade (player-level, separate from color buckets) ──────
 
-const TAP_UPGRADE_CONFIG = { radius: { baseCost: 300, costMult: 1.20 } }
+const TAP_UPGRADE_CONFIG = {
+  radius:   { baseCost: 300, costMult: 1.20 },
+  duration: { baseCost: 250, costMult: 1.22 },
+}
 
 export function tapUpgradeCost(stat, level) {
   const { baseCost, costMult } = TAP_UPGRADE_CONFIG[stat] ?? { baseCost: 300, costMult: 1.20 }
@@ -118,7 +121,10 @@ export function tapUpgradeCost(stat, level) {
 }
 
 export function clickStats(cl) {
-  return { tapRadius: 9.6 * Math.pow(1.05, cl.radiusLevel) }
+  return {
+    tapRadius:   9.6 * Math.pow(1.05, cl.radiusLevel   ?? 0),
+    tapDuration: 220 * Math.pow(1.18, cl.durationLevel ?? 0),  // ms — hold window
+  }
 }
 
 // ─── Derived stat formulas (pure) ────────────────────────────────────────
@@ -281,7 +287,7 @@ function defaultState() {
     totalCoins:          0,
     colorBuckets,
     totalBallsPurchased: 1,   // violet is already owned
-    clicks:              { radiusLevel: 0 },
+    clicks:              { radiusLevel: 0, durationLevel: 0 },
     prestigeCount:       0,
     autoUpgradeEnabled:  false,
     introComplete:       false,
