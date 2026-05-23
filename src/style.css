@@ -75,6 +75,21 @@ canvas {
 
 /* ─── Chain multiplier — epic, stacked, green ──────────────── */
 
+/* Inline-block so transform works; pulse fires on every ball trigger */
+#hud-chain {
+  display: inline-block;
+}
+
+@keyframes chain-hud-pulse {
+  0%   { transform: scale(1);    filter: brightness(1); }
+  30%  { transform: scale(1.22); filter: brightness(1.7); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+
+.chain-hud-pulse {
+  animation: chain-hud-pulse 0.22s ease-out;
+}
+
 #hud-chain-wrap {
   flex-direction: column;
   align-items: flex-end;
@@ -1414,6 +1429,24 @@ body.intro-active #stats-screen { display: none !important; }
   10%  { transform: translateX(-50%) translateY(-6px)  scale(1.10); opacity: 1; }
   65%  { transform: translateX(-50%) translateY(-44px) scale(1.00); opacity: 1; }
   100% { transform: translateX(-50%) translateY(-72px) scale(0.88); opacity: 0; }
+}
+
+/* ─── Chain bonus size variants ───────────────────────────── */
+
+/* 5–9 chain: noticeably bigger popup */
+.chain-float--big {
+  font-size: clamp(1.7rem, 6.2vmin, 2.5rem) !important;
+  animation-duration: 2.0s !important;
+}
+
+/* 10+ chain: full epic treatment */
+.chain-float--epic {
+  font-size: clamp(2.1rem, 7.8vmin, 3.0rem) !important;
+  animation-duration: 2.4s !important;
+  text-shadow:
+    0 0 16px rgba(79, 255, 176, 1.0),
+    0 0 44px rgba(79, 255, 176, 0.70),
+    0 0 88px rgba(79, 255, 176, 0.32) !important;
 }
 
 /* ─── Board-clear bonus label ──────────────────────────────── */
