@@ -433,9 +433,34 @@ function loadState() {
   return defaultState()
 }
 
-function saveState(st) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(st))
+// ─── Save throttling ─────────────────────────────────────────────────────
+// Synchronous localStorage writes block the main thread.  Coin gains and
+// stat tracking are debounced (write happens 4 s after the last dirty mark).
+// Purchases and structural mutations (prestige, intro flags, etc.) flush
+// immediately so nothing important is lost on a crash or forced close.
+
+let _saveDirty = false
+let _saveTimer = null
+const SAVE_DEBOUNCE_MS = 4000
+
+function _flushNow() {
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null }
+  if (!_saveDirty) return
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  _saveDirty = false
 }
+
+// immediate=false → debounced (coins, stats)
+// immediate=true  → flush right away (purchases, prestige)
+function saveState(st, immediate = false) {   // eslint-disable-line no-unused-vars
+  _saveDirty = true
+  if (immediate) { _flushNow(); return }
+  if (_saveTimer) clearTimeout(_saveTimer)
+  _saveTimer = setTimeout(_flushNow, SAVE_DEBOUNCE_MS)
+}
+
+// Exported so main.js can flush on pagehide / blur.
+export function flushSave() { _flushNow() }
 
 let state = loadState()
 export function getState() { return state }
@@ -452,12 +477,12 @@ export function addCoins(n, trackStats = true) {
   }
   if (state.coins > state.stats.allTime.highestCurrency)
     state.stats.allTime.highestCurrency = state.coins
-  saveState(state)
+  saveState(state)            // debounced — safe to call every pop
 }
 
 export function recordKickstart(bonus) {
   state.stats.lastKickstartBonus = bonus
-  saveState(state)
+  saveState(state)            // debounced
 }
 
 // chainCoins = per-pop coins earned during chain; chainBonus = chain-end multiplier bonus.
@@ -477,15 +502,13 @@ export function recordChainEnd(chainLength, chainCoins, chainBonus = 0) {
   if (chainLength > s.allTime.biggestChain)   s.allTime.biggestChain  = chainLength
   if (total > s.current.bestChainPayout)     s.current.bestChainPayout = total
   if (total > s.allTime.bestChainPayout)      s.allTime.bestChainPayout = total
-  // Chain-end bonus is a chain-category earning (per-pop coins tracked in recordBallPopped)
   if (chainBonus > 0) {
     s.current.chainPointsEarned += chainBonus
     s.allTime.chainPointsEarned += chainBonus
   }
   const key = String(chainLength)
   s.chainsByLength[key] = (s.chainsByLength[key] ?? 0) + 1
-
-  saveState(state)
+  saveState(state)            // debounced
 }
 
 export function recordBallPopped(colorKey, coins, isManual) {
@@ -501,19 +524,19 @@ export function recordBallPopped(colorKey, coins, isManual) {
     s.current.chainPointsEarned += coins
     s.allTime.chainPointsEarned += coins
   }
-  saveState(state)
+  // No saveState here — addCoins() already debounced the write
 }
 
 export function recordManualClick() {
   state.stats.current.manualClicks++
   state.stats.allTime.manualClicks++
-  saveState(state)
+  // debounced via next addCoins call
 }
 
 export function resetCurrentStatsForPrestige() {
   state.stats.current = defaultCurrentStats()
   state.stats.allTime.totalPrestiges++
-  saveState(state)
+  saveState(state, true)      // immediate — structural change
 }
 
 // Returns the purchased colorKey on success, or null on failure.
@@ -528,7 +551,7 @@ export function tryPurchaseNextBall() {
   state.stats.allTime.ballsPurchased++
   const cs = state.stats.byColor[colorKey]
   if (cs) cs.ballsPurchased++
-  saveState(state)
+  saveState(state, true)      // immediate — purchase must persist
   return colorKey
 }
 
@@ -546,7 +569,7 @@ export function tryPurchaseColorUpgrade(color, upgradeType) {
   state.stats.allTime.upgradesPurchased++
   const cs = state.stats.byColor[color]
   if (cs) cs.upgradesPurchased++
-  saveState(state)
+  saveState(state, true)      // immediate — purchase must persist
   return true
 }
 
@@ -556,63 +579,61 @@ export function tryUpgradeClick(stat) {
   if (state.coins < cost) return false
   state.coins -= cost
   state.clicks[key]++
-  saveState(state)
+  saveState(state, true)      // immediate — purchase must persist
   return true
 }
 
 export function setAutoUpgrade(enabled) {
   state.autoUpgradeEnabled = state.prestigeCount > 0 ? enabled : false
-  saveState(state)
+  saveState(state, true)
 }
 
 export function setIntroComplete() {
   state.introComplete = true
-  saveState(state)
+  saveState(state, true)
 }
 
 export function devResetIntro() {
   state.introComplete = false
-  saveState(state)
+  saveState(state, true)
 }
 
 export function devAddPrestige() {
   state.prestigeCount++
-  saveState(state)
+  saveState(state, true)
 }
 
 export function setFirstBallCueShown() {
   state.firstBallCueShown = true
-  saveState(state)
+  saveState(state, true)
 }
 
 export function devAddCoins(n) { addCoins(n, false) }
 
-// Dev: free color upgrade (bypasses cost).
 export function devFreeColorUpgrade(color, upgradeType) {
   const bkt = state.colorBuckets[color]
   if (!bkt) return false
   bkt[upgradeType + 'Level'] = (bkt[upgradeType + 'Level'] ?? 0) + 1
-  saveState(state)
+  saveState(state, true)
   return true
 }
 
 export function devFreeUpgradeClick(stat) {
   state.clicks[stat + 'Level']++
-  saveState(state)
+  saveState(state, true)
   return true
 }
 
-// Dev: free next ball purchase.
 export function devFreeUnlockNextBall() {
   const colorKey = getNextPurchaseColor(state)
   state.colorBuckets[colorKey].ballsOwned++
   state.totalBallsPurchased++
-  saveState(state)
+  saveState(state, true)
   return colorKey
 }
 
 export function devReset() {
   state = defaultState()
-  saveState(state)
+  saveState(state, true)
   return state
 }

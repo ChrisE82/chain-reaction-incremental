@@ -9,11 +9,15 @@ import {
   clickStats, tapUpgradeCost, tryUpgradeClick,
   chainEndBonus, getChainMultiplier,
   getNextPurchaseColor, getColorOrderProgress, getColorBucket,
-  setAutoUpgrade,
+  setAutoUpgrade, flushSave,
   setIntroComplete, devResetIntro, setFirstBallCueShown,
   devAddCoins, devAddPrestige, devReset,
   devFreeColorUpgrade, devFreeUpgradeClick, devFreeUnlockNextBall,
 } from './store.js'
+
+// Flush save on page hide/blur so no coins are lost when the app is backgrounded.
+window.addEventListener('pagehide', flushSave)
+window.addEventListener('blur',     flushSave)
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────
 const canvas     = document.getElementById('c')
@@ -484,7 +488,12 @@ function updateParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]
     p.life -= p.decay * dtSec
-    if (p.life <= 0) { particles.splice(i, 1); continue }
+    if (p.life <= 0) {
+      // O(1) swap-remove: copy last element over dead slot, then pop.
+      particles[i] = particles[particles.length - 1]
+      particles.pop()
+      continue
+    }
     p.x  += p.vx
     p.y  += p.vy
     p.vx *= 0.90
@@ -654,11 +663,16 @@ function playBirthPop() {
 }
 
 // ─── Color utils ─────────────────────────────────────────────────────────
+// Memoised: each hex string is parsed once, result cached for all future calls.
+const _lightenCache = new Map()
 function lighten(hex) {
-  const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + 80)
-  const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + 80)
-  const b = Math.min(255, parseInt(hex.slice(5, 7), 16) + 80)
-  return `rgb(${r},${g},${b})`
+  if (_lightenCache.has(hex)) return _lightenCache.get(hex)
+  const r   = Math.min(255, parseInt(hex.slice(1, 3), 16) + 80)
+  const g   = Math.min(255, parseInt(hex.slice(3, 5), 16) + 80)
+  const b   = Math.min(255, parseInt(hex.slice(5, 7), 16) + 80)
+  const out = `rgb(${r},${g},${b})`
+  _lightenCache.set(hex, out)
+  return out
 }
 
 // ─── Ball factory ─────────────────────────────────────────────────────────
@@ -673,7 +687,8 @@ function makeBall(colorKey) {
     y:        r + Math.random() * (arenaH - r * 2),
     vx:       Math.cos(angle) * stats.speed,
     vy:       Math.sin(angle) * stats.speed,
-    color:    COLOR_HEX[colorKey],
+    color:      COLOR_HEX[colorKey],
+    lightColor: lighten(COLOR_HEX[colorKey]),   // precomputed — avoids per-frame hex parse
     colorKey,
     state:    'idle',
     expTimer:  0,
@@ -707,6 +722,7 @@ function makeIntroBall(i) {
     vx:          Math.cos(angle) * INTRO_STATS.speed,
     vy:          Math.sin(angle) * INTRO_STATS.speed,
     color:       COLOR_HEX[colorKey],
+    lightColor:  lighten(COLOR_HEX[colorKey]),   // precomputed — avoids per-frame hex parse
     colorKey,
     state:       'idle',
     expTimer:    0,
@@ -958,16 +974,15 @@ function loop(ts) {
 }
 
 // ─── Background grid ──────────────────────────────────────────────────────
+// Single batched path instead of one stroke() call per line — one GPU flush total.
 function drawGrid() {
   ctx.strokeStyle = 'rgba(255,255,255,0.03)'
   ctx.lineWidth   = 1 / gameScale
   const step = 8
-  for (let x = 0; x <= arenaW; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, arenaH); ctx.stroke()
-  }
-  for (let y = 0; y <= arenaH; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(arenaW, y); ctx.stroke()
-  }
+  ctx.beginPath()
+  for (let x = 0; x <= arenaW; x += step) { ctx.moveTo(x, 0);     ctx.lineTo(x, arenaH) }
+  for (let y = 0; y <= arenaH; y += step) { ctx.moveTo(0, y);     ctx.lineTo(arenaW, y)  }
+  ctx.stroke()
 }
 
 // ─── Spawn-in animation ───────────────────────────────────────────────────
@@ -1284,7 +1299,7 @@ function drawBall(b) {
   }
 
   const grad = ctx.createRadialGradient(b.x - r * 0.3, b.y - r * 0.3, 0, b.x, b.y, r)
-  grad.addColorStop(0, lighten(b.color))
+  grad.addColorStop(0, b.lightColor)
   grad.addColorStop(1, b.color)
   ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2)
   ctx.fillStyle = grad; ctx.fill()
