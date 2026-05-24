@@ -2579,6 +2579,21 @@ function buildShop() {
   {
     const hdr = document.createElement('div')
     hdr.className = 'reactor-header'
+
+    // Left: rainbow ball + total ball count
+    const totalBalls = COLOR_ORDER.reduce((n, ck) => n + (st.colorBuckets[ck]?.ballsOwned ?? 0), 0)
+    const ballPill = document.createElement('div')
+    ballPill.className = 'reactor-ball-pill'
+    const ballOrb = document.createElement('span')
+    ballOrb.className = 'reactor-ball-orb'
+    const ballVal = document.createElement('span')
+    ballVal.className = 'reactor-ball-val'
+    ballVal.textContent = totalBalls
+    ballPill.appendChild(ballOrb); ballPill.appendChild(ballVal)
+
+    // Centre: coin icon + coin amount (grouped so they hug together)
+    const coinPill = document.createElement('div')
+    coinPill.className = 'reactor-coin-pill'
     const icon = document.createElement('span')
     icon.className = 'reactor-coin-icon'; icon.textContent = '◆'
     const val = document.createElement('span')
@@ -2590,8 +2605,9 @@ function buildShop() {
       val.addEventListener('animationend', () => val.classList.remove(cls), { once: true })
     }
     shopLastCoins = st.coins
+    coinPill.appendChild(icon); coinPill.appendChild(val)
 
-    // Compact-mode toggle — collapses / expands all cards at once
+    // Right: compact-mode toggle — collapses / expands all cards at once
     const allKeys    = ['tap', ...COLOR_ORDER.filter(ck => {
       const b = st.colorBuckets[ck]; return b && b.ballsOwned > 0
     })]
@@ -2606,7 +2622,7 @@ function buildShop() {
       buildShop()
     })
 
-    hdr.appendChild(icon); hdr.appendChild(val); hdr.appendChild(compactBtn)
+    hdr.appendChild(ballPill); hdr.appendChild(coinPill); hdr.appendChild(compactBtn)
     shopBody.appendChild(hdr)
   }
 

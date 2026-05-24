@@ -739,8 +739,66 @@ body.intro-active #stats-screen { display: none !important; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 2px 0 4px;
+  gap: 2vmin;
+  padding: 0.3vmin 0 1vmin;
+}
+
+/* Left pill — rainbow ball + ball count */
+.reactor-ball-pill {
+  display: flex;
+  align-items: center;
+  gap: 1.5vmin;
+  flex-shrink: 0;
+}
+
+/* Rainbow ball orb — conic-gradient circle, no text needed */
+.reactor-ball-orb {
+  width: clamp(0.9rem, 3.2vmin, 1.3rem);
+  height: clamp(0.9rem, 3.2vmin, 1.3rem);
+  border-radius: 50%;
+  background: conic-gradient(
+    #a78bfa 0%,
+    #42d4ff 20%,
+    #4fffb0 38%,
+    #ffe566 54%,
+    #ff8c42 70%,
+    #ff4f6a 85%,
+    #a78bfa 100%
+  );
+  box-shadow: 0 0 5px 1px rgba(167,139,250,0.35), 0 0 10px rgba(255,229,102,0.2);
+  flex-shrink: 0;
+}
+
+.reactor-ball-val {
+  font-size: clamp(1.1rem, 3.8vmin, 1.7rem);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.70);
+  letter-spacing: 0.03em;
+}
+
+/* Centre pill — coin icon hugging coin amount */
+.reactor-coin-pill {
+  display: flex;
+  align-items: center;
+  gap: 1vmin;
+  flex: 1;
+  justify-content: center;
+}
+
+.reactor-coin-icon {
+  font-size: clamp(1.1rem, 3.6vmin, 1.5rem);
+  color: #ffe566;
+  filter: drop-shadow(0 0 6px rgba(255,229,102,0.85));
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.reactor-coin-val {
+  font-size: clamp(1.6rem, 5vmin, 2.4rem);
+  font-weight: 700;
+  color: #ffe566;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 18px rgba(255,229,102,0.5);
 }
 
 /* Compact-mode toggle button */
@@ -761,21 +819,6 @@ body.intro-active #stats-screen { display: none !important; }
 .shop-compact-btn:active {
   color: rgba(255, 255, 255, 0.95);
   background: rgba(255, 255, 255, 0.08);
-}
-
-.reactor-coin-icon {
-  font-size: clamp(1.2rem, 4vmin, 1.6rem);
-  color: #ffe566;
-  filter: drop-shadow(0 0 7px rgba(255,229,102,0.85));
-  line-height: 1;
-}
-
-.reactor-coin-val {
-  font-size: clamp(1.6rem, 5vmin, 2.4rem);
-  font-weight: 700;
-  color: #ffe566;
-  letter-spacing: 0.04em;
-  text-shadow: 0 0 18px rgba(255,229,102,0.5);
 }
 
 @keyframes cv-coins-bump {
