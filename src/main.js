@@ -1788,6 +1788,12 @@ function finishIntro() {
   wasBoardActiveSinceLastKickstart = false
   particles.length  = 0
   tapCircles.length = 0
+  // Clear any stale board-clear ripple. The ripple timer is frozen during the
+  // introCompleting animation (update() returns early), so a ripple that was
+  // active when the transition started would still be active when normal play
+  // resumes — producing a phantom centered ring right after the intro ends.
+  refillRippleTimer = -1
+  refillInputLock   = 0
 
   updateHUD()
 }
@@ -3107,6 +3113,8 @@ devResetIntroBtn.addEventListener('click', () => {
   wasBoardActiveSinceLastKickstart = false
   particles.length  = 0
   tapCircles.length = 0
+  refillRippleTimer = -1
+  refillInputLock   = 0
   introMode            = true
   introCoins           = 0
   introReadyToComplete = false
