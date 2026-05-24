@@ -1553,34 +1553,28 @@ body.intro-completing #hud {
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-/* Action buttons (BALL + BUY) — always red-tinted so they read as
-   "do something now" vs the upgrade cards inside the shop */
-.qb-btn:not(.qb-btn-store) {
-  background: rgba(200, 40, 40, 0.16);
-  border-color: rgba(200, 40, 40, 0.32);
-}
-
-/* Affordable: keep colored border + glow, red base stays */
+/* Affordable: same happy green-teal as the Upgrades button — signals "go" */
 .qb-btn:not(:disabled):not(.qb-btn-store) {
-  background: rgba(200, 40, 40, 0.18);
+  background: rgba(79, 255, 176, 0.07);
   border-color: color-mix(in srgb, var(--qb-color, #42d4ff) 55%, transparent);
   box-shadow: 0 0 9px 0 color-mix(in srgb, var(--qb-color, #42d4ff) 30%, transparent);
 }
 
-/* Disabled: dimmer red, no glow */
+/* Can't afford: red-orange tint signals "locked" */
 .qb-btn:disabled:not(.qb-btn-store) {
-  background: rgba(200, 40, 40, 0.10);
-  border-color: rgba(200, 40, 40, 0.22);
+  background: rgba(210, 55, 35, 0.15);
+  border-color: rgba(210, 55, 35, 0.30);
   box-shadow: none;
 }
 
-/* Active: bright red flash */
-.qb-btn:active:not(.qb-btn-store) {
-  background: rgba(200, 40, 40, 0.42) !important;
-  border-color: rgba(220, 60, 60, 0.60) !important;
+/* Active affordable: brighter green-teal flash */
+.qb-btn:not(:disabled):active:not(.qb-btn-store) {
+  background: rgba(79, 255, 176, 0.22) !important;
 }
+
+/* Active can't-afford: brighter red-orange flash */
 .qb-btn:disabled:active:not(.qb-btn-store) {
-  background: rgba(255, 72, 38, 0.28) !important;
+  background: rgba(255, 72, 38, 0.30) !important;
   border-color: rgba(255, 72, 38, 0.55) !important;
 }
 
