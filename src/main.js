@@ -103,8 +103,13 @@ let gamePlayH = VIRTUAL_H
 function calcUnits() {
   W = window.innerWidth
   H = window.innerHeight
-  canvas.width  = W
-  canvas.height = H
+  // Only reassign canvas dimensions when they actually change.
+  // Setting canvas.width resets the entire 2D context (clears save stack, transform,
+  // clip, etc.) even when the value is unchanged. Guarding here prevents a mid-frame
+  // context wipe when calcUnits() is called from finishIntro() while the draw loop
+  // still has live ctx.save() entries — which was producing misaligned blue artifacts.
+  if (canvas.width  !== W) canvas.width  = W
+  if (canvas.height !== H) canvas.height = H
   // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
   const barPx  = qbBar.offsetHeight
   const availH = barPx > 0 ? H - barPx : H

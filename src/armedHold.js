@@ -120,23 +120,29 @@ function _onWinUp(e) {
   }
 
   if (_holdKey) {
-    // Released before hold threshold — second single purchase, re-arm
+    // Released before hold threshold — second single purchase, re-arm.
+    // Arm BEFORE performBuy() so _armedKey is already set when buildShop() runs
+    // inside performBuy() — the freshly-created DOM element then immediately
+    // receives the correct upg-armed class and the second press can't race past
+    // an unset _armedKey even if the user's finger is already coming back down.
     const key = _holdKey
     _clearHold()
+    _arm(key)
     const cb = _callbacks[key]
     if (cb?.canBuy()) { cb.performBuy(); _pop(key) }
-    _arm(key)
     _detachWin()
     return
   }
 
   if (_pendingKey) {
-    // First tap complete — single purchase, then arm
+    // First tap complete — single purchase, then arm.
+    // Arm BEFORE performBuy() for the same reason: _armedKey must be set before
+    // any DOM rebuild so the rebuilt element is immediately treated as armed.
     const key = _pendingKey
     _pendingKey = null
+    _arm(key)
     const cb = _callbacks[key]
     if (cb?.canBuy()) { cb.performBuy(); _pop(key) }
-    _arm(key)
     _detachWin()
     return
   }
