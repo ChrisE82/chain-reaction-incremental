@@ -1953,7 +1953,7 @@ function drawFirstBallCue() {
 // ─── Quick-buy helpers ────────────────────────────────────────────────────
 
 const COLOR_SHORT = {
-  violet: 'Vlt', indigo: 'Ind', blue: 'Blu',
+  violet: 'Vlt', blue: 'Blu',
   green: 'Grn', yellow: 'Ylw', orange: 'Org', red: 'Red',
 }
 

@@ -10,11 +10,10 @@ const LEGACY_KEY  = 'cr_v2'   // read once on first launch for migration
 // later — all purchase logic goes through getNextPurchaseColor() so nothing
 // else needs to change.
 
-export const COLOR_ORDER = ['violet', 'indigo', 'blue', 'green', 'yellow', 'orange', 'red']
+export const COLOR_ORDER = ['violet', 'blue', 'green', 'yellow', 'orange', 'red']
 
 export const COLOR_HEX = {
   violet: '#a78bfa',
-  indigo: '#818cf8',
   blue:   '#42d4ff',
   green:  '#4fffb0',
   yellow: '#ffe566',
