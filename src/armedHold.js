@@ -197,7 +197,11 @@ export function attachArmedHold(el, key, performBuy, canBuy) {
     e.stopPropagation()
 
     if (_armedKey === key) {
-      // Second press on armed button → start hold phase
+      // Second press on armed button → start hold phase only if still affordable.
+      // Coins may have changed between first tap and second press (e.g. auto-upgrade
+      // spent them), so re-check here before showing the fill bar or starting repeat.
+      const cb = _callbacks[key]
+      if (!cb?.canBuy()) { _clearArmed(); return }
       _clearArmed()
       _holdKey = key
       _cls(key, 'upg-holding', true)
