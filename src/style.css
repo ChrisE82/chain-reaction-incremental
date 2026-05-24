@@ -1553,26 +1553,39 @@ body.intro-completing #hud {
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-/* Affordable — highlight = colored border + glow, background stays neutral */
+/* Action buttons (BALL + BUY) — always red-tinted so they read as
+   "do something now" vs the upgrade cards inside the shop */
+.qb-btn:not(.qb-btn-store) {
+  background: rgba(200, 40, 40, 0.16);
+  border-color: rgba(200, 40, 40, 0.32);
+}
+
+/* Affordable: keep colored border + glow, red base stays */
 .qb-btn:not(:disabled):not(.qb-btn-store) {
-  background: rgba(255,255,255,0.05);
+  background: rgba(200, 40, 40, 0.18);
   border-color: color-mix(in srgb, var(--qb-color, #42d4ff) 55%, transparent);
   box-shadow: 0 0 9px 0 color-mix(in srgb, var(--qb-color, #42d4ff) 30%, transparent);
 }
 
+/* Disabled: dimmer red, no glow */
+.qb-btn:disabled:not(.qb-btn-store) {
+  background: rgba(200, 40, 40, 0.10);
+  border-color: rgba(200, 40, 40, 0.22);
+  box-shadow: none;
+}
+
+/* Active: bright red flash */
 .qb-btn:active:not(.qb-btn-store) {
-  background: color-mix(in srgb, var(--qb-color, #42d4ff) 14%, transparent) !important;
+  background: rgba(200, 40, 40, 0.42) !important;
+  border-color: rgba(220, 60, 60, 0.60) !important;
 }
 .qb-btn:disabled:active:not(.qb-btn-store) {
-  background: rgba(255, 72, 38, 0.18) !important;
-  border-color: rgba(255, 72, 38, 0.46) !important;
+  background: rgba(255, 72, 38, 0.28) !important;
+  border-color: rgba(255, 72, 38, 0.55) !important;
 }
 
 .qb-btn:disabled {
   cursor: default;
-  border-color: rgba(255, 159, 67, 0.22);
-  background: rgba(255, 159, 67, 0.025);
-  box-shadow: none;
 }
 
 /* ── Button content: icon / label / cost ───────────────────────── */
