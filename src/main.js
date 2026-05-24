@@ -15,9 +15,13 @@ import {
   devFreeColorUpgrade, devFreeUpgradeClick, devFreeUnlockNextBall,
 } from './store.js'
 
-// Flush save on page hide/blur so no coins are lost when the app is backgrounded.
+import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
+
+// Flush save and cancel any held repeat on page hide/blur.
 window.addEventListener('pagehide', flushSave)
+window.addEventListener('pagehide', cancelArmedHold)
 window.addEventListener('blur',     flushSave)
+window.addEventListener('blur',     cancelArmedHold)
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────
 const canvas     = document.getElementById('c')
@@ -2551,7 +2555,7 @@ function makeUpgChip(icon, utColor, bc, costText, canAfford, onClick) {
   const costEl = document.createElement('span')
   costEl.className = 'upg-chip-cost'; costEl.textContent = costText
   chip.appendChild(iconEl); chip.appendChild(costEl)
-  chip.addEventListener('click', e => { e.stopPropagation(); onClick() })
+  if (onClick) chip.addEventListener('click', e => { e.stopPropagation(); onClick() })
   return chip
 }
 
@@ -2651,15 +2655,18 @@ function buildShop() {
     buyPill.style.color = canBuy ? COLOR_HEX[nextColor] : 'rgba(255,255,255,0.22)'
 
     card.appendChild(orbEl); card.appendChild(infoEl); card.appendChild(buyPill)
-    card.addEventListener('click', () => {
-      const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
-      if (colorKey) {
-        addBallForColor(colorKey)
-        cancelFirstBallCue()
-        buildShop(); updateHUD()
-        spawnQbToast(`${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} ball unlocked!`)
-      }
-    })
+    attachArmedHold(card, 'ball-buy',
+      () => {
+        const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
+        if (colorKey) {
+          addBallForColor(colorKey)
+          cancelFirstBallCue()
+          buildShop(); updateHUD()
+          spawnQbToast(`${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} ball unlocked!`)
+        }
+      },
+      () => devFreeUpgradesEnabled || getState().coins >= nextBallCost(getState())
+    )
     shopBody.appendChild(card)
   }
 
@@ -2723,10 +2730,14 @@ function buildShop() {
         costEl.className = 'upg-row-cost'
         costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
         row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
-        row.addEventListener('click', () => {
-          const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
-          if (ok) { buildShop(); updateHUD() }
-        })
+        attachArmedHold(row, `tap-${stat}`,
+          () => {
+            const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
+            if (ok) { buildShop(); updateHUD() }
+          },
+          () => devFreeUpgradesEnabled ||
+            getState().coins >= tapUpgradeCost(stat, getState().clicks[stat + 'Level'] ?? 0)
+        )
         grid.appendChild(row)
       }
       card.appendChild(grid)
@@ -2737,11 +2748,17 @@ function buildShop() {
         const level     = st.clicks[stat + 'Level'] ?? 0
         const cost      = tapUpgradeCost(stat, level)
         const canAfford = devFreeUpgradesEnabled || st.coins >= cost
-        chips.appendChild(makeUpgChip(icon, color, bc,
-          devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`, canAfford, () => {
+        const tapChip = makeUpgChip(icon, color, bc,
+          devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`, canAfford, null)
+        attachArmedHold(tapChip, `tap-${stat}`,
+          () => {
             const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
             if (ok) { buildShop(); updateHUD() }
-          }))
+          },
+          () => devFreeUpgradesEnabled ||
+            getState().coins >= tapUpgradeCost(stat, getState().clicks[stat + 'Level'] ?? 0)
+        )
+        chips.appendChild(tapChip)
       }
       card.appendChild(chips)
     }
@@ -2841,17 +2858,25 @@ function buildShop() {
         costEl.textContent = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`
 
         row.appendChild(iconEl); row.appendChild(infoEl); row.appendChild(costEl)
-        row.addEventListener('click', () => {
-          const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
-          const ok   = devFreeUpgradesEnabled
-            ? devFreeColorUpgrade(colorKey, type)
-            : tryPurchaseColorUpgrade(colorKey, type)
-          if (ok) {
-            syncColorBalls(colorKey)
-            if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
-            buildShop(); updateHUD()
-          }
-        })
+
+        const upgKey = `${colorKey}-${type}`
+        attachArmedHold(row, upgKey,
+          () => {
+            const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
+            const ok   = devFreeUpgradesEnabled
+              ? devFreeColorUpgrade(colorKey, type)
+              : tryPurchaseColorUpgrade(colorKey, type)
+            if (ok) {
+              syncColorBalls(colorKey)
+              if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
+              buildShop(); updateHUD()
+            }
+          },
+          () => devFreeUpgradesEnabled ||
+            getState().coins >= colorUpgradeCost(type,
+              getState().colorBuckets[colorKey]?.[type + 'Level'] ?? 0,
+              progress.cycle)
+        )
         grid.appendChild(row)
       }
 
@@ -2864,8 +2889,12 @@ function buildShop() {
         const cost      = colorUpgradeCost(type, level, progress.cycle)
         const canAfford = devFreeUpgradesEnabled || st.coins >= cost
         const utColor   = UPGRADE_TYPE_COLOR[type]
-        chips.appendChild(makeUpgChip(icon, utColor, bc,
-          devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`, canAfford, () => {
+        // Pass null for onClick — armedHold handles all purchase interactions
+        const chip = makeUpgChip(icon, utColor, bc,
+          devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(cost)}`, canAfford, null)
+        const upgKey = `${colorKey}-${type}`
+        attachArmedHold(chip, upgKey,
+          () => {
             const oldR = type === 'diameter' ? getDerivedBallStats(getState(), colorKey).maxRadius : 0
             const ok   = devFreeUpgradesEnabled
               ? devFreeColorUpgrade(colorKey, type)
@@ -2875,7 +2904,13 @@ function buildShop() {
               if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
               buildShop(); updateHUD()
             }
-          }))
+          },
+          () => devFreeUpgradesEnabled ||
+            getState().coins >= colorUpgradeCost(type,
+              getState().colorBuckets[colorKey]?.[type + 'Level'] ?? 0,
+              progress.cycle)
+        )
+        chips.appendChild(chip)
       }
       card.appendChild(chips)
     }
@@ -2938,7 +2973,7 @@ statsScreen.querySelectorAll('.stats-tab').forEach(tab => {
 })
 
 shopToggle.addEventListener('click', toggleShop)   // legacy button (hidden)
-shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); updateQuickBuy() })
+shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); cancelArmedHold(); updateQuickBuy() })
 
 // Full-screen panel — no backdrop tap-to-close needed
 
@@ -2947,35 +2982,48 @@ shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); 
 // Prevent all qb touches/clicks from reaching the canvas pointerdown handler.
 qbBar.addEventListener('pointerdown', e => e.stopPropagation())
 
-qbBallBtn.addEventListener('click', e => {
-  e.stopPropagation()
-  const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
-  if (colorKey) {
-    addBallForColor(colorKey)
-    cancelFirstBallCue()
-    updateHUD()
-    if (!shopPanel.classList.contains('hidden')) buildShop()
-    const n = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
-    spawnQbToast(`${n} ball unlocked!`)
-  }
-})
+attachArmedHold(
+  qbBallBtn,
+  'qb-ball',
+  () => {
+    const colorKey = devFreeUpgradesEnabled ? devFreeUnlockNextBall() : tryPurchaseNextBall()
+    if (colorKey) {
+      addBallForColor(colorKey)
+      cancelFirstBallCue()
+      updateHUD()
+      if (!shopPanel.classList.contains('hidden')) buildShop()
+      const n = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
+      spawnQbToast(`${n} ball unlocked!`)
+    }
+  },
+  () => devFreeUpgradesEnabled || getState().coins >= nextBallCost(getState())
+)
 
-qbBuyBtn.addEventListener('click', e => {
-  e.stopPropagation()
-  const up = findSuggestedColorUpgrade(getState())
-  if (!up) return
-  const oldR = up.upgradeType === 'diameter' ? getDerivedBallStats(getState(), up.color).maxRadius : 0
-  const ok = devFreeUpgradesEnabled
-    ? devFreeColorUpgrade(up.color, up.upgradeType)
-    : tryPurchaseColorUpgrade(up.color, up.upgradeType)
-  if (ok) {
-    syncColorBalls(up.color)
-    if (up.upgradeType === 'diameter') spawnRadiusGhost(up.color, oldR)
-    updateHUD()
-    if (!shopPanel.classList.contains('hidden')) buildShop()
-    spawnQbToast(`${COLOR_SHORT[up.color]} ${UPGRADE_TYPE_LABEL[up.upgradeType]} upgraded!`)
+attachArmedHold(
+  qbBuyBtn,
+  'qb-buy',
+  () => {
+    const up = findSuggestedColorUpgrade(getState())
+    if (!up) return
+    const oldR = up.upgradeType === 'diameter' ? getDerivedBallStats(getState(), up.color).maxRadius : 0
+    const ok = devFreeUpgradesEnabled
+      ? devFreeColorUpgrade(up.color, up.upgradeType)
+      : tryPurchaseColorUpgrade(up.color, up.upgradeType)
+    if (ok) {
+      syncColorBalls(up.color)
+      if (up.upgradeType === 'diameter') spawnRadiusGhost(up.color, oldR)
+      updateHUD()
+      if (!shopPanel.classList.contains('hidden')) buildShop()
+      spawnQbToast(`${COLOR_SHORT[up.color]} ${UPGRADE_TYPE_LABEL[up.upgradeType]} upgraded!`)
+    }
+  },
+  () => {
+    if (devFreeUpgradesEnabled) return true
+    const st = getState()
+    const up = findSuggestedColorUpgrade(st)
+    return !!up && st.coins >= up.cost
   }
-})
+)
 
 qbStoreBtn.addEventListener('click', e => {
   e.stopPropagation()
