@@ -49,11 +49,6 @@ export const EconomyConstants = {
   // lv1→×2.2  lv5→×6.5  lv10→×10.8  lv20→×17.3  max→×26
   value:      { maxBonus: 25,   curve: 20 },
 
-  // Chain bonus weight per ball  (ceiling ≈ ×16)
-  // Very high curve → nearly worthless until chains are long and consistent.
-  // lv1→×1.8  lv5→×4.6  lv10→×7.4  lv20→×11.5  max→×16
-  chainPower: { maxBonus: 15,   curve: 18 },
-
   // Ball movement speed  (ceiling: base × 3 = 1.35 u/ms)
   // base intentionally high so even lv0 balls move fast enough to create chains.
   speed:      { base: 0.45, maxBonus: 2.0, curve: 7 },
@@ -73,12 +68,11 @@ export const EconomyConstants = {
   // ── Upgrade costs: cost = ceil(baseCost × growthRate^level × cycleMult^cycle)
   //    growthRate is intentionally steep so cost outpaces plateau stat gains.
   upgradeCost: {
-    // value/chainPower start expensive so the player is nudged toward speed/size first.
     value:      { baseCost: 60,  growthRate: 1.50 },
     speed:      { baseCost: 30,  growthRate: 1.65 },
     diameter:   { baseCost: 35,  growthRate: 1.75 },
     duration:   { baseCost: 20,  growthRate: 1.65 },
-    chainPower: { baseCost: 100, growthRate: 1.75 },
+    // chainPower removed from base game — unlocked via prestige relic
     cycleMult:  2.2,   // ×N per completed color cycle — escalates the wall each loop
     tapRadius:   { baseCost: 100, growthRate: 1.45 },
     tapDuration: { baseCost:  80, growthRate: 1.45 },
@@ -126,6 +120,9 @@ export function getChainMultiplier(chainLength) {
 }
 
 export function chainEndBonus(chainLength, chainBaseValue) {
+  // Static bonus — scales with chain length via the fixed table.
+  // The multiplier is NOT upgradeable in the base game; that requires the
+  // Chain Breaker prestige relic (which will multiply the table values).
   const mult = getChainMultiplier(chainLength)
   if (mult <= 0) return 0
   return Math.floor(chainBaseValue * mult)
@@ -203,12 +200,6 @@ function getBallValue(level) {
 }
 // lv0→10  lv1→40  lv2→65  lv5→126  lv10→188  lv20→240  max→260
 
-function getChainPowerMult(level) {
-  const { maxBonus, curve } = EconomyConstants.chainPower
-  return plateau(level, maxBonus, curve)
-}
-// lv0→×1.0  lv1→×3.0  lv5→×8.7  lv10→×12.4  lv20→×15.1  max→×16
-
 export function clickStats(cl) {
   const rt = EconomyConstants.tap.radius
   const dt = EconomyConstants.tap.duration
@@ -224,14 +215,14 @@ export function clickStats(cl) {
 // Exported for use in suggested-upgrade calculations in main.js.
 export function statsFromBucket(bkt) {
   return {
-    speed:          EconomyConstants.speed.base * speedMult(bkt.speedLevel ?? 0),
-    maxRadius:      getExpansionRadius(bkt.diameterLevel  ?? 0),
-    growMs:         GameConfig.growDuration,
-    holdMs:         holdMs(bkt.durationLevel              ?? 0),
-    shrinkMs:       GameConfig.shrinkDuration,
-    respawnMs:      999999999,   // board-clear refill handles respawn
-    value:          getBallValue(bkt.valueLevel           ?? 0),
-    chainPowerMult: getChainPowerMult(bkt.chainPowerLevel ?? 0),
+    speed:     EconomyConstants.speed.base * speedMult(bkt.speedLevel    ?? 0),
+    maxRadius: getExpansionRadius(bkt.diameterLevel                       ?? 0),
+    growMs:    GameConfig.growDuration,
+    holdMs:    holdMs(bkt.durationLevel                                   ?? 0),
+    shrinkMs:  GameConfig.shrinkDuration,
+    respawnMs: 999999999,   // board-clear refill handles respawn
+    value:     getBallValue(bkt.valueLevel                                ?? 0),
+    // chainPowerMult removed — chain bonus is a prestige relic, not a base stat
   }
 }
 
@@ -243,12 +234,12 @@ export function getDerivedBallStats(state, colorKey) {
 
 function newColorBucket() {
   return {
-    ballsOwned:      0,
-    valueLevel:      0,
-    speedLevel:      0,
-    diameterLevel:   0,
-    durationLevel:   0,
-    chainPowerLevel: 0,
+    ballsOwned:    0,
+    valueLevel:    0,
+    speedLevel:    0,
+    diameterLevel: 0,
+    durationLevel: 0,
+    // chainPowerLevel intentionally omitted — prestige relic unlock only
   }
 }
 

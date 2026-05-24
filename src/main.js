@@ -250,7 +250,7 @@ function runAutoUpgrade(dt) {
   for (const colorKey of COLOR_ORDER) {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
-    for (const upgradeType of ['value', 'speed', 'diameter', 'duration', 'chainPower']) {
+    for (const upgradeType of ['value', 'speed', 'diameter', 'duration']) {
       const level = bkt[upgradeType + 'Level'] ?? 0
       const cost  = colorUpgradeCost(upgradeType, level, autoCycle)
       if (cost <= st.coins && cost < bestCost) {
@@ -299,7 +299,7 @@ function startChain() {
     id:           nextChainId++,
     index:        0,       // number of balls triggered so far
     coins:        0,       // per-pop coins earned this chain
-    chainContrib: 0,       // sum of (b.value * b.chainPowerMult) — base for chain bonus
+    chainContrib: 0,       // sum of b.value — kept for when chain-breaker relic is implemented
     triggered:    new Set(),
   }
 }
@@ -698,9 +698,8 @@ function makeBall(colorKey) {
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
     spawnInTimer: -1, spawnInDelay: 0,
-    value:          stats.value,
-    chainPowerMult: stats.chainPowerMult,
-    maxRadius:      stats.maxRadius,
+    value:     stats.value,
+    maxRadius: stats.maxRadius,
     growMs:         stats.growMs,
     holdMs:         stats.holdMs,
     shrinkMs:       stats.shrinkMs,
@@ -732,9 +731,8 @@ function makeIntroBall(i) {
     flash: 0, sqx: 1, sqy: 1,
     wigAmp: 0, wigTimer: 0, wigAngle: 0,
     spawnInTimer: -1, spawnInDelay: 0,
-    value:          EconomyConfig.baseCoinValue,
-    chainPowerMult: 1,
-    maxRadius:   INTRO_STATS.maxRadius,
+    value:     EconomyConfig.baseCoinValue,
+    maxRadius: INTRO_STATS.maxRadius,
     growMs:      INTRO_STATS.growMs,
     holdMs:      INTRO_STATS.holdMs,
     shrinkMs:    INTRO_STATS.shrinkMs,
@@ -805,7 +803,7 @@ function triggerBall(b, src) {
   if (currentChain) {
     currentChain.index++
     currentChain.coins        += coins
-    currentChain.chainContrib += b.value * b.chainPowerMult
+    currentChain.chainContrib += b.value   // chainPowerMult removed (prestige relic)
     // Intro: flag ready-to-complete once any chain reaches length 5
     if (introMode && !introReadyToComplete && currentChain.index >= 5) {
       introReadyToComplete = true
@@ -863,13 +861,12 @@ function syncColorBalls(colorKey) {
   const stats = getDerivedBallStats(getState(), colorKey)
   for (const b of balls) {
     if (b.colorKey !== colorKey) continue
-    b.maxRadius     = stats.maxRadius
-    b.growMs        = stats.growMs
-    b.holdMs        = stats.holdMs
-    b.shrinkMs      = stats.shrinkMs
-    b.respawnMs     = stats.respawnMs
-    b.value         = stats.value
-    b.chainPowerMult = stats.chainPowerMult
+    b.maxRadius = stats.maxRadius
+    b.growMs    = stats.growMs
+    b.holdMs    = stats.holdMs
+    b.shrinkMs  = stats.shrinkMs
+    b.respawnMs = stats.respawnMs
+    b.value     = stats.value
     const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy)
     if (spd > 0) {
       const ratio = stats.speed / spd
@@ -1032,11 +1029,10 @@ function refillAllOwnedBalls() {
     b.y = r + Math.random() * (arenaH - r * 2)
     b.vx = Math.cos(angle) * stats.speed
     b.vy = Math.sin(angle) * stats.speed
-    b.maxRadius     = stats.maxRadius
-    b.holdMs        = stats.holdMs
-    b.respawnMs     = stats.respawnMs
-    b.value         = stats.value         ?? b.value
-    b.chainPowerMult = stats.chainPowerMult ?? b.chainPowerMult
+    b.maxRadius = stats.maxRadius
+    b.holdMs    = stats.holdMs
+    b.respawnMs = stats.respawnMs
+    b.value     = stats.value ?? b.value
     b.respawnTimer = 0
     b.curRadius    = 0
     b.sqx = 1; b.sqy = 1
@@ -1081,11 +1077,10 @@ function update(dt) {
         b.y  = r + Math.random() * (arenaH - r * 2)
         b.vx = Math.cos(angle) * stats.speed
         b.vy = Math.sin(angle) * stats.speed
-        b.maxRadius     = stats.maxRadius
-        b.holdMs        = stats.holdMs
-        b.respawnMs     = stats.respawnMs
-        b.value         = stats.value         ?? b.value
-        b.chainPowerMult = stats.chainPowerMult ?? b.chainPowerMult
+        b.maxRadius = stats.maxRadius
+        b.holdMs    = stats.holdMs
+        b.respawnMs = stats.respawnMs
+        b.value     = stats.value ?? b.value
         b.sqx = 1; b.sqy = 1
         b.spawnGen++        // new spawn generation — can be caught again in active chain
         b.state = 'idle'
@@ -1379,11 +1374,10 @@ function updateDebug(st) {
   let statLines = ''
   if (sampleBkt) {
     const EC  = EconomyConstants
-    const vLv = sampleBkt.valueLevel      ?? 0
-    const sLv = sampleBkt.speedLevel      ?? 0
-    const dLv = sampleBkt.diameterLevel   ?? 0
-    const hLv = sampleBkt.durationLevel   ?? 0
-    const cLv = sampleBkt.chainPowerLevel ?? 0
+    const vLv = sampleBkt.valueLevel    ?? 0
+    const sLv = sampleBkt.speedLevel    ?? 0
+    const dLv = sampleBkt.diameterLevel ?? 0
+    const hLv = sampleBkt.durationLevel ?? 0
     const plateau = (lv, mb, cv) => (1 + mb * (1 - Math.exp(-lv / cv))).toFixed(2)
     const pR = (lv) => {
       const { baseR, maxR, curve } = EC.diameter
@@ -1399,8 +1393,7 @@ function updateDebug(st) {
       `Value ×${plateau(vLv, EC.value.maxBonus, EC.value.curve)}  ` +
       `Speed ×${plateau(sLv, EC.speed.maxBonus, EC.speed.curve)}  ` +
       `Hold ${Math.round(200 * (1 + EC.duration.maxBonus * (1 - Math.exp(-hLv / EC.duration.curve))))}ms  ` +
-      `Radius ${pR(dLv)}u  ` +
-      `ChainPow ×${plateau(cLv, EC.chainPower.maxBonus, EC.chainPower.curve)}</span><br>` +
+      `Radius ${pR(dLv)}u</span><br>` +
       `ChainEarnings: ${s.current.chainPointsEarned > 0 ? Math.round(100 * s.current.chainPointsEarned / Math.max(1, s.current.totalEarned)) : 0}% of run total<br>` +
       `Best chain payout: ◆${fmt(s.current.bestChainPayout)}<br>`
   }
@@ -2049,32 +2042,30 @@ const COLOR_SHORT = {
 }
 
 const UPGRADE_TYPE_LABEL = {
-  value: 'Value', speed: 'Speed', diameter: 'Size',
-  duration: 'Hold', chainPower: 'Chain',
+  value: 'Value', speed: 'Speed', diameter: 'Size', duration: 'Hold',
+  // chainPower omitted — prestige relic unlock only
 }
 
 const UPGRADE_TYPE_ICON = {
-  value: '✦', speed: '⚡', diameter: '◉', duration: '⏳', chainPower: '⊕',
+  value: '✦', speed: '⚡', diameter: '◉', duration: '⏳',
 }
 
 // Per-type accent colors for icon squares — distinct from ball colors
 const UPGRADE_TYPE_COLOR = {
-  value:      '#ffe566',  // gold   — earns more coins
-  speed:      '#38bdf8',  // sky    — fast & energetic
-  diameter:   '#c084fc',  // violet — grows bigger
-  duration:   '#fb923c',  // orange — burns time
-  chainPower: '#4fffb0',  // green  — chain/combo power
+  value:    '#ffe566',  // gold   — earns more coins
+  speed:    '#38bdf8',  // sky    — fast & energetic
+  diameter: '#c084fc',  // violet — grows bigger
+  duration: '#fb923c',  // orange — burns time
 }
 
 // Reason label shown on the Suggested button.
 function sugReason(upgradeType, marginalGain) {
   if (marginalGain >= 0.20) return 'Big gain'
   return {
-    value:      'More coins',
-    speed:      'Reach more',
-    diameter:   'Wider catch',
-    duration:   'Longer chain',
-    chainPower: 'Bigger bonus',
+    value:    'More coins',
+    speed:    'Reach more',
+    diameter: 'Wider catch',
+    duration: 'Longer chain',
   }[upgradeType] ?? 'Upgrade'
 }
 
@@ -2089,7 +2080,7 @@ function findCheapestColorUpgrade(st) {
   for (const colorKey of COLOR_ORDER) {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
-    for (const upgradeType of ['value', 'speed', 'diameter', 'duration', 'chainPower']) {
+    for (const upgradeType of ['value', 'speed', 'diameter', 'duration']) {
       const level = bkt[upgradeType + 'Level'] ?? 0
       const cost  = colorUpgradeCost(upgradeType, level, cycle)
       if (!best || cost < best.cost) best = { color: colorKey, upgradeType, cost }
@@ -2101,28 +2092,24 @@ function findCheapestColorUpgrade(st) {
 // ── Suggested upgrade scoring ─────────────────────────────────────────────
 // score = typeWeight * marginalGain / cost^0.65
 //
-// Chain infrastructure (speed, diameter, duration) ranks highest because without
-// fast, big, long-lasting balls there are no chains — value and chainPower are
-// nearly worthless when the player is still in "tap a group" mode.
-// Value and chainPower weights are low AND gated behind an infraScore check in
-// findSuggestedColorUpgrade() so they never surface until chains are forming.
-const UPGRADE_TYPE_WEIGHT = { speed: 1.20, diameter: 1.15, duration: 1.10, value: 0.80, chainPower: 0.70 }
-const UPGRADE_TYPE_ORDER  = ['speed', 'diameter', 'duration', 'value', 'chainPower']
+// Chain infrastructure (speed, diameter, duration) ranks highest — fast, big,
+// long-lasting balls must come first so chains actually form.
+// Value is deprioritized and gated until a bucket has enough infra levels.
+const UPGRADE_TYPE_WEIGHT = { speed: 1.20, diameter: 1.15, duration: 1.10, value: 0.80 }
+const UPGRADE_TYPE_ORDER  = ['speed', 'diameter', 'duration', 'value']
 
 // A bucket must have this many combined levels of speed+diameter+duration before
-// value or chainPower upgrades are ever suggested for it.
-// 4 ≈ lv2 speed + lv2 diameter, or lv3 speed + lv1 diameter + lv0 duration, etc.
+// value upgrades are ever suggested for it.
 const CHAIN_INFRA_THRESHOLD = 4
 
 function getUpgradeStatValue(upgradeType, bkt) {
   const stats = statsFromBucket(bkt)
   switch (upgradeType) {
-    case 'value':      return stats.value
-    case 'speed':      return stats.speed
-    case 'diameter':   return stats.maxRadius
-    case 'duration':   return stats.growMs + stats.holdMs
-    case 'chainPower': return stats.chainPowerMult
-    default:           return 1
+    case 'value':    return stats.value
+    case 'speed':    return stats.speed
+    case 'diameter': return stats.maxRadius
+    case 'duration': return stats.growMs + stats.holdMs
+    default:         return 1
   }
 }
 
@@ -2137,13 +2124,12 @@ function findSuggestedColorUpgrade(st) {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
 
-    // Gate: value and chainPower are only considered once a bucket has enough
-    // chain infrastructure — fast + big + long-lasting balls must come first.
+    // Gate: value is only considered once a bucket has enough chain infrastructure.
     const infraScore = (bkt.speedLevel ?? 0) + (bkt.diameterLevel ?? 0) + (bkt.durationLevel ?? 0)
     const chainReady = infraScore >= CHAIN_INFRA_THRESHOLD
 
     for (const upgradeType of UPGRADE_TYPE_ORDER) {
-      if (!chainReady && (upgradeType === 'value' || upgradeType === 'chainPower')) continue
+      if (!chainReady && upgradeType === 'value') continue
 
       const level    = bkt[upgradeType + 'Level'] ?? 0
       const cost     = colorUpgradeCost(upgradeType, level, cycle)
@@ -2544,13 +2530,12 @@ function makeSectionTitle(icon, text) {
 }
 
 // Per-type icon and label for upgrade tiles in the reactor panel.
-// Icons follow the CHROMATIC VOID spec: ✦ ⚡ ◉ ⏳ ⊕
 const UPGRADE_TYPE_DEFS = [
-  { type: 'value',      icon: '✦', label: 'Value'  },
-  { type: 'speed',      icon: '⚡', label: 'Speed'  },
-  { type: 'diameter',   icon: '◉', label: 'Size'   },
-  { type: 'duration',   icon: '⏳', label: 'Hold'   },
-  { type: 'chainPower', icon: '⊕', label: 'Chain'  },
+  { type: 'value',    icon: '✦', label: 'Value' },
+  { type: 'speed',    icon: '⚡', label: 'Speed' },
+  { type: 'diameter', icon: '◉', label: 'Size'  },
+  { type: 'duration', icon: '⏳', label: 'Hold'  },
+  // chainPower: prestige relic — appears in a separate prestige shop panel
 ]
 
 // Compact square chip used in collapsed card view (icon + cost only).
@@ -3162,8 +3147,7 @@ function logBalanceReport() {
     const { baseR, maxR, curve } = EC.diameter
     return `${(baseR + (maxR - baseR) * (1 - Math.exp(-lv / curve))).toFixed(1)} u`
   }))
-  console.log('Chain power mult:')
-  console.log(statTable('chainPower', lv => `×${p(lv, EC.chainPower.maxBonus, EC.chainPower.curve)}`))
+  // chainPower removed from base game (prestige relic)
 
   console.log('── UPGRADE COSTS (cycle 0) ───────────────────────────────')
   for (const [type, cfg] of Object.entries(EC.upgradeCost)) {
