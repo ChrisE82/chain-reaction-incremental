@@ -45,10 +45,14 @@ export const EconomyConstants = {
   baseCoinValue: 10,
 
   // Per-pop coin value  (ceiling ≈ baseCoinValue × 26 = 260)
-  value:      { maxBonus: 25,   curve: 8 },
+  // High curve → early levels give tiny gains; value only shines once chains are already running.
+  // lv1→×2.2  lv5→×6.5  lv10→×10.8  lv20→×17.3  max→×26
+  value:      { maxBonus: 25,   curve: 20 },
 
   // Chain bonus weight per ball  (ceiling ≈ ×16)
-  chainPower: { maxBonus: 15,   curve: 7 },
+  // Very high curve → nearly worthless until chains are long and consistent.
+  // lv1→×1.8  lv5→×4.6  lv10→×7.4  lv20→×11.5  max→×16
+  chainPower: { maxBonus: 15,   curve: 18 },
 
   // Ball movement speed  (ceiling: base × 3 = 1.35 u/ms)
   // base intentionally high so even lv0 balls move fast enough to create chains.
@@ -69,11 +73,12 @@ export const EconomyConstants = {
   // ── Upgrade costs: cost = ceil(baseCost × growthRate^level × cycleMult^cycle)
   //    growthRate is intentionally steep so cost outpaces plateau stat gains.
   upgradeCost: {
-    value:      { baseCost: 25,  growthRate: 1.55 },
+    // value/chainPower start expensive so the player is nudged toward speed/size first.
+    value:      { baseCost: 60,  growthRate: 1.50 },
     speed:      { baseCost: 30,  growthRate: 1.65 },
     diameter:   { baseCost: 35,  growthRate: 1.75 },
     duration:   { baseCost: 20,  growthRate: 1.65 },
-    chainPower: { baseCost: 60,  growthRate: 1.80 },
+    chainPower: { baseCost: 100, growthRate: 1.75 },
     cycleMult:  2.2,   // ×N per completed color cycle — escalates the wall each loop
     tapRadius:   { baseCost: 100, growthRate: 1.45 },
     tapDuration: { baseCost:  80, growthRate: 1.45 },

@@ -2100,9 +2100,19 @@ function findCheapestColorUpgrade(st) {
 
 // ── Suggested upgrade scoring ─────────────────────────────────────────────
 // score = typeWeight * marginalGain / cost^0.65
+//
+// Chain infrastructure (speed, diameter, duration) ranks highest because without
+// fast, big, long-lasting balls there are no chains — value and chainPower are
+// nearly worthless when the player is still in "tap a group" mode.
+// Value and chainPower weights are low AND gated behind an infraScore check in
+// findSuggestedColorUpgrade() so they never surface until chains are forming.
+const UPGRADE_TYPE_WEIGHT = { speed: 1.20, diameter: 1.15, duration: 1.10, value: 0.80, chainPower: 0.70 }
+const UPGRADE_TYPE_ORDER  = ['speed', 'diameter', 'duration', 'value', 'chainPower']
 
-const UPGRADE_TYPE_WEIGHT = { value: 1.20, chainPower: 1.15, duration: 1.10, speed: 1.05, diameter: 1.00 }
-const UPGRADE_TYPE_ORDER  = ['value', 'chainPower', 'duration', 'speed', 'diameter']
+// A bucket must have this many combined levels of speed+diameter+duration before
+// value or chainPower upgrades are ever suggested for it.
+// 4 ≈ lv2 speed + lv2 diameter, or lv3 speed + lv1 diameter + lv0 duration, etc.
+const CHAIN_INFRA_THRESHOLD = 4
 
 function getUpgradeStatValue(upgradeType, bkt) {
   const stats = statsFromBucket(bkt)
@@ -2127,7 +2137,14 @@ function findSuggestedColorUpgrade(st) {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
 
+    // Gate: value and chainPower are only considered once a bucket has enough
+    // chain infrastructure — fast + big + long-lasting balls must come first.
+    const infraScore = (bkt.speedLevel ?? 0) + (bkt.diameterLevel ?? 0) + (bkt.durationLevel ?? 0)
+    const chainReady = infraScore >= CHAIN_INFRA_THRESHOLD
+
     for (const upgradeType of UPGRADE_TYPE_ORDER) {
+      if (!chainReady && (upgradeType === 'value' || upgradeType === 'chainPower')) continue
+
       const level    = bkt[upgradeType + 'Level'] ?? 0
       const cost     = colorUpgradeCost(upgradeType, level, cycle)
       const curVal   = getUpgradeStatValue(upgradeType, bkt)
