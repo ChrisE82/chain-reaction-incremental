@@ -5,7 +5,7 @@ import {
   recordBallPopped, recordManualClick, resetCurrentStatsForPrestige,
   tryPurchaseNextBall, tryPurchaseColorUpgrade,
   getDerivedBallStats, statsFromBucket, colorUpgradeCost, nextBallCost,
-  COLOR_ORDER, COLOR_HEX, EconomyConfig,
+  COLOR_ORDER, COLOR_HEX, EconomyConfig, EconomyConstants,
   clickStats, tapUpgradeCost, tryUpgradeClick,
   chainEndBonus, getChainMultiplier,
   getNextPurchaseColor, getColorOrderProgress, getColorBucket,
@@ -152,6 +152,32 @@ let nextBallId  = 1     // monotonic ID assigned to each ball on creation
 let lastTime    = 0
 let debugVisible = false
 
+// ─── Economy debug: rolling earnings tracker ──────────────────────────────
+// Tracks totalCoins delta each frame; getEPM() sums the last 60 s of entries.
+const EPM_WINDOW_MS   = 60_000
+let   _epmLastTotal   = 0     // totalCoins seen last frame
+const _epmLog         = []    // [{t: DOMHighResTimeStamp, d: coins}]
+
+function _epmRecord(now, totalCoins) {
+  const delta = totalCoins - _epmLastTotal
+  _epmLastTotal = totalCoins
+  if (delta > 0) _epmLog.push({ t: now, d: delta })
+  // Trim entries older than the window
+  const cutoff = now - EPM_WINDOW_MS
+  while (_epmLog.length > 0 && _epmLog[0].t < cutoff) _epmLog.shift()
+}
+
+function getEPM() {
+  if (_epmLog.length < 2) return 0
+  const now    = performance.now()
+  const cutoff = now - EPM_WINDOW_MS
+  const recent = _epmLog.filter(e => e.t >= cutoff)
+  if (recent.length === 0) return 0
+  const total   = recent.reduce((s, e) => s + e.d, 0)
+  const elapsed = now - recent[0].t   // ms of actual data
+  return elapsed > 0 ? total / (elapsed / 60_000) : 0
+}
+
 // ─── Board-clear cycle ────────────────────────────────────────────────────
 // When the board fully empties we award an efficiency-based clear bonus, then
 // immediately refill every owned ball so the next cycle can start at once.
@@ -216,12 +242,13 @@ function runAutoUpgrade(dt) {
   let bestColor = null
   let bestType  = null
 
+  const autoCycle = getColorOrderProgress(st).cycle
   for (const colorKey of COLOR_ORDER) {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
     for (const upgradeType of ['value', 'speed', 'diameter', 'duration', 'chainPower']) {
       const level = bkt[upgradeType + 'Level'] ?? 0
-      const cost  = colorUpgradeCost(upgradeType, level)
+      const cost  = colorUpgradeCost(upgradeType, level, autoCycle)
       if (cost <= st.coins && cost < bestCost) {
         bestCost  = cost
         bestColor = colorKey
@@ -1307,13 +1334,62 @@ function updateHUD() {
 
   if (!introMode) updateQuickBuy()
   if (statsMiniOpen) updateStatsMini()
-  if (debugVisible) updateDebug(st)
+  if (debugVisible) {
+    _epmRecord(performance.now(), st.totalCoins)
+    updateDebug(st)
+  }
 }
 
 function updateDebug(st) {
   const active     = balls.filter(b => b.state !== 'respawning').length
   const expanding  = balls.filter(isExplosivelyActive).length
   const chainIndex = currentChain ? currentChain.index : 0
+
+  // ── Economy stats ──
+  const epm         = getEPM()
+  const progress    = getColorOrderProgress(st)
+  const cheapUpg    = findCheapestColorUpgrade(st)
+  const ballCost    = nextBallCost(st)
+  const cheapCost   = cheapUpg?.cost ?? Infinity
+  const minsToUpg   = (epm > 0 && isFinite(cheapCost))  ? (cheapCost  / epm).toFixed(1) : '–'
+  const minsToBall  = (epm > 0)                          ? (ballCost   / epm).toFixed(1) : '–'
+  const s = st.stats
+
+  // Per-ball stat multipliers (use first owned bucket as sample)
+  let sampleBkt = null
+  for (const c of COLOR_ORDER) {
+    const b = st.colorBuckets[c]
+    if (b && b.ballsOwned > 0) { sampleBkt = b; break }
+  }
+  let statLines = ''
+  if (sampleBkt) {
+    const EC  = EconomyConstants
+    const vLv = sampleBkt.valueLevel      ?? 0
+    const sLv = sampleBkt.speedLevel      ?? 0
+    const dLv = sampleBkt.diameterLevel   ?? 0
+    const hLv = sampleBkt.durationLevel   ?? 0
+    const cLv = sampleBkt.chainPowerLevel ?? 0
+    const plateau = (lv, mb, cv) => (1 + mb * (1 - Math.exp(-lv / cv))).toFixed(2)
+    const pR = (lv) => {
+      const { baseR, maxR, curve } = EC.diameter
+      return (baseR + (maxR - baseR) * (1 - Math.exp(-lv / curve))).toFixed(1)
+    }
+    statLines =
+      `<b style="color:#ffe566">── Economy (first owned bucket, cycle ${progress.cycle}) ──</b><br>` +
+      `Coins: <b>◆${fmt(st.coins)}</b>  |  Total: ◆${fmt(st.totalCoins)}<br>` +
+      `EPM: <b>◆${fmt(Math.round(epm))}/min</b>  (${_epmLog.length} samples)<br>` +
+      `Cheapest upg: ◆${isFinite(cheapCost) ? fmt(cheapCost) : '–'}  → ${minsToUpg} min<br>` +
+      `Next ball:    ◆${fmt(ballCost)}  → ${minsToBall} min<br>` +
+      `<span style="color:#a78bfa">` +
+      `Value ×${plateau(vLv, EC.value.maxBonus, EC.value.curve)}  ` +
+      `Speed ×${plateau(sLv, EC.speed.maxBonus, EC.speed.curve)}  ` +
+      `Hold ${Math.round(200 * (1 + EC.duration.maxBonus * (1 - Math.exp(-hLv / EC.duration.curve))))}ms  ` +
+      `Radius ${pR(dLv)}u  ` +
+      `ChainPow ×${plateau(cLv, EC.chainPower.maxBonus, EC.chainPower.curve)}</span><br>` +
+      `ChainEarnings: ${s.current.chainPointsEarned > 0 ? Math.round(100 * s.current.chainPointsEarned / Math.max(1, s.current.totalEarned)) : 0}% of run total<br>` +
+      `Best chain payout: ◆${fmt(s.current.bestChainPayout)}<br>`
+  }
+
   debugOverlay.innerHTML =
     `<b>── DEBUG ──</b><br>` +
     `Balls: ${active} active / ${balls.length} total (${st.totalBallsPurchased} purchased)  |  Expanding: ${expanding}<br>` +
@@ -1321,11 +1397,11 @@ function updateDebug(st) {
     `Last chain: ${st.stats.lastChainLength} balls / ◆${fmt(st.stats.lastChainCoins)}<br>` +
     `Best chain: ${st.stats.bestChainLength} balls<br>` +
     `Total chains: ${st.stats.totalChains}<br>` +
-    `Coins: ${fmt(st.coins)}  |  Total earned: ${fmt(st.totalCoins)}<br>` +
     `Last kickstart: +${st.stats.lastKickstartBonus}<br>` +
     `<span style="color:#4fffb0">Ball visual r: ${BALL_RADIUS}  ` +
     `collision r: ${BALL_COLLISION_RADIUS.toFixed(2)}  ` +
-    `Lv0 expansion: 6.5 u  trigger dist: ${(6.5 + BALL_COLLISION_RADIUS).toFixed(1)} u</span>`
+    `Lv0 expansion: 6.5 u  trigger dist: ${(6.5 + BALL_COLLISION_RADIUS).toFixed(1)} u</span><br>` +
+    statLines
 }
 
 
@@ -1993,13 +2069,14 @@ let prevBuyKey = ''
 // Returns { color, upgradeType, cost } for the cheapest upgrade across all
 // color buckets that own at least one ball.
 function findCheapestColorUpgrade(st) {
+  const cycle = getColorOrderProgress(st).cycle
   let best = null
   for (const colorKey of COLOR_ORDER) {
     const bkt = st.colorBuckets[colorKey]
     if (!bkt || bkt.ballsOwned === 0) continue
     for (const upgradeType of ['value', 'speed', 'diameter', 'duration', 'chainPower']) {
       const level = bkt[upgradeType + 'Level'] ?? 0
-      const cost  = colorUpgradeCost(upgradeType, level)
+      const cost  = colorUpgradeCost(upgradeType, level, cycle)
       if (!best || cost < best.cost) best = { color: colorKey, upgradeType, cost }
     }
   }
@@ -2027,6 +2104,7 @@ function getUpgradeStatValue(upgradeType, bkt) {
 // Returns { color, upgradeType, cost, score, marginalGain } for the best upgrade.
 // Falls back to best-scoring overall (button disabled) when broke.
 function findSuggestedColorUpgrade(st) {
+  const cycle        = getColorOrderProgress(st).cycle
   let bestAffordable = null
   let bestAny        = null
 
@@ -2036,7 +2114,7 @@ function findSuggestedColorUpgrade(st) {
 
     for (const upgradeType of UPGRADE_TYPE_ORDER) {
       const level    = bkt[upgradeType + 'Level'] ?? 0
-      const cost     = colorUpgradeCost(upgradeType, level)
+      const cost     = colorUpgradeCost(upgradeType, level, cycle)
       const curVal   = getUpgradeStatValue(upgradeType, bkt)
       const nextBkt  = { ...bkt, [upgradeType + 'Level']: level + 1 }
       const nextVal  = getUpgradeStatValue(upgradeType, nextBkt)
@@ -2718,7 +2796,7 @@ function buildShop() {
 
       for (const { type, icon, label } of UPGRADE_TYPE_DEFS) {
         const level     = bkt[type + 'Level'] ?? 0
-        const cost      = colorUpgradeCost(type, level)
+        const cost      = colorUpgradeCost(type, level, progress.cycle)
         const canAfford = devFreeUpgradesEnabled || st.coins >= cost
 
         const row = document.createElement('button')
@@ -2766,7 +2844,7 @@ function buildShop() {
       chips.className = 'bucket-collapsed-row'
       for (const { type, icon } of UPGRADE_TYPE_DEFS) {
         const level     = bkt[type + 'Level'] ?? 0
-        const cost      = colorUpgradeCost(type, level)
+        const cost      = colorUpgradeCost(type, level, progress.cycle)
         const canAfford = devFreeUpgradesEnabled || st.coins >= cost
         const utColor   = UPGRADE_TYPE_COLOR[type]
         chips.appendChild(makeUpgChip(icon, utColor, bc,
@@ -3020,6 +3098,65 @@ function init() {
   updateHUD()
   lastTime = performance.now()
   requestAnimationFrame(loop)
+
+  // ── Economy balance report (console only) ─────────────────────────────
+  logBalanceReport()
+}
+
+function logBalanceReport() {
+  const EC = EconomyConstants
+  const p  = (lv, mb, cv) => +(1 + mb * (1 - Math.exp(-lv / cv))).toFixed(3)
+  const lvs = [0, 1, 2, 5, 10, 20, 50]
+
+  const statTable = (name, fn) =>
+    lvs.map(lv => `  lv${lv.toString().padStart(2)}: ${fn(lv)}`).join('\n')
+
+  const costTable = (baseCost, rate, cycle = 0) =>
+    lvs.map(lv => `  lv${lv.toString().padStart(2)}: ◆${
+      Math.ceil(baseCost * Math.pow(rate, lv) * Math.pow(EC.upgradeCost.cycleMult, cycle))
+        .toLocaleString()}`).join('\n')
+
+  console.groupCollapsed('⚡ Poppenheimer — Balance Report')
+
+  console.log('── STAT MULTIPLIERS ──────────────────────────────────────')
+  console.log('Value (coin/pop):')
+  console.log(statTable('value', lv => `×${p(lv, EC.value.maxBonus, EC.value.curve)} → ◆${Math.round(EC.baseCoinValue * p(lv, EC.value.maxBonus, EC.value.curve))}`))
+  console.log('Speed mult:')
+  console.log(statTable('speed', lv => `×${p(lv, EC.speed.maxBonus, EC.speed.curve)}`))
+  console.log('Hold duration (ms):')
+  console.log(statTable('duration', lv => `${Math.round(EC.duration.baseMs * p(lv, EC.duration.maxBonus, EC.duration.curve))} ms`))
+  console.log('Expansion radius (virtual units):')
+  console.log(statTable('diameter', lv => {
+    const { baseR, maxR, curve } = EC.diameter
+    return `${(baseR + (maxR - baseR) * (1 - Math.exp(-lv / curve))).toFixed(1)} u`
+  }))
+  console.log('Chain power mult:')
+  console.log(statTable('chainPower', lv => `×${p(lv, EC.chainPower.maxBonus, EC.chainPower.curve)}`))
+
+  console.log('── UPGRADE COSTS (cycle 0) ───────────────────────────────')
+  for (const [type, cfg] of Object.entries(EC.upgradeCost)) {
+    if (!cfg.baseCost) continue
+    console.log(`${type} (base=${cfg.baseCost}, rate=${cfg.growthRate}):`)
+    console.log(costTable(cfg.baseCost, cfg.growthRate, 0))
+  }
+  console.log('── UPGRADE COSTS (cycle 1, ×2.2) ────────────────────────')
+  for (const [type, cfg] of Object.entries(EC.upgradeCost)) {
+    if (!cfg.baseCost || type.startsWith('tap')) continue
+    console.log(`${type}: ${lvs.map(lv => `lv${lv}=◆${Math.ceil(cfg.baseCost * Math.pow(cfg.growthRate, lv) * EC.upgradeCost.cycleMult).toLocaleString()}`).join('  ')}`)
+  }
+
+  console.log('── BALL COSTS ───────────────────────────────────────────')
+  for (const n of [1,2,3,4,5,6,7,8,9,10,12,15,18]) {
+    const cost = nextBallCost({ totalBallsPurchased: n })
+    console.log(`  ball #${(n+1).toString().padStart(2)} (n=${n}): ◆${cost.toLocaleString()}`)
+  }
+
+  console.log('── CHAIN MULTIPLIERS ────────────────────────────────────')
+  for (const len of [2,3,4,5,6,7,8,9,10,12,15,20]) {
+    console.log(`  ${len}-chain: ×${getChainMultiplier(len)}`)
+  }
+
+  console.groupEnd()
 }
 
 init()

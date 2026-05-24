@@ -26,41 +26,96 @@ export const COLOR_HEX = {
 export const GameConfig = {
   ballRadius:     2.4,
   growDuration:   140,   // ms — expand to full radius (fixed)
-  holdDuration:    80,   // ms — Lv0 base; piecewise curve applied via holdMs()
+  holdDuration:   200,   // ms — Lv0 base (plateau curve applied via holdMs())
   shrinkDuration: 120,   // ms — collapse back (fixed)
 }
 
-export const EconomyConfig = {
-  baseCoinValue:  10,
-  softCapDivisor: 120,   // reserved; not active yet
+// ─── Centralized economy constants ────────────────────────────────────────
+//
+// Design mantra: "Logarithmic growth, exponential cost."
+//   - All player-power stats use plateau (diminishing-return) formulas.
+//   - All costs grow exponentially, creating a natural prestige wall.
+//
+// Plateau formula: multiplier = 1 + maxBonus * (1 - exp(-level / curve))
+//   At lv0 → 1.0 (no bonus)
+//   At lv≈curve → ~63% of maxBonus added
+//   At lv→∞ → approaches 1 + maxBonus (hard ceiling)
+
+export const EconomyConstants = {
+  baseCoinValue: 10,
+
+  // Per-pop coin value  (ceiling ≈ baseCoinValue × 26 = 260)
+  value:      { maxBonus: 25,   curve: 8 },
+
+  // Chain bonus weight per ball  (ceiling ≈ ×16)
+  chainPower: { maxBonus: 15,   curve: 7 },
+
+  // Ball movement speed  (ceiling: base × 2.25 ≈ ×2.25 faster)
+  speed:      { maxBonus: 1.25, curve: 5 },
+
+  // Expansion radius — different form: base + (max-base) × (1-exp(-lv/curve))
+  diameter:   { baseR: 6.5, maxR: 18, curve: 4 },
+
+  // Hold duration  (ceiling: baseMs × 3 = 600 ms)
+  duration:   { baseMs: 200, maxBonus: 2.0, curve: 5 },
+
+  // Tap-circle upgrades (player-level, all balls)
+  tap: {
+    radius:   { baseR: 9.6, maxBonus: 1.0, curve: 8 },
+    duration: { baseMs: 220, maxBonus: 1.5, curve: 6 },
+  },
+
+  // ── Upgrade costs: cost = ceil(baseCost × growthRate^level × cycleMult^cycle)
+  //    growthRate is intentionally steep so cost outpaces plateau stat gains.
+  upgradeCost: {
+    value:      { baseCost: 25,  growthRate: 1.55 },
+    speed:      { baseCost: 30,  growthRate: 1.65 },
+    diameter:   { baseCost: 35,  growthRate: 1.75 },
+    duration:   { baseCost: 20,  growthRate: 1.65 },
+    chainPower: { baseCost: 60,  growthRate: 1.80 },
+    cycleMult:  2.2,   // ×N per completed color cycle — escalates the wall each loop
+    tapRadius:   { baseCost: 100, growthRate: 1.45 },
+    tapDuration: { baseCost:  80, growthRate: 1.45 },
+  },
+
+  // ── Ball purchase costs
+  ball: {
+    // Hand-tuned early table indexed by state.totalBallsPurchased
+    earlyTable: { 1: 10, 2: 25, 3: 60, 4: 140, 5: 325, 6: 800, 7: 2000 },
+    lateBase:   2000,    // cost of the 8th ball (n=7)
+    lateMult:   1.50,    // per-ball multiplier within a cycle after the early table
+    cycleMult:  2.5,     // additional ×N per completed color cycle (prestige wall)
+    lateStart:  7,       // n value where the late formula begins
+  },
+
+  // ── Chain bonus multiplier table
+  //    chainBonus = chainBaseValue × getChainMultiplier(chainLength)
+  //    chainBaseValue = Σ (ball.value × ball.chainPowerMult) for all triggered balls.
+  //    Late rate capped at 1.20 (down from legacy 1.38) — stats plateau so this
+  //    stays bounded even at very long chain lengths.
+  chain: {
+    table:    [0, 0.5, 1.25, 2.5, 5, 9, 15, 24, 36, 52],   // chain lengths 1–10
+    lateRate: 1.20,   // per extra link beyond length 10
+  },
 }
 
-// ─── Chain multiplier table ───────────────────────────────────────────────
-// chainBonus = chainBaseValue × getChainMultiplier(chainLength)
-// chainBaseValue = sum of each triggered ball's (value × chainPowerMult).
-//
-// Tune the table here. CHAIN_LATE_RATE controls 11+ chains.
-const CHAIN_MULT_TABLE = [
-  0,     //  1-chain: no bonus
-  0.5,   //  2-chain
-  1.25,  //  3-chain
-  2.5,   //  4-chain
-  5,     //  5-chain
-  9,     //  6-chain
-  15,    //  7-chain
-  24,    //  8-chain
-  36,    //  9-chain
-  52,    // 10-chain
-]
-const CHAIN_LATE_RATE = 1.38   // growth per extra link beyond 10
+// Legacy alias — kept so any code importing EconomyConfig still works.
+export const EconomyConfig = {
+  baseCoinValue:  EconomyConstants.baseCoinValue,
+  softCapDivisor: 120,
+}
+
+// ─── Chain multiplier ─────────────────────────────────────────────────────
+
+const { table: _CHAIN_TABLE, lateRate: _CHAIN_LATE } = EconomyConstants.chain
 
 export function getChainMultiplier(chainLength) {
   if (chainLength <= 1) return 0
   const idx = chainLength - 1
-  if (idx < CHAIN_MULT_TABLE.length) return CHAIN_MULT_TABLE[idx]
+  if (idx < _CHAIN_TABLE.length) return _CHAIN_TABLE[idx]
   return Math.floor(
-    CHAIN_MULT_TABLE[CHAIN_MULT_TABLE.length - 1]
-    * Math.pow(CHAIN_LATE_RATE, chainLength - CHAIN_MULT_TABLE.length)
+    _CHAIN_TABLE[_CHAIN_TABLE.length - 1]
+    * Math.pow(_CHAIN_LATE, chainLength - _CHAIN_TABLE.length)
   )
 }
 
@@ -70,98 +125,94 @@ export function chainEndBonus(chainLength, chainBaseValue) {
   return Math.floor(chainBaseValue * mult)
 }
 
-// ─── Color-bucket upgrade costs ──────────────────────────────────────────
-// Upgrades apply to ALL balls of that color — present and future.
-// Five types: value, speed, diameter, duration, chainPower.
-// Each has a front-loaded early table then a geometric tail.
+// ─── Upgrade costs ────────────────────────────────────────────────────────
+// Pure exponential: cost = ceil(baseCost × growthRate^level × cycleMult^cycle)
+// cycle = completed color cycles (0 on first run, 1 after going through all 6, …)
 
-const UPGRADE_COST_CONFIG = {
-  value:      { early: [18, 42, 95, 210, 460],   tail: 1.34 },
-  speed:      { early: [20, 45, 100, 220, 480],  tail: 1.32 },
-  diameter:   { early: [20, 45, 100, 225, 500],  tail: 1.35 },
-  duration:   { early: [15, 35, 80,  180, 400],  tail: 1.35 },
-  chainPower: { early: [40, 90, 200, 440, 960],  tail: 1.38 },
-}
-
-export function colorUpgradeCost(upgradeType, level) {
-  const cfg = UPGRADE_COST_CONFIG[upgradeType]
-  if (!cfg) return Infinity
-  if (level < cfg.early.length) return cfg.early[level]
-  return Math.floor(
-    cfg.early[cfg.early.length - 1]
-    * Math.pow(cfg.tail, level - cfg.early.length + 1)
+export function colorUpgradeCost(upgradeType, level, cycle = 0) {
+  const cfg = EconomyConstants.upgradeCost[upgradeType]
+  if (!cfg || cfg.baseCost === undefined) return Infinity
+  return Math.ceil(
+    cfg.baseCost
+    * Math.pow(cfg.growthRate, level)
+    * Math.pow(EconomyConstants.upgradeCost.cycleMult, cycle)
   )
 }
 
 // ─── Ball purchase costs ──────────────────────────────────────────────────
-// Key = state.totalBallsPurchased (balls already owned before the purchase).
-
-const BALL_BUY_EARLY = { 1: 10, 2: 25, 3: 60, 4: 140, 5: 325, 6: 800, 7: 2000 }
-const BALL_BUY_LATE_BASE  = 2000
-const BALL_BUY_LATE_MULT  = 1.9
-const BALL_BUY_LATE_START = 7
 
 export function nextBallCost(state) {
-  const n = state.totalBallsPurchased
-  if (BALL_BUY_EARLY[n] !== undefined) return BALL_BUY_EARLY[n]
-  return Math.floor(BALL_BUY_LATE_BASE * Math.pow(BALL_BUY_LATE_MULT, n - BALL_BUY_LATE_START))
+  const n    = state.totalBallsPurchased
+  const ball = EconomyConstants.ball
+  if (ball.earlyTable[n] !== undefined) return ball.earlyTable[n]
+  const cycle = Math.floor(n / COLOR_ORDER.length)
+  return Math.ceil(
+    ball.lateBase
+    * Math.pow(ball.lateMult,  n - ball.lateStart)
+    * Math.pow(ball.cycleMult, Math.max(0, cycle - 1))
+  )
 }
 
-// ─── Click / tap upgrade (player-level, separate from color buckets) ──────
-
-const TAP_UPGRADE_CONFIG = {
-  radius:   { baseCost: 300, costMult: 1.20 },
-  duration: { baseCost: 250, costMult: 1.22 },
-}
+// ─── Tap upgrade costs ────────────────────────────────────────────────────
 
 export function tapUpgradeCost(stat, level) {
-  const { baseCost, costMult } = TAP_UPGRADE_CONFIG[stat] ?? { baseCost: 300, costMult: 1.20 }
-  return Math.floor(baseCost * Math.pow(costMult, level))
+  const key = stat === 'radius' ? 'tapRadius' : 'tapDuration'
+  const cfg  = EconomyConstants.upgradeCost[key]
+  if (!cfg) return Infinity
+  return Math.ceil(cfg.baseCost * Math.pow(cfg.growthRate, level))
 }
 
-export function clickStats(cl) {
-  return {
-    tapRadius:   9.6 * Math.pow(1.05, cl.radiusLevel   ?? 0),
-    tapDuration: 220 * Math.pow(1.18, cl.durationLevel ?? 0),  // ms — hold window
-  }
+// ─── Derived stat formulas (plateau / diminishing-return) ─────────────────
+//
+// All player-power stats use the same plateau pattern:
+//   multiplier = 1 + maxBonus * (1 - exp(-level / curve))
+// This gives fast early gains that slow to a near-ceiling at high levels,
+// matching the "logarithmic growth" design mantra.
+
+function plateau(level, maxBonus, curve) {
+  return 1 + maxBonus * (1 - Math.exp(-level / curve))
 }
 
-// ─── Derived stat formulas (pure) ────────────────────────────────────────
-
-// Piecewise hold-time curve.
-//   Lv0 → 80 ms   Lv5 → 680 ms   Lv15 → 1 180 ms   Lv20 → 1 305 ms
-function holdMs(durationLevel) {
-  if (durationLevel <= 0)  return 80
-  if (durationLevel <= 5)  return 80  + durationLevel * 120
-  if (durationLevel <= 15) return 680 + (durationLevel - 5)  * 50
-  return                          1180 + (durationLevel - 15) * 25
+function holdMs(level) {
+  const { baseMs, maxBonus, curve } = EconomyConstants.duration
+  return Math.round(baseMs * plateau(level, maxBonus, curve))
 }
+// lv0→200 ms  lv1→237  lv5→363  lv10→437  lv20→480  max→600 ms
 
 function speedMult(level) {
-  // Diminishing-returns: maxBonus=2.0, curve=8 → ceiling ≈ ×3
-  return 1 + 2.0 * (1 - Math.exp(-level / 8))
+  const { maxBonus, curve } = EconomyConstants.speed
+  return plateau(level, maxBonus, curve)
 }
+// lv0→×1.0  lv1→×1.22  lv5→×1.79  lv10→×2.08  lv20→×2.22  max→×2.25
 
-const BASE_EXPANSION_RADIUS = 6.5
-const MAX_EXPANSION_RADIUS  = 18
-const DIAMETER_CURVE        = 12
 function getExpansionRadius(level) {
-  const t = 1 - Math.exp(-level / DIAMETER_CURVE)
-  return BASE_EXPANSION_RADIUS + (MAX_EXPANSION_RADIUS - BASE_EXPANSION_RADIUS) * t
+  const { baseR, maxR, curve } = EconomyConstants.diameter
+  return baseR + (maxR - baseR) * (1 - Math.exp(-level / curve))
 }
+// lv0→6.5  lv1→9.0  lv2→11.0  lv5→14.7  lv10→17.1  lv20→17.9  max→18
 
-// Per-pop coin value — scales ×1.35 per level.
-//   Lv0 → 10   Lv1 → 13   Lv2 → 18   Lv3 → 24   Lv5 → 44
 function getBallValue(level) {
-  return Math.floor(EconomyConfig.baseCoinValue * Math.pow(1.35, level))
+  const { maxBonus, curve } = EconomyConstants.value
+  return Math.round(EconomyConstants.baseCoinValue * plateau(level, maxBonus, curve))
 }
+// lv0→10  lv1→40  lv2→65  lv5→126  lv10→188  lv20→240  max→260
 
-// Chain contribution multiplier — each level adds 30% to this ball's
-// weight in the chain bonus base value (does not affect per-pop rewards).
-//   Lv0 → ×1.0   Lv3 → ×1.9   Lv5 → ×2.5
 function getChainPowerMult(level) {
-  return 1 + level * 0.30
+  const { maxBonus, curve } = EconomyConstants.chainPower
+  return plateau(level, maxBonus, curve)
 }
+// lv0→×1.0  lv1→×3.0  lv5→×8.7  lv10→×12.4  lv20→×15.1  max→×16
+
+export function clickStats(cl) {
+  const rt = EconomyConstants.tap.radius
+  const dt = EconomyConstants.tap.duration
+  return {
+    tapRadius:   rt.baseR   * plateau(cl.radiusLevel   ?? 0, rt.maxBonus, rt.curve),
+    tapDuration: dt.baseMs  * plateau(cl.durationLevel ?? 0, dt.maxBonus, dt.curve),
+  }
+}
+// tapRadius:   lv0→9.6  lv5→13.5  lv10→16.5  max→19.2
+// tapDuration: lv0→220  lv5→413   lv10→491   max→550 ms
 
 // Compute stats from a raw bucket object (no state reference needed).
 // Exported for use in suggested-upgrade calculations in main.js.
@@ -485,7 +536,8 @@ export function tryPurchaseColorUpgrade(color, upgradeType) {
   const bkt = state.colorBuckets[color]
   if (!bkt) return false
   const level = bkt[upgradeType + 'Level'] ?? 0
-  const cost  = colorUpgradeCost(upgradeType, level)
+  const cycle = Math.floor(state.totalBallsPurchased / COLOR_ORDER.length)
+  const cost  = colorUpgradeCost(upgradeType, level, cycle)
   if (state.coins < cost) return false
   state.coins -= cost
   bkt[upgradeType + 'Level']++
