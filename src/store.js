@@ -50,8 +50,9 @@ export const EconomyConstants = {
   // Chain bonus weight per ball  (ceiling ≈ ×16)
   chainPower: { maxBonus: 15,   curve: 7 },
 
-  // Ball movement speed  (ceiling: base × 2.25 ≈ ×2.25 faster)
-  speed:      { maxBonus: 1.25, curve: 5 },
+  // Ball movement speed  (ceiling: base × 3 = 1.35 u/ms)
+  // base intentionally high so even lv0 balls move fast enough to create chains.
+  speed:      { base: 0.45, maxBonus: 2.0, curve: 7 },
 
   // Expansion radius — different form: base + (max-base) × (1-exp(-lv/curve))
   diameter:   { baseR: 6.5, maxR: 18, curve: 4 },
@@ -183,7 +184,7 @@ function speedMult(level) {
   const { maxBonus, curve } = EconomyConstants.speed
   return plateau(level, maxBonus, curve)
 }
-// lv0→×1.0  lv1→×1.22  lv5→×1.79  lv10→×2.08  lv20→×2.22  max→×2.25
+// speed u/ms: lv0→0.45  lv1→0.61  lv5→0.90  lv10→1.10  lv20→1.28  max→1.35
 
 function getExpansionRadius(level) {
   const { baseR, maxR, curve } = EconomyConstants.diameter
@@ -218,7 +219,7 @@ export function clickStats(cl) {
 // Exported for use in suggested-upgrade calculations in main.js.
 export function statsFromBucket(bkt) {
   return {
-    speed:          0.30 * speedMult(bkt.speedLevel      ?? 0),
+    speed:          EconomyConstants.speed.base * speedMult(bkt.speedLevel ?? 0),
     maxRadius:      getExpansionRadius(bkt.diameterLevel  ?? 0),
     growMs:         GameConfig.growDuration,
     holdMs:         holdMs(bkt.durationLevel              ?? 0),
