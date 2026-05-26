@@ -12,7 +12,8 @@
     "balance:validate": "node tools/validate-balance.mjs",
     "balance:sim": "node tools/balance-sim/sim.mjs",
     "balance:optimize": "node tools/balance-sim/optimize.mjs",
-    "balance:compare": "node tools/balance-sim/compare.mjs"
+    "balance:compare": "node tools/balance-sim/compare.mjs",
+    "playfab:setup": "node tools/setup-playfab-stats.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0",
