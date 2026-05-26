@@ -2,3 +2,5 @@ node_modules/
 dist/
 android/
 .DS_Store
+tools/balance-sim/output/
+.env

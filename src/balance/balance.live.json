@@ -1,0 +1,74 @@
+{
+  "_comment": "Canonical live balance config. All economy & gameplay constants live here. Edit this file — do NOT hardcode values in source.",
+  "version": "1.0.0",
+
+  "economy": {
+    "baseCoinValue": 10,
+
+    "value":    { "maxBonus": 25,  "curve": 20 },
+    "speed":    { "base": 0.45, "maxBonus": 2.0, "curve": 7 },
+    "diameter": { "baseR": 6.5, "maxR": 18, "curve": 4 },
+    "duration": { "baseMs": 200, "maxBonus": 2.0, "curve": 5 },
+
+    "tap": {
+      "radius":   { "baseR": 9.6,  "maxBonus": 1.0, "curve": 8 },
+      "duration": { "baseMs": 220, "maxBonus": 1.5, "curve": 6 }
+    },
+
+    "upgradeCost": {
+      "value":       { "baseCost": 60,  "growthRate": 1.50 },
+      "speed":       { "baseCost": 30,  "growthRate": 1.65 },
+      "diameter":    { "baseCost": 35,  "growthRate": 1.75 },
+      "duration":    { "baseCost": 20,  "growthRate": 1.65 },
+      "cycleMult":   2.2,
+      "tapRadius":   { "baseCost": 100, "growthRate": 1.45 },
+      "tapDuration": { "baseCost": 80,  "growthRate": 1.45 }
+    },
+
+    "ball": {
+      "earlyTable": { "1": 10, "2": 25, "3": 60, "4": 140, "5": 325, "6": 800, "7": 2000 },
+      "lateBase":  2000,
+      "lateMult":  1.50,
+      "cycleMult": 2.5,
+      "lateStart": 7
+    },
+
+    "chain": {
+      "table":    [0, 0.5, 1.25, 2.5, 5, 9, 15, 24, 36, 52],
+      "lateRate": 1.20
+    }
+  },
+
+  "physics": {
+    "ballRadius":              2.4,
+    "ballCollisionRadiusMult": 1.15,
+    "arenaScale": {
+      "thresholds": [
+        { "maxBalls": 3,  "scale": 0.55 },
+        { "maxBalls": 6,  "scale": 0.70 },
+        { "maxBalls": 9,  "scale": 0.85 },
+        { "maxBalls": 12, "scale": 1.00 }
+      ],
+      "lateMax":     1.20,
+      "lateBase":    13,
+      "lateLogMult": 0.07
+    }
+  },
+
+  "ballBase": {
+    "growDuration":   140,
+    "holdDuration":   200,
+    "shrinkDuration": 120
+  },
+
+  "timing": {
+    "tapGrowMs":             180,
+    "tapHoldMs":             220,
+    "tapShrinkMs":           140,
+    "refillStartDelayMs":    150,
+    "spawnStaggerMaxMs":     250,
+    "spawnGrowMs":           220,
+    "spawnSettleMs":         160,
+    "autoUpgradeIntervalMs": 1000
+  }
+}

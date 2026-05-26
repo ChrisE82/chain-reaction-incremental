@@ -1,5 +1,8 @@
 // store.js — Chain Reaction: Idle  (state, config, persistence)
 
+import { EconomyConstants, GameConfig } from './balance/config.js'
+export { EconomyConstants, GameConfig }
+
 const STORAGE_KEY = 'cr_v3'
 const LEGACY_KEY  = 'cr_v2'   // read once on first launch for migration
 
@@ -22,15 +25,10 @@ export const COLOR_HEX = {
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────
-
-export const GameConfig = {
-  ballRadius:     2.4,
-  growDuration:   140,   // ms — expand to full radius (fixed)
-  holdDuration:   200,   // ms — Lv0 base (plateau curve applied via holdMs())
-  shrinkDuration: 120,   // ms — collapse back (fixed)
-}
-
-// ─── Centralized economy constants ────────────────────────────────────────
+//
+// GameConfig and EconomyConstants are loaded from src/balance/balance.live.json
+// via src/balance/config.js and re-exported above.  Edit the JSON to tune
+// balance — do NOT add hardcoded values back here.
 //
 // Design mantra: "Logarithmic growth, exponential cost."
 //   - All player-power stats use plateau (diminishing-return) formulas.
@@ -40,64 +38,6 @@ export const GameConfig = {
 //   At lv0 → 1.0 (no bonus)
 //   At lv≈curve → ~63% of maxBonus added
 //   At lv→∞ → approaches 1 + maxBonus (hard ceiling)
-
-export const EconomyConstants = {
-  baseCoinValue: 10,
-
-  // Per-pop coin value  (ceiling ≈ baseCoinValue × 26 = 260)
-  // High curve → early levels give tiny gains; value only shines once chains are already running.
-  // lv1→×2.2  lv5→×6.5  lv10→×10.8  lv20→×17.3  max→×26
-  value:      { maxBonus: 25,   curve: 20 },
-
-  // Ball movement speed  (ceiling: base × 3 = 1.35 u/ms)
-  // base intentionally high so even lv0 balls move fast enough to create chains.
-  speed:      { base: 0.45, maxBonus: 2.0, curve: 7 },
-
-  // Expansion radius — different form: base + (max-base) × (1-exp(-lv/curve))
-  diameter:   { baseR: 6.5, maxR: 18, curve: 4 },
-
-  // Hold duration  (ceiling: baseMs × 3 = 600 ms)
-  duration:   { baseMs: 200, maxBonus: 2.0, curve: 5 },
-
-  // Tap-circle upgrades (player-level, all balls)
-  tap: {
-    radius:   { baseR: 9.6, maxBonus: 1.0, curve: 8 },
-    duration: { baseMs: 220, maxBonus: 1.5, curve: 6 },
-  },
-
-  // ── Upgrade costs: cost = ceil(baseCost × growthRate^level × cycleMult^cycle)
-  //    growthRate is intentionally steep so cost outpaces plateau stat gains.
-  upgradeCost: {
-    value:      { baseCost: 60,  growthRate: 1.50 },
-    speed:      { baseCost: 30,  growthRate: 1.65 },
-    diameter:   { baseCost: 35,  growthRate: 1.75 },
-    duration:   { baseCost: 20,  growthRate: 1.65 },
-    // chainPower removed from base game — unlocked via prestige relic
-    cycleMult:  2.2,   // ×N per completed color cycle — escalates the wall each loop
-    tapRadius:   { baseCost: 100, growthRate: 1.45 },
-    tapDuration: { baseCost:  80, growthRate: 1.45 },
-  },
-
-  // ── Ball purchase costs
-  ball: {
-    // Hand-tuned early table indexed by state.totalBallsPurchased
-    earlyTable: { 1: 10, 2: 25, 3: 60, 4: 140, 5: 325, 6: 800, 7: 2000 },
-    lateBase:   2000,    // cost of the 8th ball (n=7)
-    lateMult:   1.50,    // per-ball multiplier within a cycle after the early table
-    cycleMult:  2.5,     // additional ×N per completed color cycle (prestige wall)
-    lateStart:  7,       // n value where the late formula begins
-  },
-
-  // ── Chain bonus multiplier table
-  //    chainBonus = chainBaseValue × getChainMultiplier(chainLength)
-  //    chainBaseValue = Σ (ball.value × ball.chainPowerMult) for all triggered balls.
-  //    Late rate capped at 1.20 (down from legacy 1.38) — stats plateau so this
-  //    stays bounded even at very long chain lengths.
-  chain: {
-    table:    [0, 0.5, 1.25, 2.5, 5, 9, 15, 24, 36, 52],   // chain lengths 1–10
-    lateRate: 1.20,   // per extra link beyond length 10
-  },
-}
 
 // Legacy alias — kept so any code importing EconomyConfig still works.
 export const EconomyConfig = {

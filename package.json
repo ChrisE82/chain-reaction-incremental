@@ -8,7 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "sync": "vite build && npx cap sync",
-    "open:android": "npx cap open android"
+    "open:android": "npx cap open android",
+    "balance:validate": "node tools/validate-balance.mjs",
+    "balance:sim": "node tools/balance-sim/sim.mjs",
+    "balance:optimize": "node tools/balance-sim/optimize.mjs",
+    "balance:compare": "node tools/balance-sim/compare.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0",
@@ -16,6 +20,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",
-    "@capacitor/core": "^6.2.0"
+    "@capacitor/core": "^6.2.0",
+    "posthog-js": "^1.376.2"
   }
 }
