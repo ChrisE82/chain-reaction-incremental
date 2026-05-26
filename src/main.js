@@ -25,7 +25,10 @@ import * as PlayFab from './playfab.js'
 window.addEventListener('pagehide', flushSave)
 window.addEventListener('pagehide', cancelArmedHold)
 window.addEventListener('pagehide', () => {
-  if (PlayFab.isLoggedIn()) PlayFab.saveGame(getState()).catch(() => {})
+  if (!PlayFab.isLoggedIn()) return
+  const st = getState()
+  PlayFab.saveGame(st).catch(() => {})
+  PlayFab.submitStats(st).catch(() => {})
 })
 window.addEventListener('blur', flushSave)
 window.addEventListener('blur', cancelArmedHold)
@@ -3293,8 +3296,11 @@ init()
   try {
     await PlayFab.login()
 
-    // Register the hook: every immediate local save also pushes to cloud.
-    setCloudSaveHook(st => PlayFab.saveGame(st).catch(console.warn))
+    // Register the hook: every immediate local save also pushes to cloud + leaderboard stats.
+    setCloudSaveHook(st => {
+      PlayFab.saveGame(st).catch(console.warn)
+      PlayFab.submitStats(st).catch(console.warn)
+    })
 
     // Attempt cloud restore — only if cloud is strictly more advanced.
     const cloud = await PlayFab.loadGame()

@@ -240,6 +240,7 @@ function defaultAllTimeStats() {
     upgradesPurchased:  0,
     totalPrestiges:     0,
     highestCurrency:    0,
+    bestRunCoins:       0,   // highest totalEarned in any single prestige cycle
   }
 }
 
@@ -420,6 +421,8 @@ export function addCoins(n, trackStats = true) {
   if (trackStats) {
     state.stats.current.totalEarned += n
     state.stats.allTime.totalEarned += n
+    if (state.stats.current.totalEarned > state.stats.allTime.bestRunCoins)
+      state.stats.allTime.bestRunCoins = state.stats.current.totalEarned
   }
   if (state.coins > state.stats.allTime.highestCurrency)
     state.stats.allTime.highestCurrency = state.coins

@@ -165,38 +165,51 @@ export async function loadGame() {
 
 // ── Leaderboard ────────────────────────────────────────────────────────────
 
-// Statistic names must be created in the PlayFab dashboard first
-// (Title → Leaderboards → New Statistic).
-const STAT_BEST_CHAIN  = 'best_chain_size'
-const STAT_TOTAL_COINS = 'total_coins_earned'
+// Statistic names must match what's created in the PlayFab dashboard:
+//   Title 1405E8 → Leaderboards → New Statistic
+//
+//   best_chain_size   — aggregation: Maximum
+//   total_coins       — aggregation: Last   (always increases, so Last = max)
+//   best_run_coins    — aggregation: Maximum
+const STAT_BEST_CHAIN   = 'best_chain_size'
+const STAT_TOTAL_COINS  = 'total_coins'
+const STAT_BEST_RUN     = 'best_run_coins'
 
 /**
- * Submit the player's best chain size and lifetime coins.
- * PlayFab keeps the highest value automatically (set aggregation = Maximum
- * in the dashboard for best_chain_size; Sum or Last for total_coins_earned).
+ * Submit all three leaderboard stats from the current game state.
+ * Called automatically via the cloud-save hook on every purchase,
+ * and on pagehide. Safe to call frequently — PlayFab deduplicates.
  *
- * @param {number} bestChain
- * @param {number} totalCoins
+ * @param {object} state  full game state from store.js getState()
  */
-export async function submitStats(bestChain, totalCoins) {
+export async function submitStats(state) {
   return _call('/Client/UpdatePlayerStatistics', {
     Statistics: [
-      { StatisticName: STAT_BEST_CHAIN,  Value: Math.round(bestChain)  },
-      { StatisticName: STAT_TOTAL_COINS, Value: Math.round(totalCoins) },
+      { StatisticName: STAT_BEST_CHAIN,  Value: Math.round(state.stats?.allTime?.biggestChain  ?? 0) },
+      { StatisticName: STAT_TOTAL_COINS, Value: Math.round(state.totalCoins                    ?? 0) },
+      { StatisticName: STAT_BEST_RUN,    Value: Math.round(state.stats?.allTime?.bestRunCoins  ?? 0) },
     ],
   }, true)
 }
 
+/** Stat name constants — use these when calling getLeaderboard / getPlayerRank. */
+export const STATS = {
+  BEST_CHAIN:  STAT_BEST_CHAIN,
+  TOTAL_COINS: STAT_TOTAL_COINS,
+  BEST_RUN:    STAT_BEST_RUN,
+}
+
 /**
- * Fetch the top N players by best chain size.
+ * Fetch the top N players for a given stat.
  *
+ * @param {string} statName    one of STATS.BEST_CHAIN / TOTAL_COINS / BEST_RUN
  * @param {number} maxResults  default 20
  * @returns {Array<{ rank, displayName, value }>}
  */
-export async function getLeaderboard(maxResults = 20) {
+export async function getLeaderboard(statName = STAT_BEST_CHAIN, maxResults = 20) {
   const data = await _call('/Client/GetLeaderboard', {
-    StatisticName: STAT_BEST_CHAIN,
-    StartPosition: 0,
+    StatisticName:   statName,
+    StartPosition:   0,
     MaxResultsCount: maxResults,
   }, true)
 
@@ -208,14 +221,15 @@ export async function getLeaderboard(maxResults = 20) {
 }
 
 /**
- * Fetch the current player's rank for best chain size.
+ * Fetch the current player's rank for a given stat.
  * Returns null if the player has no score yet.
  *
+ * @param {string} statName  one of STATS.BEST_CHAIN / TOTAL_COINS / BEST_RUN
  * @returns {{ rank, value }|null}
  */
-export async function getPlayerRank() {
+export async function getPlayerRank(statName = STAT_BEST_CHAIN) {
   const data = await _call('/Client/GetLeaderboardAroundPlayer', {
-    StatisticName:   STAT_BEST_CHAIN,
+    StatisticName:   statName,
     MaxResultsCount: 1,
   }, true)
 
