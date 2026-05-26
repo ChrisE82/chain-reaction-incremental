@@ -16,6 +16,7 @@ import {
 } from './store.js'
 
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
+import { getBallSprite, getSpriteCount, setSpriteRes } from './gfxCache.js'
 
 // Flush save and cancel any held repeat on page hide/blur.
 window.addEventListener('pagehide', flushSave)
@@ -95,6 +96,9 @@ const VIRTUAL_W = 100
 const VIRTUAL_H = 178   // 9:16 portrait
 
 // ─── Canvas / scale ───────────────────────────────────────────────────────
+const _isMobile = window.matchMedia('(pointer: coarse)').matches
+let _dpr = 1
+
 let W, H, gameScale, gameOffsetX, gameOffsetY
 // Effective play-area height in virtual units. Shrunk from VIRTUAL_H so that
 // balls bounce above the quick-buy bar instead of sliding behind it.
@@ -103,13 +107,20 @@ let gamePlayH = VIRTUAL_H
 function calcUnits() {
   W = window.innerWidth
   H = window.innerHeight
-  // Only reassign canvas dimensions when they actually change.
-  // Setting canvas.width resets the entire 2D context (clears save stack, transform,
-  // clip, etc.) even when the value is unchanged. Guarding here prevents a mid-frame
-  // context wipe when calcUnits() is called from finishIntro() while the draw loop
-  // still has live ctx.save() entries — which was producing misaligned blue artifacts.
-  if (canvas.width  !== W) canvas.width  = W
-  if (canvas.height !== H) canvas.height = H
+  // Cap DPR: high-density screens (3×, 4×) are expensive to fill each frame.
+  // Mobile cap 1.5 cuts fill cost ~75 % vs a native 3× screen; desktop cap 2 is standard.
+  _dpr = Math.min(window.devicePixelRatio || 1, _isMobile ? 1.5 : 2)
+
+  // Size the canvas bitmap to physical pixels, CSS size to logical pixels.
+  // Only reassign when dimensions actually change — setting canvas.width resets the
+  // entire 2D context (clears save stack, transform, clip) even when unchanged,
+  // which was producing misaligned artifacts when calcUnits() ran mid-frame.
+  const cW = Math.round(W * _dpr)
+  const cH = Math.round(H * _dpr)
+  if (canvas.width  !== cW) canvas.width  = cW
+  if (canvas.height !== cH) canvas.height = cH
+  canvas.style.width  = W + 'px'
+  canvas.style.height = H + 'px'
   // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
   const barPx  = qbBar.offsetHeight
   const availH = barPx > 0 ? H - barPx : H
@@ -120,6 +131,10 @@ function calcUnits() {
   gameOffsetY = Math.max(0, (availH - VIRTUAL_H * gameScale) / 2)
   // Full virtual height fits above the bar — no virtual-unit reduction needed.
   gamePlayH = VIRTUAL_H
+
+  // Keep sprite resolution matched to physical pixel density so sprites
+  // are never upscaled (which causes pixelation on larger/retina screens).
+  setSpriteRes(gameScale * _dpr)
 }
 calcUnits()
 
@@ -893,7 +908,12 @@ function addBallForColor(colorKey) {
 }
 
 // ─── Main loop ────────────────────────────────────────────────────────────
+const _TARGET_FRAME_MS = _isMobile ? 1000 / 30 : 1000 / 60
+
 function loop(ts) {
+  requestAnimationFrame(loop)
+  if (document.hidden) return
+  if (ts - lastTime < _TARGET_FRAME_MS - 2) return
   const dt = Math.min(ts - lastTime, 50)
   lastTime = ts
 
@@ -906,6 +926,7 @@ function loop(ts) {
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
 
+  ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0)
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, W, H)
   ctx.fillStyle = '#050810'
@@ -976,7 +997,6 @@ function loop(ts) {
 
   runAutoUpgrade(dt)
   updateHUD()
-  requestAnimationFrame(loop)
 }
 
 // ─── Background grid ──────────────────────────────────────────────────────
@@ -1133,11 +1153,16 @@ function update(dt) {
   }
 
   // Chain-reaction collision: expanding/holding balls trigger idle neighbours.
-  // Shrinking balls are visual-only and cannot start new triggers.
-  for (const src of balls) {
-    if (!canTrigger(src)) continue
-    for (const b of balls) {
-      if (b === src || b.state !== 'idle' || getSpawnScale(b) < 0.8) continue
+  // Pre-filter into two lists so we only check triggerable × idle pairs,
+  // skipping idle-vs-idle and expanding-vs-expanding comparisons entirely.
+  const _triggerList = []
+  const _idleList    = []
+  for (const b of balls) {
+    if (canTrigger(b))                                         _triggerList.push(b)
+    else if (b.state === 'idle' && getSpawnScale(b) >= 0.8)   _idleList.push(b)
+  }
+  for (const src of _triggerList) {
+    for (const b of _idleList) {
       const dx = b.x - src.x, dy = b.y - src.y
       if (Math.sqrt(dx * dx + dy * dy) < src.curRadius + b.collisionRadius) {
         triggerBall(b, src)
@@ -1302,16 +1327,15 @@ function drawBall(b) {
     ctx.shadowBlur  = 3 * gameScale * glowMult
   }
 
-  const grad = ctx.createRadialGradient(b.x - r * 0.3, b.y - r * 0.3, 0, b.x, b.y, r)
-  grad.addColorStop(0, b.lightColor)
-  grad.addColorStop(1, b.color)
-  ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2)
-  ctx.fillStyle = grad; ctx.fill()
+  const sp = getBallSprite(b.color, b.lightColor, r)
+  ctx.drawImage(sp.canvas,
+    b.x - sp.halfSize, b.y - sp.halfSize,
+    sp.halfSize * 2,   sp.halfSize * 2)
 
   if (b.flash > 0) {
     ctx.globalAlpha = b.flash * 0.7
     ctx.fillStyle   = '#ffffff'
-    ctx.fill()
+    ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill()
     ctx.globalAlpha = 1
   }
 
