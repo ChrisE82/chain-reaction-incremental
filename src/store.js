@@ -379,6 +379,12 @@ let _saveDirty = false
 let _saveTimer = null
 const SAVE_DEBOUNCE_MS = 4000
 
+// Optional hook called after every immediate (purchase-level) local save.
+// Register via setCloudSaveHook(fn) from main.js after PlayFab login.
+// Receives the current state object — fire-and-forget async is fine.
+let _cloudSaveHook = null
+export function setCloudSaveHook(fn) { _cloudSaveHook = fn }
+
 function _flushNow() {
   if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null }
   if (!_saveDirty) return
@@ -387,10 +393,14 @@ function _flushNow() {
 }
 
 // immediate=false → debounced (coins, stats)
-// immediate=true  → flush right away (purchases, prestige)
+// immediate=true  → flush right away (purchases, prestige) + cloud sync
 function saveState(st, immediate = false) {   // eslint-disable-line no-unused-vars
   _saveDirty = true
-  if (immediate) { _flushNow(); return }
+  if (immediate) {
+    _flushNow()
+    if (_cloudSaveHook) _cloudSaveHook(state)
+    return
+  }
   if (_saveTimer) clearTimeout(_saveTimer)
   _saveTimer = setTimeout(_flushNow, SAVE_DEBOUNCE_MS)
 }

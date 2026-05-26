@@ -9,7 +9,7 @@ import {
   clickStats, tapUpgradeCost, tryUpgradeClick,
   chainEndBonus, getChainMultiplier,
   getNextPurchaseColor, getColorOrderProgress, getColorBucket,
-  setAutoUpgrade, flushSave,
+  setAutoUpgrade, flushSave, setCloudSaveHook,
   setIntroComplete, devResetIntro, setFirstBallCueShown,
   devAddCoins, devAddPrestige, devReset,
   devFreeColorUpgrade, devFreeUpgradeClick, devFreeUnlockNextBall,
@@ -17,12 +17,18 @@ import {
 
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
 import { getBallSprite, getSpriteCount, setSpriteRes } from './gfxCache.js'
+import * as PlayFab from './playfab.js'
 
 // Flush save and cancel any held repeat on page hide/blur.
+// The PlayFab cloud push is best-effort on pagehide — keepalive fetch ensures
+// it fires even as the page is being torn down (supported on all modern browsers).
 window.addEventListener('pagehide', flushSave)
 window.addEventListener('pagehide', cancelArmedHold)
-window.addEventListener('blur',     flushSave)
-window.addEventListener('blur',     cancelArmedHold)
+window.addEventListener('pagehide', () => {
+  if (PlayFab.isLoggedIn()) PlayFab.saveGame(getState()).catch(() => {})
+})
+window.addEventListener('blur', flushSave)
+window.addEventListener('blur', cancelArmedHold)
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────
 const canvas     = document.getElementById('c')
@@ -3277,3 +3283,36 @@ function logBalanceReport() {
 }
 
 init()
+
+// ─── PlayFab: login + cloud restore ───────────────────────────────────────
+//
+// Runs entirely async after the game is already running on local state.
+// If the cloud save is more advanced than local (more balls purchased), we
+// reload the page so init() re-runs with the merged localStorage data.
+;(async function initPlayFab() {
+  try {
+    await PlayFab.login()
+
+    // Register the hook: every immediate local save also pushes to cloud.
+    setCloudSaveHook(st => PlayFab.saveGame(st).catch(console.warn))
+
+    // Attempt cloud restore — only if cloud is strictly more advanced.
+    const cloud = await PlayFab.loadGame()
+    if (cloud) {
+      const local = getState()
+      // "More advanced" = more total balls purchased (purchases can't be undone).
+      if ((cloud.totalBallsPurchased ?? 0) > (local.totalBallsPurchased ?? 0)) {
+        console.log('[PlayFab] Cloud save is ahead — merging into localStorage and reloading')
+        // Write cloud fields into localStorage; next page load mergeState() handles it.
+        const merged = { ...local, ...cloud }
+        localStorage.setItem('cr_v3', JSON.stringify(merged))
+        location.reload()
+      }
+    }
+
+    console.log('[PlayFab] Ready. Player:', PlayFab.getPlayFabId())
+  } catch (err) {
+    // Non-fatal — game works fine on local state alone.
+    console.warn('[PlayFab] Init failed (offline?)', err)
+  }
+})()
