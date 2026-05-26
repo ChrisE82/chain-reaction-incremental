@@ -28,6 +28,53 @@ let _playFabId     = null   // PlayFab player ID
 export function isLoggedIn()    { return _sessionTicket !== null }
 export function getPlayFabId()  { return _playFabId }
 
+// ── Sync throttle ──────────────────────────────────────────────────────────
+// Cloud writes (saveGame + submitStats) are batched: at most one pair of
+// requests fires per SYNC_INTERVAL_MS. Intermediate state snapshots are
+// dropped — only the most recent one is sent when the timer fires.
+// flushSync() bypasses the timer for pagehide / blur.
+
+const SYNC_INTERVAL_MS = 30_000   // 30 s between cloud writes
+
+let _syncTimer    = null
+let _pendingState = null   // latest state snapshot waiting to be sent
+let _lastSyncMs   = 0
+
+async function _doSync(state) {
+  _lastSyncMs   = Date.now()
+  _pendingState = null
+  await Promise.all([
+    saveGame(state).catch(console.warn),
+    submitStats(state).catch(console.warn),
+  ])
+}
+
+/**
+ * Queue a cloud sync for the given state.
+ * Fires at most once per SYNC_INTERVAL_MS; the most recent state wins.
+ * Call flushSync() on pagehide to send immediately without waiting.
+ */
+export function scheduleSync(state) {
+  _pendingState = state
+  if (_syncTimer) return                          // already scheduled
+  const elapsed = Date.now() - _lastSyncMs
+  const delay   = Math.max(0, SYNC_INTERVAL_MS - elapsed)
+  _syncTimer = setTimeout(() => {
+    _syncTimer = null
+    if (_pendingState) _doSync(_pendingState)
+  }, delay)
+}
+
+/**
+ * Fire any pending sync immediately (ignores the throttle timer).
+ * Use on pagehide / blur so progress isn't lost when the app is closed.
+ */
+export function flushSync() {
+  if (!_pendingState || !_sessionTicket) return
+  if (_syncTimer) { clearTimeout(_syncTimer); _syncTimer = null }
+  _doSync(_pendingState)
+}
+
 // ── Device ID ──────────────────────────────────────────────────────────────
 
 function _getOrCreateDeviceId() {
