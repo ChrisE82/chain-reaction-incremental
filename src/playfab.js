@@ -1,20 +1,17 @@
 // src/playfab.js — PlayFab client integration
 //
+// Uses the new Entity API (not the legacy Statistics API which is being retired).
+//
 // Handles:
 //   • Anonymous login (CustomID = stable UUID stored in localStorage)
-//   • Cloud save / load  (UpdateUserData / GetUserData)
-//   • Leaderboard write  (UpdatePlayerStatistics)
+//   • Cloud save / load  (UpdateUserData / GetUserData — Client API, not retiring)
+//   • Leaderboard write  (Statistic/UpdateStatistics — new Entity API)
+//   • Leaderboard read   (Leaderboard/GetLeaderboard — new Entity API)
 //   • Account upgrade    (anon → email+password via AddUsernamePassword)
 //   • Cross-device login (LoginWithEmailAddress)
 //
-// No Secret Key is required — all calls go through the Client API,
-// which authenticates via a session ticket returned at login.
-//
-// Usage:
-//   import * as PlayFab from './playfab.js'
-//   await PlayFab.login()
-//   await PlayFab.saveGame(state)
-//   const remote = await PlayFab.loadGame()
+// No Secret Key is required for any of the above — login returns both a
+// SessionTicket (legacy Client API) and an EntityToken (new Entity API).
 
 const TITLE_ID   = '1405E8'
 const BASE_URL   = `https://${TITLE_ID}.playfabapi.com`
@@ -22,8 +19,10 @@ const DEVICE_KEY = 'cr_pf_device_id'
 
 // ── Internal state ─────────────────────────────────────────────────────────
 
-let _sessionTicket = null   // set after any successful login
-let _playFabId     = null   // PlayFab player ID
+let _sessionTicket = null   // for legacy Client API  (cloud save / login)
+let _entityToken   = null   // for new Entity API      (stats / leaderboards)
+let _entity        = null   // { Id, Type } for the logged-in player entity
+let _playFabId     = null
 
 export function isLoggedIn()    { return _sessionTicket !== null }
 export function getPlayFabId()  { return _playFabId }
@@ -37,7 +36,7 @@ export function getPlayFabId()  { return _playFabId }
 const SYNC_INTERVAL_MS = 30_000   // 30 s between cloud writes
 
 let _syncTimer    = null
-let _pendingState = null   // latest state snapshot waiting to be sent
+let _pendingState = null
 let _lastSyncMs   = 0
 
 async function _doSync(state) {
@@ -56,7 +55,7 @@ async function _doSync(state) {
  */
 export function scheduleSync(state) {
   _pendingState = state
-  if (_syncTimer) return                          // already scheduled
+  if (_syncTimer) return
   const elapsed = Date.now() - _lastSyncMs
   const delay   = Math.max(0, SYNC_INTERVAL_MS - elapsed)
   _syncTimer = setTimeout(() => {
@@ -80,7 +79,6 @@ export function flushSync() {
 function _getOrCreateDeviceId() {
   let id = localStorage.getItem(DEVICE_KEY)
   if (!id) {
-    // crypto.randomUUID() is available on all modern browsers (including WebView)
     id = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : `cr-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -89,28 +87,28 @@ function _getOrCreateDeviceId() {
   return id
 }
 
-// ── Core fetch wrapper ─────────────────────────────────────────────────────
+// ── Fetch wrappers ─────────────────────────────────────────────────────────
 
+// Legacy Client API — uses X-Authorization (session ticket)
 async function _call(endpoint, body, useAuth = false) {
   const headers = { 'Content-Type': 'application/json' }
   if (useAuth) {
     if (!_sessionTicket) throw new Error('[PlayFab] Not logged in')
     headers['X-Authorization'] = _sessionTicket
   }
-
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    method:  'POST',
-    headers,
-    body:    JSON.stringify(body),
-  })
-
+  const res  = await fetch(`${BASE_URL}${endpoint}`, { method: 'POST', headers, body: JSON.stringify(body) })
   const json = await res.json()
+  if (json.code !== 200) throw new Error(`[PlayFab] ${endpoint}: ${json.errorMessage ?? json.error ?? json.code}`)
+  return json.data
+}
 
-  if (json.code !== 200) {
-    const msg = json.errorMessage || json.error || `HTTP ${json.code}`
-    throw new Error(`[PlayFab] ${endpoint}: ${msg}`)
-  }
-
+// New Entity API — uses X-EntityToken
+async function _callEntity(endpoint, body) {
+  if (!_entityToken) throw new Error('[PlayFab] Not logged in (no entity token)')
+  const headers = { 'Content-Type': 'application/json', 'X-EntityToken': _entityToken }
+  const res  = await fetch(`${BASE_URL}${endpoint}`, { method: 'POST', headers, body: JSON.stringify(body) })
+  const json = await res.json()
+  if (json.code !== 200) throw new Error(`[PlayFab] ${endpoint}: ${json.errorMessage ?? json.error ?? json.code}`)
   return json.data
 }
 
@@ -118,41 +116,40 @@ async function _call(endpoint, body, useAuth = false) {
 
 /**
  * Anonymous login using a stable device UUID.
- * Creates the PlayFab account on first call; returns the same account
- * on subsequent calls from the same device.
- *
- * Call this once at game start before any save/load.
+ * Populates both _sessionTicket (legacy) and _entityToken (new Entity API).
  */
 export async function login() {
-  if (_sessionTicket) return   // already logged in
+  if (_sessionTicket) return
 
   const customId = _getOrCreateDeviceId()
   const data = await _call('/Client/LoginWithCustomID', {
-    TitleId:              TITLE_ID,
-    CustomId:             customId,
-    CreateAccount:        true,
+    TitleId:               TITLE_ID,
+    CustomId:              customId,
+    CreateAccount:         true,
     InfoRequestParameters: { GetUserData: true },
   })
 
   _sessionTicket = data.SessionTicket
   _playFabId     = data.PlayFabId
+  _entityToken   = data.EntityToken?.EntityToken
+  _entity        = data.EntityToken?.Entity   // { Id, Type: 'title_player_account' }
   return data
 }
 
 /**
  * Log in with email + password (for cross-device restore).
- * Replaces the anonymous session with the linked account.
  */
 export async function loginWithEmail(email, password) {
   const data = await _call('/Client/LoginWithEmailAddress', {
-    TitleId:  TITLE_ID,
-    Email:    email,
-    Password: password,
+    TitleId:               TITLE_ID,
+    Email:                 email,
+    Password:              password,
     InfoRequestParameters: { GetUserData: true },
   })
-
   _sessionTicket = data.SessionTicket
   _playFabId     = data.PlayFabId
+  _entityToken   = data.EntityToken?.EntityToken
+  _entity        = data.EntityToken?.Entity
   return data
 }
 
@@ -162,10 +159,6 @@ export async function loginWithEmail(email, password) {
  * Link email + password to the current anonymous account.
  * The anonymous save data is preserved — the account is not replaced.
  * After this, loginWithEmail() on any device returns the same account.
- *
- * @param {string} username  display name (3–20 chars, alphanumeric + _-)
- * @param {string} email
- * @param {string} password  min 6 chars
  */
 export async function linkEmailPassword(username, email, password) {
   return _call('/Client/AddUsernamePassword', { Username: username, Email: email, Password: password }, true)
@@ -173,16 +166,11 @@ export async function linkEmailPassword(username, email, password) {
 
 // ── Cloud save ─────────────────────────────────────────────────────────────
 
-// Keys we persist to PlayFab. Keep the list short — each key is a separate
-// entry in UserData and PlayFab has a 10 MB total / 300 key limit per player.
-// Must match the field names in store.js defaultState().
+// UserData is part of the legacy Client API but is NOT being retired.
 const SAVE_KEYS = ['coins', 'totalCoins', 'totalBallsPurchased', 'colorBuckets', 'clicks', 'prestigeCount']
 
 /**
  * Push game state to PlayFab cloud save.
- * Only serializes the keys we care about to keep payload small.
- *
- * @param {object} state  the full game state object from store.js
  */
 export async function saveGame(state) {
   const data = {}
@@ -195,13 +183,10 @@ export async function saveGame(state) {
 /**
  * Load game state from PlayFab cloud save.
  * Returns an object with only the persisted keys, or null if no cloud save exists.
- *
- * @returns {object|null}
  */
 export async function loadGame() {
   const data = await _call('/Client/GetUserData', { Keys: SAVE_KEYS }, true)
   if (!data?.Data || Object.keys(data.Data).length === 0) return null
-
   const result = {}
   for (const [key, entry] of Object.entries(data.Data)) {
     try { result[key] = JSON.parse(entry.Value) }
@@ -210,36 +195,19 @@ export async function loadGame() {
   return result
 }
 
-// ── Leaderboard ────────────────────────────────────────────────────────────
-
-// Statistic names must match what's created in the PlayFab dashboard:
-//   Title 1405E8 → Leaderboards → New Statistic
+// ── Leaderboards (new Entity API) ──────────────────────────────────────────
 //
-//   best_chain_size   — aggregation: Maximum
-//   total_coins       — aggregation: Last   (always increases, so Last = max)
-//   best_run_coins    — aggregation: Maximum
-const STAT_BEST_CHAIN   = 'best_chain_size'
-const STAT_TOTAL_COINS  = 'total_coins'
-const STAT_BEST_RUN     = 'best_run_coins'
+// Stat + leaderboard names must exist in the PlayFab dashboard
+// (or created via tools/setup-playfab-stats.mjs).
+//
+// Dashboard setup per stat:
+//   Statistics → Create → name, AggregationMethod, column "Value"
+//   Leaderboards → Create → name, linked to the matching statistic column
 
-/**
- * Submit all three leaderboard stats from the current game state.
- * Called automatically via the cloud-save hook on every purchase,
- * and on pagehide. Safe to call frequently — PlayFab deduplicates.
- *
- * @param {object} state  full game state from store.js getState()
- */
-export async function submitStats(state) {
-  return _call('/Client/UpdatePlayerStatistics', {
-    Statistics: [
-      { StatisticName: STAT_BEST_CHAIN,  Value: Math.round(state.stats?.allTime?.biggestChain  ?? 0) },
-      { StatisticName: STAT_TOTAL_COINS, Value: Math.round(state.totalCoins                    ?? 0) },
-      { StatisticName: STAT_BEST_RUN,    Value: Math.round(state.stats?.allTime?.bestRunCoins  ?? 0) },
-    ],
-  }, true)
-}
+const STAT_BEST_CHAIN  = 'best_chain_size'
+const STAT_TOTAL_COINS = 'total_coins'
+const STAT_BEST_RUN    = 'best_run_coins'
 
-/** Stat name constants — use these when calling getLeaderboard / getPlayerRank. */
 export const STATS = {
   BEST_CHAIN:  STAT_BEST_CHAIN,
   TOTAL_COINS: STAT_TOTAL_COINS,
@@ -247,61 +215,79 @@ export const STATS = {
 }
 
 /**
- * Fetch the top N players for a given stat.
+ * Submit all three leaderboard stats from the current game state.
+ * Uses the new Statistic/UpdateStatistics Entity API endpoint.
+ */
+export async function submitStats(state) {
+  if (!_entity) throw new Error('[PlayFab] No entity — not logged in')
+  return _callEntity('/Statistic/UpdateStatistics', {
+    Entity:     _entity,
+    Statistics: [
+      { Name: STAT_BEST_CHAIN,  Scores: [String(Math.round(state.stats?.allTime?.biggestChain ?? 0))] },
+      { Name: STAT_TOTAL_COINS, Scores: [String(Math.round(state.totalCoins                   ?? 0))] },
+      { Name: STAT_BEST_RUN,    Scores: [String(Math.round(state.stats?.allTime?.bestRunCoins  ?? 0))] },
+    ],
+  })
+}
+
+/**
+ * Fetch the top N players for a given leaderboard.
+ * Uses the new Leaderboard/GetLeaderboard Entity API endpoint.
  *
- * @param {string} statName    one of STATS.BEST_CHAIN / TOTAL_COINS / BEST_RUN
- * @param {number} maxResults  default 20
+ * @param {string} leaderboardName  one of STATS.BEST_CHAIN / TOTAL_COINS / BEST_RUN
+ * @param {number} pageSize         default 20
  * @returns {Array<{ rank, displayName, value }>}
  */
-export async function getLeaderboard(statName = STAT_BEST_CHAIN, maxResults = 20) {
-  const data = await _call('/Client/GetLeaderboard', {
-    StatisticName:   statName,
-    StartPosition:   0,
-    MaxResultsCount: maxResults,
-  }, true)
-
-  return (data?.Leaderboard ?? []).map(e => ({
-    rank:        e.Position + 1,
-    displayName: e.DisplayName || e.PlayFabId.slice(0, 8),
-    value:       e.StatValue,
+export async function getLeaderboard(leaderboardName = STAT_BEST_CHAIN, pageSize = 20) {
+  const data = await _callEntity('/Leaderboard/GetLeaderboard', {
+    LeaderboardName:  leaderboardName,
+    StartingPosition: 0,
+    PageSize:         pageSize,
+  })
+  return (data?.Rankings ?? []).map(e => ({
+    rank:        e.Rank + 1,
+    displayName: e.DisplayName || e.Entity?.Id?.slice(0, 8) || '?',
+    value:       Number(e.Scores?.[0] ?? 0),
   }))
 }
 
 /**
- * Fetch the current player's rank for a given stat.
+ * Fetch the current player's rank for a given leaderboard.
  * Returns null if the player has no score yet.
  *
- * @param {string} statName  one of STATS.BEST_CHAIN / TOTAL_COINS / BEST_RUN
+ * @param {string} leaderboardName  one of STATS.BEST_CHAIN / TOTAL_COINS / BEST_RUN
  * @returns {{ rank, value }|null}
  */
-export async function getPlayerRank(statName = STAT_BEST_CHAIN) {
-  const data = await _call('/Client/GetLeaderboardAroundPlayer', {
-    StatisticName:   statName,
-    MaxResultsCount: 1,
-  }, true)
-
-  const entry = data?.Leaderboard?.[0]
+export async function getPlayerRank(leaderboardName = STAT_BEST_CHAIN) {
+  if (!_entity) throw new Error('[PlayFab] No entity — not logged in')
+  const data = await _callEntity('/Leaderboard/GetLeaderboardAroundEntity', {
+    LeaderboardName:      leaderboardName,
+    Entity:               _entity,
+    MaxSurroundingEntries: 0,
+  })
+  const entry = data?.Rankings?.[0]
   if (!entry) return null
-  return { rank: entry.Position + 1, value: entry.StatValue }
+  return { rank: entry.Rank + 1, value: Number(entry.Scores?.[0] ?? 0) }
 }
 
 // ── Browser debug helpers ──────────────────────────────────────────────────
 // window.__crPlayFab is available in the browser console for manual testing.
 //
-//   __crPlayFab.status()                   → login state, pending sync, last sync time
-//   __crPlayFab.flush()                    → fire pending sync immediately (bypass 30 s timer)
-//   __crPlayFab.leaderboard('best_chain_size')  → print top 20 for any stat
-//   __crPlayFab.myRank('best_chain_size')       → print your rank for any stat
+//   __crPlayFab.status()                        → login state, pending sync, last sync time
+//   __crPlayFab.flush()                         → bypass 30 s timer, push immediately
+//   __crPlayFab.leaderboard('best_chain_size')  → print top 20 for any leaderboard
+//   __crPlayFab.myRank('best_chain_size')       → print your rank for any leaderboard
 
 if (typeof window !== 'undefined') {
   window.__crPlayFab = {
     status() {
       console.log({
-        loggedIn:     isLoggedIn(),
-        playFabId:    _playFabId,
-        pendingSync:  _pendingState !== null,
-        lastSyncAgo:  _lastSyncMs ? `${Math.round((Date.now() - _lastSyncMs) / 1000)} s ago` : 'never',
-        timerActive:  _syncTimer !== null,
+        loggedIn:    isLoggedIn(),
+        playFabId:   _playFabId,
+        entityId:    _entity?.Id,
+        pendingSync: _pendingState !== null,
+        lastSyncAgo: _lastSyncMs ? `${Math.round((Date.now() - _lastSyncMs) / 1000)} s ago` : 'never',
+        timerActive: _syncTimer !== null,
       })
     },
 
@@ -311,14 +297,14 @@ if (typeof window !== 'undefined') {
       console.log('[PlayFab] Flushed')
     },
 
-    async leaderboard(statName = STAT_BEST_CHAIN) {
-      const rows = await getLeaderboard(statName)
+    async leaderboard(name = STAT_BEST_CHAIN) {
+      const rows = await getLeaderboard(name)
       console.table(rows)
       return rows
     },
 
-    async myRank(statName = STAT_BEST_CHAIN) {
-      const r = await getPlayerRank(statName)
+    async myRank(name = STAT_BEST_CHAIN) {
+      const r = await getPlayerRank(name)
       console.log(r ?? 'No score submitted yet')
       return r
     },
