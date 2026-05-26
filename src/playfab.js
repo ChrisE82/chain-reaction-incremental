@@ -284,3 +284,43 @@ export async function getPlayerRank(statName = STAT_BEST_CHAIN) {
   if (!entry) return null
   return { rank: entry.Position + 1, value: entry.StatValue }
 }
+
+// ── Browser debug helpers ──────────────────────────────────────────────────
+// window.__crPlayFab is available in the browser console for manual testing.
+//
+//   __crPlayFab.status()                   → login state, pending sync, last sync time
+//   __crPlayFab.flush()                    → fire pending sync immediately (bypass 30 s timer)
+//   __crPlayFab.leaderboard('best_chain_size')  → print top 20 for any stat
+//   __crPlayFab.myRank('best_chain_size')       → print your rank for any stat
+
+if (typeof window !== 'undefined') {
+  window.__crPlayFab = {
+    status() {
+      console.log({
+        loggedIn:     isLoggedIn(),
+        playFabId:    _playFabId,
+        pendingSync:  _pendingState !== null,
+        lastSyncAgo:  _lastSyncMs ? `${Math.round((Date.now() - _lastSyncMs) / 1000)} s ago` : 'never',
+        timerActive:  _syncTimer !== null,
+      })
+    },
+
+    flush() {
+      if (!_pendingState) { console.warn('[PlayFab] No pending sync'); return }
+      flushSync()
+      console.log('[PlayFab] Flushed')
+    },
+
+    async leaderboard(statName = STAT_BEST_CHAIN) {
+      const rows = await getLeaderboard(statName)
+      console.table(rows)
+      return rows
+    },
+
+    async myRank(statName = STAT_BEST_CHAIN) {
+      const r = await getPlayerRank(statName)
+      console.log(r ?? 'No score submitted yet')
+      return r
+    },
+  }
+}
