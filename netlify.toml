@@ -1,0 +1,27 @@
+# netlify.toml
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# ── PostHog reverse proxy ──────────────────────────────────────────────────
+# Routes PostHog requests through this domain so ad blockers can't stop them.
+# Must come before any catch-all SPA redirect.
+
+[[redirects]]
+  from   = "/ingest/static/*"
+  to     = "https://us-assets.i.posthog.com/static/:splat"
+  status = 200
+
+[[redirects]]
+  from   = "/ingest/*"
+  to     = "https://us.i.posthog.com/:splat"
+  status = 200
+
+# ── SPA fallback ───────────────────────────────────────────────────────────
+# Vite builds a single index.html; all unmatched paths return it.
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
