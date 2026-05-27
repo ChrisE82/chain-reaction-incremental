@@ -879,7 +879,7 @@ function triggerAtPoint(vx, vy) {
   tapCircles.push({ x: vx, y: vy, maxRadius: cs.tapRadius, curRadius: 0,
                     holdMs: cs.tapDuration,
                     state: 'expanding', expTimer: 0 })
-  spawnParticles(vx, vy, '#ffffff', 14, maxRadius * 1.4)
+  spawnParticles(vx, vy, '#ffffff', 14, cs.tapRadius * 1.4)
   playTrigger(0)
 }
 
