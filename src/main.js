@@ -965,19 +965,6 @@ function loop(ts) {
     )
   }
   drawGrid()
-
-  // Board-clear refill ripple — single ring expanding from arena centre
-  if (refillRippleTimer >= 0) {
-    const t      = refillRippleTimer / REFILL_RIPPLE_MS
-    const rippleR = Math.min(arenaW, arenaH) * 0.52 * t
-    ctx.save()
-    ctx.globalAlpha = (1 - t) * 0.15
-    ctx.lineWidth   = 1.2
-    ctx.strokeStyle = 'rgba(66,212,255,1)'
-    ctx.beginPath(); ctx.arc(arenaW / 2, arenaH / 2, rippleR, 0, Math.PI * 2); ctx.stroke()
-    ctx.restore()
-  }
-
   drawAll()
   drawRadiusGhosts()
   drawTapCircles()
@@ -1033,8 +1020,6 @@ function getSpawnScale(b) {
   return 1
 }
 
-let refillRippleTimer = -1   // < 0 inactive; 0+ ms elapsed
-const REFILL_RIPPLE_MS = 450
 let refillInputLock = 0      // ms remaining; blocks player taps during refill wave
 
 // ─── Board-clear refill ───────────────────────────────────────────────────
@@ -1079,7 +1064,6 @@ function refillAllOwnedBalls() {
     b.spawnInDelay = Math.max(0, REFILL_START_DELAY + waveFrac * SPAWN_STAGGER_MAX + noise)
   })
 
-  refillRippleTimer = 0
   // Keep input locked for the full wave + grow window so the player can't tap
   // into a half-popped board by accident.
   refillInputLock = REFILL_START_DELAY + SPAWN_STAGGER_MAX + SPAWN_GROW_DURATION + 80
@@ -1243,10 +1227,6 @@ function update(dt) {
     }
   }
 
-  if (refillRippleTimer >= 0) {
-    refillRippleTimer += dt
-    if (refillRippleTimer > REFILL_RIPPLE_MS) refillRippleTimer = -1
-  }
   if (refillInputLock > 0) refillInputLock = Math.max(0, refillInputLock - dt)
 
   // Decay screen shake — fast falloff creates a sharp "thump" rather than sustained rattle
@@ -1816,11 +1796,6 @@ function finishIntro() {
   wasBoardActiveSinceLastKickstart = false
   particles.length  = 0
   tapCircles.length = 0
-  // Clear any stale board-clear ripple. The ripple timer is frozen during the
-  // introCompleting animation (update() returns early), so a ripple that was
-  // active when the transition started would still be active when normal play
-  // resumes — producing a phantom centered ring right after the intro ends.
-  refillRippleTimer = -1
   refillInputLock   = 0
 
   updateHUD()
@@ -3157,7 +3132,6 @@ devResetIntroBtn.addEventListener('click', () => {
   wasBoardActiveSinceLastKickstart = false
   particles.length  = 0
   tapCircles.length = 0
-  refillRippleTimer = -1
   refillInputLock   = 0
   introMode            = true
   introCoins           = 0
