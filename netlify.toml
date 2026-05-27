@@ -14,6 +14,11 @@
   status = 200
 
 [[redirects]]
+  from   = "/ingest/array/*"
+  to     = "https://us-assets.i.posthog.com/array/:splat"
+  status = 200
+
+[[redirects]]
   from   = "/ingest/*"
   to     = "https://us.i.posthog.com/:splat"
   status = 200

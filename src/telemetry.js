@@ -17,7 +17,7 @@ import posthog from 'posthog-js'
 
 posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
   api_host:        '/ingest',                    // reverse-proxy path (netlify.toml)
-  ui_host:         'https://us.i.posthog.com',  // PostHog toolbar / redirects
+  ui_host:         'https://us.posthog.com',    // PostHog toolbar / redirects (no i. subdomain)
   person_profiles: 'identified_only',
   capture_pageleave: true,                       // enables bounce rate + session duration
 })
