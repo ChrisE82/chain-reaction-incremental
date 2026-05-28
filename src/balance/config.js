@@ -51,3 +51,27 @@ export const PhysicsConfig = {
 // ── TimingConfig ──────────────────────────────────────────────────────────────
 // New — consumed by main.js to replace its inline timing constants.
 export const TimingConfig = { ...BALANCE.timing }
+
+// ── RoundConfig ───────────────────────────────────────────────────────────────
+// Roguelite round progression constants.
+export const RoundConfig = {
+  clicksPerRound:    BALANCE.roundResources.clicksPerRound,
+  refreshesPerRound: BALANCE.roundResources.refreshesPerRound,
+  bossRoundInterval: BALANCE.roundResources.bossRoundInterval,
+  goalTable:         BALANCE.roundGoals.table,
+  unlimitedGrowth:   BALANCE.roundGoals.unlimitedGrowth,
+}
+
+/** Return the coin goal for a given 1-indexed round number. */
+export function getRoundGoal(roundNumber) {
+  const { goalTable, unlimitedGrowth } = RoundConfig
+  const idx = roundNumber - 1
+  if (idx < goalTable.length) return goalTable[idx]
+  const extra = idx - goalTable.length + 1
+  return Math.round(goalTable[goalTable.length - 1] * Math.pow(unlimitedGrowth, extra))
+}
+
+/** Return true if the given 1-indexed round number is a boss round. */
+export function isBossRound(roundNumber) {
+  return roundNumber % RoundConfig.bossRoundInterval === 0
+}

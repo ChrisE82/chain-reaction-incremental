@@ -13,6 +13,9 @@ import {
   setIntroComplete, devResetIntro, setFirstBallCueShown,
   devAddCoins, devAddPrestige, devReset,
   devFreeColorUpgrade, devFreeUpgradeClick, devFreeUnlockNextBall,
+  // ── Round/run system ──
+  getRoundState, setRoundState, startNewRun, advanceRound,
+  getRoundGoal, isBossRound, RoundConfig,
 } from './store.js'
 
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
@@ -77,6 +80,29 @@ const devShrinkVal    = document.getElementById('dev-shrink-val')
 const devSpeedVal     = document.getElementById('dev-speed-val')
 const devFeelResetBtn    = document.getElementById('dev-feel-reset')
 const devIgnoreDeviceBtn = document.getElementById('dev-ignore-device')
+
+// ── Round HUD ──
+const roundHudEl     = document.getElementById('round-hud')
+const hudClicksEl    = document.getElementById('hud-clicks')
+const hudRefreshesEl = document.getElementById('hud-refreshes')
+const hudGoalCurEl   = document.getElementById('hud-goal-cur')
+const hudGoalMaxEl   = document.getElementById('hud-goal-max')
+const btnRefresh     = document.getElementById('btn-refresh')
+
+// ── Round-end / store overlays ──
+const roundEndOverlay   = document.getElementById('round-end-overlay')
+const reoTitle          = document.getElementById('reo-title')
+const reoBody           = document.getElementById('reo-body')
+const reoActions        = document.getElementById('reo-actions')
+const bossRewardOverlay = document.getElementById('boss-reward-overlay')
+const bossRewardBody    = document.getElementById('boss-reward-body')
+const bossRewardContinue = document.getElementById('boss-reward-continue')
+const betweenStore      = document.getElementById('between-store')
+const bstoreTitle       = document.getElementById('bstore-title')
+const bstoreContinue    = document.getElementById('bstore-continue')
+
+// ── Round state (in-memory complements persisted round state) ──
+let _pendingRoundEnd = false   // set when clicks hit 0; fires endRound() after chain
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -145,9 +171,13 @@ function calcUnits() {
   canvas.style.height = H + 'px'
   // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
   const barPx  = qbBar.offsetHeight
-  // Reserve space at the top for the HUD so balls never render behind the
-  // coin button (which has pointer-events:auto and would swallow taps).
-  const topPx  = hudEl.getBoundingClientRect().bottom
+  // Reserve space at the top for the HUD + round HUD strip so balls never
+  // render behind UI elements that have pointer-events:auto.
+  const hudBottom  = hudEl.getBoundingClientRect().bottom
+  // Position the round HUD strip directly below the main HUD
+  if (roundHudEl) roundHudEl.style.top = hudBottom + 'px'
+  const roundHudH  = roundHudEl ? roundHudEl.getBoundingClientRect().height : 0
+  const topPx      = hudBottom + roundHudH
   const availH = H - barPx - topPx
   // Scale so the virtual field fits inside the space between HUD and bar.
   gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
@@ -372,6 +402,13 @@ function endChain() {
   }
   currentChain = null
   if (!introMode) checkFirstBallCue()
+
+  // Fire deferred round-end once the last chain fully resolves
+  if (_pendingRoundEnd && !introMode) {
+    _pendingRoundEnd = false
+    endRound()
+    return
+  }
 
   // Intro: start the black-hole transition once the qualifying chain is done
   if (introMode && introReadyToComplete && !introCompleting) {
@@ -942,7 +979,17 @@ function triggerAtPoint(vx, vy) {
   vx = Math.max(r, Math.min(arenaW - r, vx))
   vy = Math.max(r, Math.min(arenaH - r, vy))
 
-  if (!introMode) { cyclePlayerStarts++; recordManualClick(); onTapStart(vx, vy, balls.length) }
+  if (!introMode) {
+    cyclePlayerStarts++; recordManualClick(); onTapStart(vx, vy, balls.length)
+    // Decrement click counter; queue round-end once clicks are exhausted
+    const rd = getRoundState()
+    if (rd.clicksLeft > 0) {
+      const newLeft = rd.clicksLeft - 1
+      setRoundState({ clicksLeft: newLeft })
+      updateRoundHUD()
+      if (newLeft <= 0) _pendingRoundEnd = true
+    }
+  }
   startChain()
 
   const cs = clickStats(getState().clicks)
@@ -1432,6 +1479,7 @@ function updateHUD() {
   hudChain.textContent = '×' + fmtMult(Math.max(1, mult))
 
   if (!introMode) updateQuickBuy()
+  if (!introMode) updateRoundHUD()
   if (statsMiniOpen) updateStatsMini()
   if (debugVisible) {
     _epmRecord(performance.now(), st.totalCoins)
@@ -1871,6 +1919,7 @@ function finishIntro() {
   refillInputLock   = 0
 
   updateHUD()
+  updateRoundHUD()
 }
 
 // ─── First-ball cue: logic ────────────────────────────────────────────────
@@ -3049,6 +3098,8 @@ canvas.addEventListener('pointerdown', e => {
   // shrink finishing and endChain() running — prevents a queued tap from
   // counting as a fresh shot before the chain is fully resolved.
   if (tapCircles.length >= MAX_TAP_CLICKS || balls.some(isExplosivelyActive) || currentChain || refillInputLock > 0) return
+  // Block taps when round clicks are exhausted (or round is over)
+  if (!introMode && getRoundState().clicksLeft <= 0) return
   try { getAudio() } catch (_) {}
   const [vx, vy] = screenToWorld(e.clientX, e.clientY)
   triggerAtPoint(vx, vy)
@@ -3206,6 +3257,7 @@ devResetBtn.addEventListener('click', () => {
 
   devPanel.classList.add('hidden')
   updateHUD()
+  if (!introMode) updateRoundHUD()
 })
 
 devResetIntroBtn.addEventListener('click', () => {
@@ -3362,6 +3414,142 @@ devFeelResetBtn.addEventListener('click', () => {
   _syncFeelSliders()
 })
 
+// ─── Round / run system ───────────────────────────────────────────────────
+
+function updateRoundHUD() {
+  const rd = getRoundState()
+  const st = getState()
+
+  if (hudClicksEl)    hudClicksEl.textContent    = rd.clicksLeft
+  if (hudRefreshesEl) hudRefreshesEl.textContent  = rd.refreshesLeft
+  if (hudGoalMaxEl)   hudGoalMaxEl.textContent    = fmt(rd.goal)
+  if (hudGoalCurEl)   hudGoalCurEl.textContent    = fmt(st.coins)
+
+  const goalMet = st.coins >= rd.goal
+  hudGoalCurEl?.classList.toggle('goal-met', goalMet)
+
+  // Dim refresh button when out of refreshes
+  btnRefresh?.classList.toggle('disabled', rd.refreshesLeft <= 0)
+}
+
+function doManualRefresh() {
+  const rd = getRoundState()
+  if (rd.refreshesLeft <= 0) return
+  if (refillInputLock > 0) return
+  setRoundState({ refreshesLeft: rd.refreshesLeft - 1 })
+  cyclePlayerStarts       = 0
+  cycleTriggerOccurrences = 0
+  cycleBaseEarned         = 0
+  wasBoardActiveSinceLastKickstart = false
+  refillAllOwnedBalls()
+  updateRoundHUD()
+}
+
+function endRound() {
+  const st = getState()
+  const rd = getRoundState()
+  const passed = st.coins >= rd.goal
+  if (passed) {
+    const carried = st.coins - rd.goal
+    if (rd.isBoss) {
+      // Boss: show reward screen, then store, then next round
+      bossRewardBody.textContent = `Act ${rd.actNumber} complete! You carried ◆${fmt(carried)} into the store.`
+      bossRewardOverlay.classList.remove('hidden')
+      bossRewardContinue.onclick = () => {
+        bossRewardOverlay.classList.add('hidden')
+        bstoreTitle.textContent = '★ Act Store'
+        betweenStore.classList.remove('hidden')
+        bstoreContinue.onclick = () => {
+          betweenStore.classList.add('hidden')
+          advanceRound(carried)
+          startRound()
+        }
+      }
+    } else {
+      // Regular round: round-end card → store → next round
+      reoTitle.textContent = `Round ${rd.number} Complete`
+      reoBody.innerHTML = `<strong>◆ ${fmt(st.coins)}</strong> earned<br>
+Goal paid: ◆ ${fmt(rd.goal)}<br>
+Carried forward: <strong>◆ ${fmt(carried)}</strong>`
+      reoActions.innerHTML = ''
+      const storeBtn = document.createElement('button')
+      storeBtn.className = 'reo-btn reo-btn-primary'
+      storeBtn.textContent = 'Enter Store ›'
+      storeBtn.onclick = () => {
+        roundEndOverlay.classList.add('hidden')
+        bstoreTitle.textContent = '★ Run Store'
+        betweenStore.classList.remove('hidden')
+        bstoreContinue.onclick = () => {
+          betweenStore.classList.add('hidden')
+          advanceRound(carried)
+          startRound()
+        }
+      }
+      reoActions.appendChild(storeBtn)
+      roundEndOverlay.classList.remove('hidden')
+    }
+  } else {
+    // Failed run
+    setRoundState({ runOver: true })
+    roundEndOverlay.querySelector('.reo-card')?.classList.remove('reo-fail')
+    roundEndOverlay.querySelector('.reo-card')?.classList.add('reo-fail')
+    reoTitle.textContent = 'Run Over'
+    reoBody.innerHTML = `Needed <strong>◆ ${fmt(rd.goal)}</strong><br>
+You had <strong>◆ ${fmt(st.coins)}</strong><br>
+Short by ◆ ${fmt(rd.goal - st.coins)}`
+    reoActions.innerHTML = ''
+    const newRunBtn = document.createElement('button')
+    newRunBtn.className = 'reo-btn reo-btn-primary'
+    newRunBtn.textContent = '▶ New Run'
+    newRunBtn.onclick = () => {
+      roundEndOverlay.querySelector('.reo-card')?.classList.remove('reo-fail')
+      roundEndOverlay.classList.add('hidden')
+      startNewRun()
+      startRound()
+    }
+    reoActions.appendChild(newRunBtn)
+    roundEndOverlay.classList.remove('hidden')
+  }
+}
+
+function startRound() {
+  // Hide all overlays
+  roundEndOverlay.classList.add('hidden')
+  bossRewardOverlay.classList.add('hidden')
+  betweenStore.classList.add('hidden')
+
+  // Reset in-memory round counters
+  _pendingRoundEnd            = false
+  cyclePlayerStarts           = 0
+  cycleTriggerOccurrences     = 0
+  cycleBaseEarned             = 0
+  chainShakeAmt               = 0
+  wasBoardActiveSinceLastKickstart = false
+
+  // Spawn all owned balls onto the board
+  const st = getState()
+  balls = []
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey]
+    for (let i = 0; i < (bkt?.ballsOwned ?? 0); i++) balls.push(makeBall(colorKey))
+  }
+  refillAllOwnedBalls()
+
+  updateRoundHUD()
+  updateHUD()
+}
+
+// Wire the refresh button
+if (btnRefresh) btnRefresh.addEventListener('click', doManualRefresh)
+
+// Wire the dev "New Run" button
+const devNewRunBtn = document.getElementById('dev-new-run')
+if (devNewRunBtn) devNewRunBtn.addEventListener('click', () => {
+  startNewRun()
+  startRound()
+  devPanel.classList.add('hidden')
+})
+
 // ─── Keyboard shortcuts (dev) ─────────────────────────────────────────────
 window.addEventListener('keydown', e => {
   if (e.target !== document.body && e.target !== canvas) return
@@ -3403,7 +3591,17 @@ function init() {
     }
   }
 
+  // Re-run calcUnits now that round-hud is in the DOM so its height is
+  // included in the top-reserved area calculation.
+  calcUnits()
   updateHUD()
+  updateRoundHUD()
+
+  // If a previous run was left in a failed state, show the "New Run" screen.
+  if (!introMode && getState().round?.runOver) {
+    endRound()
+  }
+
   lastTime = performance.now()
   requestAnimationFrame(loop)
 

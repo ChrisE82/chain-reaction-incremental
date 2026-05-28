@@ -75,6 +75,25 @@
   </div>
 </div>
 
+<!-- ── Round HUD strip (clicks / goal / refresh) ────────────────── -->
+<div id="round-hud">
+  <div class="rhud-item" id="rhud-clicks-wrap">
+    <span class="rhud-icon">&#9670;</span>
+    <span class="rhud-val" id="hud-clicks">5</span>
+    <span class="rhud-lbl">clicks</span>
+  </div>
+  <div class="rhud-goal">
+    <span class="rhud-goal-cur" id="hud-goal-cur">0</span>
+    <span class="rhud-goal-sep">/</span>
+    <span class="rhud-goal-max" id="hud-goal-max">200</span>
+  </div>
+  <div class="rhud-item">
+    <button id="btn-refresh" class="rhud-refresh-btn">
+      <span id="hud-refreshes">5</span>&#8635;
+    </button>
+  </div>
+</div>
+
 <!-- ── Quick-buy bar (always visible, bottom) ───────────────────── -->
 <div id="quick-buy-bar">
   <button id="qb-ball" class="qb-btn">
@@ -99,6 +118,39 @@
 <!-- ── Shop toggle (hidden — replaced by quick-buy bar) ─────────── -->
 <button id="shop-toggle" aria-label="Upgrades" style="display:none">&#9650;</button>
 
+<!-- ── Round-end overlay ────────────────────────────────────────── -->
+<div id="round-end-overlay" class="hidden">
+  <div class="reo-card">
+    <div class="reo-title" id="reo-title">Round Complete</div>
+    <div class="reo-body" id="reo-body"></div>
+    <div class="reo-actions" id="reo-actions"></div>
+  </div>
+</div>
+
+<!-- ── Boss reward overlay ───────────────────────────────────────── -->
+<div id="boss-reward-overlay" class="hidden">
+  <div class="reo-card">
+    <div class="reo-title">&#9733; Act Complete!</div>
+    <div class="reo-body" id="boss-reward-body"></div>
+    <div class="reo-actions">
+      <button class="reo-btn reo-btn-primary" id="boss-reward-continue">Enter Store &#8250;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Between-round store (placeholder) ────────────────────────── -->
+<div id="between-store" class="hidden">
+  <div class="bstore-inner">
+    <div class="bstore-header">
+      <span class="bstore-title" id="bstore-title">&#9733; Run Store</span>
+    </div>
+    <div class="bstore-body">
+      <p class="bstore-coming-soon">More upgrades coming soon.</p>
+      <button id="bstore-continue" class="reo-btn reo-btn-primary">Continue &#8250;</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Dev panel ────────────────────────────────────────────────── -->
 <div id="dev-panel" class="hidden">
   <div class="dev-header">
@@ -113,6 +165,7 @@
     </div>
     <div class="dev-row-btns">
       <button id="dev-prestige"  class="dev-small-btn">&#9733; Prestige</button>
+      <button id="dev-new-run"   class="dev-small-btn">&#9654; New Run</button>
     </div>
     <div class="dev-row-btns">
       <button id="dev-reset-intro" class="dev-small-btn">&#8617; Intro</button>

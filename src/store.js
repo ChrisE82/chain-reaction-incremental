@@ -1,7 +1,7 @@
 // store.js — Chain Reaction: Idle  (state, config, persistence)
 
-import { EconomyConstants, GameConfig } from './balance/config.js'
-export { EconomyConstants, GameConfig }
+import { EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound } from './balance/config.js'
+export { EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound }
 
 const STORAGE_KEY = 'cr_v3'
 const LEGACY_KEY  = 'cr_v2'   // read once on first launch for migration
@@ -263,23 +263,42 @@ function ensureStatsFields(st) {
     s.byColor[c] = { ...defaultColorStats(), ...(s.byColor[c] ?? {}) }
 }
 
+// ─── Round state ──────────────────────────────────────────────────────────
+
+function defaultRound() {
+  return {
+    number:        1,
+    actNumber:     1,
+    isBoss:        isBossRound(1),
+    clicksLeft:    RoundConfig.clicksPerRound,
+    refreshesLeft: RoundConfig.refreshesPerRound,
+    goal:          getRoundGoal(1),
+    runOver:       false,
+  }
+}
+
 // ─── State ────────────────────────────────────────────────────────────────
 
-function defaultState() {
+function defaultRunColorBuckets() {
   const colorBuckets = {}
-  for (const c of COLOR_ORDER) colorBuckets[c] = newColorBucket()
-  colorBuckets.violet.ballsOwned = 1   // first ball given at game start
+  for (const c of COLOR_ORDER) {
+    colorBuckets[c] = { ...newColorBucket(), ballsOwned: 1 }
+  }
+  return colorBuckets
+}
 
+function defaultState() {
   return {
     coins:               0,
     totalCoins:          0,
-    colorBuckets,
-    totalBallsPurchased: 1,   // violet is already owned
+    colorBuckets:        defaultRunColorBuckets(),
+    totalBallsPurchased: 6,   // all 6 basic balls given at run start
     clicks:              { radiusLevel: 0, durationLevel: 0 },
     prestigeCount:       0,
     autoUpgradeEnabled:  false,
     introComplete:       false,
     firstBallCueShown:   false,
+    round:               defaultRound(),
     stats: {
       // Legacy flat fields (kept for backward compat + debug overlay)
       bestChainLength:    0,
@@ -301,6 +320,7 @@ function mergeState(saved) {
   const def = defaultState()
   const merged = { ...def, ...saved }
   merged.clicks = { ...def.clicks, ...(saved.clicks ?? {}) }
+  merged.round  = { ...def.round,  ...(saved.round  ?? {}) }
   merged.stats  = { ...def.stats,  ...(saved.stats  ?? {}) }
   const mergedBuckets = {}
   for (const c of COLOR_ORDER)
@@ -558,6 +578,65 @@ export function setFirstBallCueShown() {
 }
 
 export function devAddCoins(n) { addCoins(n, false) }
+
+// ─── Round / run mutations ────────────────────────────────────────────────
+
+export function getRoundState() { return state.round }
+
+export function setRoundState(partial) {
+  state.round = { ...state.round, ...partial }
+  saveState(state, true)   // immediate — round state must survive page reload
+}
+
+/**
+ * Advance to the next round after paying the goal.
+ * Sets coins to the carry-over amount and resets per-round resources.
+ */
+export function advanceRound(coinsCarried) {
+  const nextNum  = state.round.number + 1
+  const nextGoal = getRoundGoal(nextNum)
+  const nextAct  = Math.ceil(nextNum / RoundConfig.bossRoundInterval)
+  state.coins        = coinsCarried
+  state.totalCoins   = Math.max(state.totalCoins, state.coins)
+  state.round = {
+    number:        nextNum,
+    actNumber:     nextAct,
+    isBoss:        isBossRound(nextNum),
+    clicksLeft:    RoundConfig.clicksPerRound,
+    refreshesLeft: RoundConfig.refreshesPerRound,
+    goal:          nextGoal,
+    runOver:       false,
+  }
+  saveState(state, true)
+}
+
+/**
+ * Reset everything for a fresh roguelite run.
+ * Upgrade levels and ball counts all go back to zero/1.
+ */
+export function startNewRun() {
+  const freshBuckets = defaultRunColorBuckets()
+  state.coins               = 0
+  state.totalCoins          = 0
+  state.colorBuckets        = freshBuckets
+  state.totalBallsPurchased = 6
+  state.clicks              = { radiusLevel: 0, durationLevel: 0 }
+  state.prestigeCount       = 0
+  state.autoUpgradeEnabled  = false
+  state.round               = defaultRound()
+  state.stats               = {
+    bestChainLength:    0,
+    lastChainLength:    0,
+    lastChainCoins:     0,
+    totalChains:        0,
+    lastKickstartBonus: 0,
+    current:        defaultCurrentStats(),
+    allTime:        defaultAllTimeStats(),
+    byColor:        Object.fromEntries(COLOR_ORDER.map(c => [c, defaultColorStats()])),
+    chainsByLength: {},
+  }
+  saveState(state, true)
+}
 
 export function devFreeColorUpgrade(color, upgradeType) {
   const bkt = state.colorBuckets[color]

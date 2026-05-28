@@ -1890,3 +1890,137 @@ body.intro-completing #hud {
   animation: upg-pop-anim 0.14s ease-out forwards !important;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   ROGUELITE ROUND PROGRESSION
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Round HUD strip (clicks / goal / refresh) ─────────────────────────── */
+#round-hud {
+  position: fixed;
+  left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1vmin 3.5vmin;
+  z-index: 90;
+  /* top is set in JS (calcUnits) so it sits directly below #hud */
+  pointer-events: none;
+}
+.rhud-item        { display: flex; align-items: center; gap: 0.7vmin; pointer-events: auto; }
+.rhud-icon        { font-size: clamp(0.55rem, 1.8vmin, 0.8rem); color: rgba(255,255,255,0.45); }
+.rhud-val         { font-family: 'Orbitron', monospace; font-size: clamp(0.7rem, 2.5vmin, 1rem); color: #fff; }
+.rhud-lbl         { font-size: clamp(0.5rem, 1.6vmin, 0.7rem); color: rgba(255,255,255,0.3); text-transform: uppercase; }
+.rhud-goal        { display: flex; align-items: baseline; gap: 0.4vmin; }
+.rhud-goal-cur    { font-family: 'Orbitron', monospace; font-size: clamp(0.75rem, 2.8vmin, 1.05rem); color: #ffe066; }
+.rhud-goal-sep    { font-size: clamp(0.5rem, 1.6vmin, 0.7rem); color: rgba(255,255,255,0.25); }
+.rhud-goal-max    { font-family: 'Orbitron', monospace; font-size: clamp(0.5rem, 1.6vmin, 0.7rem); color: rgba(255,255,255,0.4); }
+#hud-goal-cur.goal-met { color: #5ef87a; }
+
+.rhud-refresh-btn {
+  all: unset;
+  display: flex; align-items: center; gap: 0.5vmin;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.7rem, 2.5vmin, 1rem);
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.06);
+  border-radius: 1.5vmin;
+  padding: 0.8vmin 1.8vmin;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s, background 0.1s;
+}
+.rhud-refresh-btn:active { background: rgba(255,255,255,0.14); }
+.rhud-refresh-btn.disabled { opacity: 0.25; pointer-events: none; }
+
+/* "End Round" quick-access button — appears in HUD once goal is met */
+#btn-end-round {
+  all: unset;
+  display: none;           /* shown via JS */
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.6rem, 2vmin, 0.85rem);
+  color: #5ef87a;
+  background: rgba(94,248,122,0.10);
+  border: 1px solid rgba(94,248,122,0.3);
+  border-radius: 1.5vmin;
+  padding: 0.8vmin 1.8vmin;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+#btn-end-round.visible { display: block; }
+#btn-end-round:active  { background: rgba(94,248,122,0.2); }
+
+/* ── Shared overlay card styles ────────────────────────────────────────── */
+#round-end-overlay,
+#boss-reward-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.80);
+  z-index: 200;
+}
+#round-end-overlay.hidden,
+#boss-reward-overlay.hidden { display: none; }
+
+.reo-card {
+  background: #0b0f1e;
+  border: 1px solid rgba(66,212,255,0.20);
+  border-radius: 3vmin;
+  padding: 5vmin 6vmin;
+  width: min(88vw, 36rem);
+  display: flex; flex-direction: column; gap: 3vmin;
+  text-align: center;
+}
+.reo-title  { font-family: 'Orbitron', monospace; font-size: clamp(1rem, 4vmin, 1.6rem); color: #fff; }
+.reo-body   { font-size: clamp(0.75rem, 2.6vmin, 1rem); color: rgba(255,255,255,0.6); line-height: 1.75; }
+.reo-actions { display: flex; flex-direction: column; gap: 2vmin; }
+
+.reo-btn {
+  all: unset; text-align: center;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.8rem, 3vmin, 1.05rem);
+  padding: 2.5vmin;
+  border-radius: 2vmin;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+.reo-btn-primary   { background: rgba(66,212,255,0.12); color: #42d4ff; border: 1px solid rgba(66,212,255,0.3); }
+.reo-btn-primary:active { background: rgba(66,212,255,0.22); }
+.reo-btn-secondary { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); }
+.reo-btn-secondary:active { background: rgba(255,255,255,0.1); }
+.reo-fail .reo-title { color: #ff6b6b; }
+.reo-fail { border-color: rgba(255,107,107,0.25); }
+
+/* ── Between-round store placeholder ──────────────────────────────────── */
+#between-store { position: fixed; inset: 0; z-index: 200; }
+#between-store.hidden { display: none; }
+.bstore-inner {
+  background: #0b0f1e;
+  height: 100%;
+  display: flex; flex-direction: column;
+}
+.bstore-header {
+  display: flex; align-items: center; justify-content: center;
+  padding: 4vmin;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.bstore-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1rem, 4vmin, 1.5rem);
+  color: #fff;
+}
+.bstore-body {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 5vmin;
+  padding: 4vmin;
+}
+.bstore-coming-soon {
+  color: rgba(255,255,255,0.3);
+  font-size: clamp(0.8rem, 3vmin, 1rem);
+  font-family: 'Orbitron', monospace;
+}
+/* #bstore-continue reuses .reo-btn .reo-btn-primary */
+
