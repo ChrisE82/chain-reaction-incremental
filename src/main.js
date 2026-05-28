@@ -1208,6 +1208,10 @@ function update(dt) {
     return
   }
 
+  // True for the entire window between "last click used" and "new round starts".
+  // Covers _pendingRoundEnd, _waitingForRoundEnd, and the post-clear pause delay.
+  const roundEnding = !introMode && getRoundState().clicksLeft <= 0
+
   const r      = BALL_RADIUS
   const spring = Math.min(1, dt * 0.018)
 
@@ -1216,7 +1220,7 @@ function update(dt) {
   // Move idle balls; run respawn countdown
   for (const b of balls) {
     if (b.state === 'respawning') {
-      if (_pendingRoundEnd || _waitingForRoundEnd) continue
+      if (roundEnding) continue
       b.respawnTimer -= dt
       if (b.respawnTimer <= 0) {
         const stats = b.isIntro ? INTRO_STATS : getDerivedBallStats(getState(), b.colorKey)
@@ -1267,7 +1271,7 @@ function update(dt) {
     if (b.state === 'done') {
       // Don't respawn when the round is ending — leave the ball invisible
       // so the board stays clear until the overlay appears.
-      if (_pendingRoundEnd || _waitingForRoundEnd) continue
+      if (roundEnding) continue
       b.state        = 'respawning'
       b.respawnTimer = b.respawnMs
       b.curRadius    = 0
@@ -1314,7 +1318,7 @@ function update(dt) {
   // Board-empty check: no idle or actively exploding balls remain.
   // Skip while the round is ending so the clear-bonus + refill path
   // doesn't fire after the final click.
-  if (!_pendingRoundEnd && !_waitingForRoundEnd && balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
+  if (!roundEnding && balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
     // Include 'done' (brief shrink→respawn gap) alongside 'respawning' so the
     // check is robust against any single-frame timing edge cases.
     const inactive = balls.filter(b => b.state === 'respawning' || b.state === 'done')
