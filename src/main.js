@@ -1392,7 +1392,10 @@ function update(dt) {
 // ─── Draw ─────────────────────────────────────────────────────────────────
 function drawAll() {
   for (const b of balls) {
-    if (b.state !== 'respawning') drawBall(b)
+    // 'respawning' is invisible by design; 'done' has curRadius=0 but drawBall
+    // falls back to baseRadius for non-active states, so skip it too.
+    if (b.state === 'respawning' || b.state === 'done') continue
+    drawBall(b)
   }
 }
 
