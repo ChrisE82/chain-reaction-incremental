@@ -1302,16 +1302,14 @@ function update(dt) {
         // all balls return" bug. Chain-end coins are still awarded correctly because
         // endChain() fires on the next frame when the tap circle finishes.
         //
-        // Efficiency bonus: rewards high pops-per-tap, not raw spam.
-        //   popsPerTap 1 → log₂=0 → ×0 bonus
-        //   popsPerTap 2 → log₂=1 → ×0.5 bonus
-        //   popsPerTap 4 → log₂=2 → ×1.0 bonus
-        //   popsPerTap 8 → log₂=3 → ×1.5 bonus
-        //   cap at ×2.5 (popsPerTap ≈ 32+)
+        // Clear bonus: base ×3 floor, +1 per doubling of pops-per-tap, cap ×5.
+        //   popsPerTap 1 → log₂=0 → ×3.0
+        //   popsPerTap 2 → log₂=1 → ×4.0
+        //   popsPerTap 4 → log₂=2 → ×5.0 (cap)
         wasBoardActiveSinceLastKickstart = false
 
         const popsPerTap = cycleTriggerOccurrences / Math.max(1, cyclePlayerStarts)
-        const effMult    = Math.min(2.5, Math.max(0, Math.log2(popsPerTap)) * 0.5)
+        const effMult    = Math.min(5.0, 3.0 + Math.max(0, Math.log2(popsPerTap)))
         const clearBonus = Math.floor(cycleBaseEarned * effMult)
 
         console.log(`[board-clear] pops=${cycleTriggerOccurrences} taps=${cyclePlayerStarts} popsPerTap=${popsPerTap.toFixed(2)} effMult=${effMult.toFixed(2)} base=${cycleBaseEarned} bonus=${clearBonus}`)

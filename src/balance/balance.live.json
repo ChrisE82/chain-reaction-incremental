@@ -7,7 +7,7 @@
 
     "value":    { "maxBonus": 25,  "curve": 20 },
     "speed":    { "maxBonus": 2.0, "curve": 7 },
-    "diameter": { "baseR": 6.5, "maxR": 18, "curve": 4 },
+    "diameter": { "baseR": 8.5, "maxR": 18, "curve": 4 },
     "duration": { "maxBonus": 2.0, "curve": 5 },
 
     "tap": {
@@ -26,11 +26,11 @@
     },
 
     "ball": {
-      "earlyTable": { "1": 10, "2": 25, "3": 60, "4": 140, "5": 325, "6": 800, "7": 2000 },
+      "earlyTable": { "1": 10, "2": 25, "3": 60, "4": 140, "5": 325, "6": 180, "7": 400, "8": 900, "9": 2000 },
       "lateBase":  2000,
       "lateMult":  1.50,
       "cycleMult": 2.5,
-      "lateStart": 7
+      "lateStart": 10
     },
 
     "chain": {
@@ -73,7 +73,7 @@
     "growDuration":   420,
     "holdDuration":   650,
     "shrinkDuration": 280,
-    "baseSpeed":      0.36
+    "baseSpeed":      0.45
   },
 
   "timing": {
