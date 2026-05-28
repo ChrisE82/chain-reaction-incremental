@@ -16,6 +16,7 @@ import {
 } from './store.js'
 
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
+import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade } from './telemetry.js'
 import { getBallSprite, getSpriteCount, setSpriteRes } from './gfxCache.js'
 import * as PlayFab from './playfab.js'
 
@@ -364,6 +365,7 @@ function endChain() {
       spawnChainBonusLabel(chainLen, mult, bonus)
     }
     recordChainEnd(chainLen, chainCoins, bonus)
+    onChainEnd(chainLen, chainCoins + bonus, getState().coins, balls.length)
   }
   currentChain = null
   if (!introMode) checkFirstBallCue()
@@ -890,7 +892,7 @@ function triggerAtPoint(vx, vy) {
   vx = Math.max(r, Math.min(arenaW - r, vx))
   vy = Math.max(r, Math.min(arenaH - r, vy))
 
-  if (!introMode) { cyclePlayerStarts++; recordManualClick() }
+  if (!introMode) { cyclePlayerStarts++; recordManualClick(); onTapStart(vx, vy, balls.length) }
   startChain()
 
   const cs = clickStats(getState().clicks)
@@ -2709,6 +2711,7 @@ function buildShop() {
         if (colorKey) {
           addBallForColor(colorKey)
           cancelFirstBallCue()
+          if (!devFreeUpgradesEnabled) { const st = getState(); onBallPurchased(st.totalBallsPurchased, balls.length, st.coins) }
           buildShop(); updateHUD()
           spawnQbToast(`${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} ball unlocked!`)
         }
@@ -2781,7 +2784,10 @@ function buildShop() {
         attachArmedHold(row, `tap-${stat}`,
           () => {
             const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
-            if (ok) { buildShop(); updateHUD() }
+            if (ok) {
+              if (!devFreeUpgradesEnabled) { const st = getState(); onTapUpgrade(stat, st.clicks[stat + 'Level'] ?? 0, balls.length, st.coins) }
+              buildShop(); updateHUD()
+            }
           },
           () => devFreeUpgradesEnabled ||
             getState().coins >= tapUpgradeCost(stat, getState().clicks[stat + 'Level'] ?? 0)
@@ -2801,7 +2807,10 @@ function buildShop() {
         attachArmedHold(tapChip, `tap-${stat}`,
           () => {
             const ok = devFreeUpgradesEnabled ? devFreeUpgradeClick(stat) : tryUpgradeClick(stat)
-            if (ok) { buildShop(); updateHUD() }
+            if (ok) {
+              if (!devFreeUpgradesEnabled) { const st = getState(); onTapUpgrade(stat, st.clicks[stat + 'Level'] ?? 0, balls.length, st.coins) }
+              buildShop(); updateHUD()
+            }
           },
           () => devFreeUpgradesEnabled ||
             getState().coins >= tapUpgradeCost(stat, getState().clicks[stat + 'Level'] ?? 0)
@@ -2917,6 +2926,7 @@ function buildShop() {
             if (ok) {
               syncColorBalls(colorKey)
               if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
+              if (!devFreeUpgradesEnabled) { const st = getState(); onColorUpgrade(colorKey, type, st.colorBuckets[colorKey]?.[type + 'Level'] ?? 0, balls.length, st.coins) }
               buildShop(); updateHUD()
             }
           },
@@ -2950,6 +2960,7 @@ function buildShop() {
             if (ok) {
               syncColorBalls(colorKey)
               if (type === 'diameter') spawnRadiusGhost(colorKey, oldR)
+              if (!devFreeUpgradesEnabled) { const st = getState(); onColorUpgrade(colorKey, type, st.colorBuckets[colorKey]?.[type + 'Level'] ?? 0, balls.length, st.coins) }
               buildShop(); updateHUD()
             }
           },
@@ -3038,6 +3049,7 @@ attachArmedHold(
     if (colorKey) {
       addBallForColor(colorKey)
       cancelFirstBallCue()
+      if (!devFreeUpgradesEnabled) { const st = getState(); onBallPurchased(st.totalBallsPurchased, balls.length, st.coins) }
       updateHUD()
       if (!shopPanel.classList.contains('hidden')) buildShop()
       const n = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
@@ -3060,6 +3072,7 @@ attachArmedHold(
     if (ok) {
       syncColorBalls(up.color)
       if (up.upgradeType === 'diameter') spawnRadiusGhost(up.color, oldR)
+      if (!devFreeUpgradesEnabled) { const st = getState(); onColorUpgrade(up.color, up.upgradeType, st.colorBuckets[up.color]?.[up.upgradeType + 'Level'] ?? 0, balls.length, st.coins) }
       updateHUD()
       if (!shopPanel.classList.contains('hidden')) buildShop()
       spawnQbToast(`${COLOR_SHORT[up.color]} ${UPGRADE_TYPE_LABEL[up.upgradeType]} upgraded!`)
