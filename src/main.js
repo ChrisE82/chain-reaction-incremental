@@ -1264,6 +1264,9 @@ function update(dt) {
     if (!isExplosivelyActive(b)) continue
     updateExpansion(b, dt)
     if (b.state === 'done') {
+      // Don't respawn when the round is ending — leave the ball invisible
+      // so the board stays clear until the overlay appears.
+      if (_pendingRoundEnd || _waitingForRoundEnd) continue
       b.state        = 'respawning'
       b.respawnTimer = b.respawnMs
       b.curRadius    = 0
