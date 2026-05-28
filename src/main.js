@@ -31,8 +31,9 @@ window.addEventListener('blur', cancelArmedHold)
 // ─── DOM refs ─────────────────────────────────────────────────────────────
 const canvas     = document.getElementById('c')
 const ctx        = canvas.getContext('2d')
-const hudCoins   = document.getElementById('hud-coins')
-const hudChain   = document.getElementById('hud-chain')
+const hudEl           = document.getElementById('hud')
+const hudCoins        = document.getElementById('hud-coins')
+const hudChain        = document.getElementById('hud-chain')
 const hudCoinsBtn     = document.getElementById('hud-coins-btn')
 const hudExpandArrow  = document.getElementById('hud-expand-arrow')
 const statsMini       = document.getElementById('stats-mini')
@@ -127,13 +128,17 @@ function calcUnits() {
   canvas.style.height = H + 'px'
   // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
   const barPx  = qbBar.offsetHeight
-  const availH = barPx > 0 ? H - barPx : H
-  // Scale so the virtual field fits inside the available height (above the bar).
+  // Reserve space at the top for the HUD so balls never render behind the
+  // coin button (which has pointer-events:auto and would swallow taps).
+  const topPx  = hudEl.getBoundingClientRect().bottom
+  const availH = H - barPx - topPx
+  // Scale so the virtual field fits inside the space between HUD and bar.
   gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
-  // Center the play field in the available space above the quick-buy bar.
-  gameOffsetY = Math.max(0, (availH - VIRTUAL_H * gameScale) / 2)
-  // Full virtual height fits above the bar — no virtual-unit reduction needed.
+  // Pin the play field below the HUD; center it vertically in whatever
+  // space remains between HUD and quick-buy bar.
+  gameOffsetY = topPx + Math.max(0, (availH - VIRTUAL_H * gameScale) / 2)
+  // Full virtual height fits in the available band — no virtual-unit reduction.
   gamePlayH = VIRTUAL_H
 
   // Keep sprite resolution matched to physical pixel density so sprites
