@@ -104,6 +104,7 @@ const bstoreContinue    = document.getElementById('bstore-continue')
 // ── Round state (in-memory complements persisted round state) ──
 let _pendingRoundEnd    = false   // set when clicks hit 0; defers endRound() until chain resolves
 let _waitingForRoundEnd = false   // set after chain resolves; fires endRound() once all shrinks+tap circles finish
+let _roundEndTimer      = null    // setTimeout handle for the post-clear pause before the overlay
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -1299,9 +1300,11 @@ function update(dt) {
   // Deferred round-end: fires once every forced-shrink ball AND every lingering
   // tap-circle visual have finished. Tap circles in 'shrinking' are still in
   // tapCircles[] until fully gone, so tapCircles.length === 0 is the right gate.
+  // A short pause after the board goes dark lets score labels finish animating
+  // before the overlay covers them.
   if (_waitingForRoundEnd && !balls.some(isExplosivelyActive) && tapCircles.length === 0) {
     _waitingForRoundEnd = false
-    endRound()
+    _roundEndTimer = setTimeout(endRound, 1200)
   }
 
   // Board-empty check: no idle or actively exploding balls remain.
@@ -3548,6 +3551,7 @@ function startRound() {
   // Reset in-memory round counters
   _pendingRoundEnd            = false
   _waitingForRoundEnd         = false
+  clearTimeout(_roundEndTimer); _roundEndTimer = null
   cyclePlayerStarts           = 0
   cycleTriggerOccurrences     = 0
   cycleBaseEarned             = 0
