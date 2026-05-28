@@ -1894,62 +1894,123 @@ body.intro-completing #hud {
    ROGUELITE ROUND PROGRESSION
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Round HUD strip (clicks / goal / refresh) ─────────────────────────── */
+/* ── Round HUD strip (clicks / score / goal / refresh) ─────────────────── */
 #round-hud {
   position: fixed;
   left: 0; right: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1vmin 3.5vmin;
+  padding: 2.2vmin 4vmin;
   z-index: 90;
+  background: rgba(4, 7, 18, 0.90);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
   /* top is set in JS (calcUnits) so it sits directly below #hud */
   pointer-events: none;
 }
-.rhud-item        { display: flex; align-items: center; gap: 0.7vmin; pointer-events: auto; }
-.rhud-icon        { font-size: clamp(0.55rem, 1.8vmin, 0.8rem); color: rgba(255,255,255,0.45); }
-.rhud-val         { font-family: 'Orbitron', monospace; font-size: clamp(0.7rem, 2.5vmin, 1rem); color: #fff; }
-.rhud-lbl         { font-size: clamp(0.5rem, 1.6vmin, 0.7rem); color: rgba(255,255,255,0.3); text-transform: uppercase; }
-.rhud-goal        { display: flex; align-items: baseline; gap: 0.4vmin; }
-.rhud-goal-cur    { font-family: 'Orbitron', monospace; font-size: clamp(0.75rem, 2.8vmin, 1.05rem); color: #ffe066; }
-.rhud-goal-sep    { font-size: clamp(0.5rem, 1.6vmin, 0.7rem); color: rgba(255,255,255,0.25); }
-.rhud-goal-max    { font-family: 'Orbitron', monospace; font-size: clamp(0.5rem, 1.6vmin, 0.7rem); color: rgba(255,255,255,0.4); }
-#hud-goal-cur.goal-met { color: #5ef87a; }
 
-.rhud-refresh-btn {
-  all: unset;
-  display: flex; align-items: center; gap: 0.5vmin;
+/* Tiles: number stacked above label (used for Clicks and Refresh) */
+.rhud-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5vmin;
+  min-width: 18vw;
+}
+
+.rhud-tile-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.7rem, 2.5vmin, 1rem);
-  color: rgba(255,255,255,0.7);
-  background: rgba(255,255,255,0.06);
-  border-radius: 1.5vmin;
-  padding: 0.8vmin 1.8vmin;
+  font-size: clamp(1.3rem, 5.5vmin, 2.2rem);
+  color: #fff;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.rhud-tile-lbl {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.5rem, 1.9vmin, 0.72rem);
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Refresh tile is also an interactive button */
+.rhud-tile-btn {
+  all: unset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5vmin;
+  min-width: 18vw;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 2vmin;
+  padding: 1.8vmin 3.5vmin;
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 0.15s, background 0.1s;
+  transition: background 0.1s, opacity 0.15s;
 }
-.rhud-refresh-btn:active { background: rgba(255,255,255,0.14); }
-.rhud-refresh-btn.disabled { opacity: 0.25; pointer-events: none; }
+.rhud-tile-btn:active   { background: rgba(255,255,255,0.16); }
+.rhud-tile-btn.disabled { opacity: 0.25; pointer-events: none; }
 
-/* "End Round" quick-access button — appears in HUD once goal is met */
-#btn-end-round {
-  all: unset;
-  display: none;           /* shown via JS */
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.6rem, 2vmin, 0.85rem);
-  color: #5ef87a;
-  background: rgba(94,248,122,0.10);
-  border: 1px solid rgba(94,248,122,0.3);
-  border-radius: 1.5vmin;
-  padding: 0.8vmin 1.8vmin;
-  cursor: pointer;
-  pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
+/* Center block: large current score + small goal beneath */
+.rhud-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5vmin;
 }
-#btn-end-round.visible { display: block; }
-#btn-end-round:active  { background: rgba(94,248,122,0.2); }
+
+.rhud-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7vmin;
+}
+
+.rhud-score-icon {
+  font-size: clamp(0.9rem, 3.5vmin, 1.4rem);
+  color: #ffe566;
+  line-height: 1;
+  transition: color 0.25s;
+}
+
+.rhud-score-val {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.7rem, 7.5vmin, 3rem);
+  color: #ffe566;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  transition: color 0.25s;
+}
+
+/* Goal met — score + icon both turn green */
+#hud-goal-cur.goal-met                          { color: #5ef87a; }
+.rhud-score:has(.goal-met) .rhud-score-icon     { color: #5ef87a; }
+
+.rhud-goal-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7vmin;
+}
+
+.rhud-goal-label {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.5rem, 1.9vmin, 0.72rem);
+  color: rgba(255,255,255,0.28);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.rhud-goal-val {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.85rem, 3.5vmin, 1.25rem);
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.02em;
+}
 
 /* ── Shared overlay card styles ────────────────────────────────────────── */
 #round-end-overlay,

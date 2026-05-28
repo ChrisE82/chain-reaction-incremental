@@ -77,21 +77,29 @@
 
 <!-- ── Round HUD strip (clicks / goal / refresh) ────────────────── -->
 <div id="round-hud">
-  <div class="rhud-item" id="rhud-clicks-wrap">
-    <span class="rhud-icon">&#9670;</span>
-    <span class="rhud-val" id="hud-clicks">5</span>
-    <span class="rhud-lbl">clicks</span>
+  <!-- Left: clicks remaining -->
+  <div class="rhud-tile" id="rhud-clicks-wrap">
+    <span class="rhud-tile-val" id="hud-clicks">5</span>
+    <span class="rhud-tile-lbl">Clicks</span>
   </div>
-  <div class="rhud-goal">
-    <span class="rhud-goal-cur" id="hud-goal-cur">0</span>
-    <span class="rhud-goal-sep">/</span>
-    <span class="rhud-goal-max" id="hud-goal-max">200</span>
+
+  <!-- Center: current score / goal -->
+  <div class="rhud-center">
+    <div class="rhud-score">
+      <span class="rhud-score-icon">&#9670;</span>
+      <span class="rhud-score-val" id="hud-goal-cur">0</span>
+    </div>
+    <div class="rhud-goal-line">
+      <span class="rhud-goal-label">Goal</span>
+      <span class="rhud-goal-val" id="hud-goal-max">200</span>
+    </div>
   </div>
-  <div class="rhud-item">
-    <button id="btn-refresh" class="rhud-refresh-btn">
-      <span id="hud-refreshes">5</span>&#8635;
-    </button>
-  </div>
+
+  <!-- Right: refresh button -->
+  <button id="btn-refresh" class="rhud-tile rhud-tile-btn">
+    <span class="rhud-tile-val" id="hud-refreshes">5</span>
+    <span class="rhud-tile-lbl">Refresh &#8635;</span>
+  </button>
 </div>
 
 <!-- ── Quick-buy bar (always visible, bottom) ───────────────────── -->
