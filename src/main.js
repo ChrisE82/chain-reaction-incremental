@@ -72,6 +72,7 @@ const devGrowVal      = document.getElementById('dev-grow-val')
 const devHoldVal      = document.getElementById('dev-hold-val')
 const devShrinkVal    = document.getElementById('dev-shrink-val')
 const devSpeedVal     = document.getElementById('dev-speed-val')
+const devFeelResetBtn = document.getElementById('dev-feel-reset')
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -3170,7 +3171,14 @@ devResetIntroBtn.addEventListener('click', () => {
 // ─── Dev feel-tuning sliders ──────────────────────────────────────────────
 // Sliders read GameConfig / EconomyConstants at open time, then mutate them
 // live so every new ball and every existing ball reflects the change immediately.
-// Values persist for the session; refresh to reset to balance.live.json defaults.
+// _feelDefaults captures the balance.live.json values before any slider touch.
+
+const _feelDefaults = {
+  growDuration:  GameConfig.growDuration,
+  holdDuration:  EconomyConstants.duration.baseMs,
+  shrinkDuration: GameConfig.shrinkDuration,
+  baseSpeed:     EconomyConstants.speed.base,
+}
 
 function _syncFeelSliders() {
   devGrowSlider.value     = GameConfig.growDuration
@@ -3224,6 +3232,29 @@ devSpeedSlider.addEventListener('input', () => {
   EconomyConstants.speed.base = v
   GameConfig.baseSpeed = v
   for (const b of balls) { b.vx *= ratio; b.vy *= ratio }
+})
+
+devFeelResetBtn.addEventListener('click', () => {
+  // Restore grow
+  GameConfig.growDuration = _feelDefaults.growDuration
+  for (const b of balls) b.growMs = _feelDefaults.growDuration
+  // Restore shrink
+  GameConfig.shrinkDuration = _feelDefaults.shrinkDuration
+  for (const b of balls) b.shrinkMs = _feelDefaults.shrinkDuration
+  // Restore hold
+  EconomyConstants.duration.baseMs = _feelDefaults.holdDuration
+  const st = getState()
+  for (const b of balls) {
+    if (b.colorKey) b.holdMs = getDerivedBallStats(st, b.colorKey).holdMs
+  }
+  // Restore speed
+  const ratio = EconomyConstants.speed.base > 0
+    ? _feelDefaults.baseSpeed / EconomyConstants.speed.base : 1
+  EconomyConstants.speed.base = _feelDefaults.baseSpeed
+  GameConfig.baseSpeed = _feelDefaults.baseSpeed
+  for (const b of balls) { b.vx *= ratio; b.vy *= ratio }
+  // Re-sync slider UI
+  _syncFeelSliders()
 })
 
 // ─── Keyboard shortcuts (dev) ─────────────────────────────────────────────
