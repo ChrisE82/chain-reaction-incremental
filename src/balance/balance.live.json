@@ -17,7 +17,7 @@
 
     "upgradeCost": {
       "value":       { "baseCost": 60,  "growthRate": 1.50 },
-      "speed":       { "baseCost": 30,  "growthRate": 1.65 },
+      "speed":       { "baseCost": 100, "growthRate": 1.80 },
       "diameter":    { "baseCost": 35,  "growthRate": 1.75 },
       "duration":    { "baseCost": 20,  "growthRate": 1.65 },
       "cycleMult":   2.2,
