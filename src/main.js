@@ -2371,7 +2371,11 @@ function toggleStatsMini() {
   statsMiniOpen = !statsMiniOpen
   statsMini.classList.toggle('hidden', !statsMiniOpen)
   hudExpandArrow.textContent = statsMiniOpen ? '▾' : '▸'
-  if (statsMiniOpen) updateStatsMini()
+  if (statsMiniOpen) {
+    // Position the panel just below the unified HUD (height varies by device)
+    statsMini.style.top = (hudEl.getBoundingClientRect().bottom + 4) + 'px'
+    updateStatsMini()
+  }
 }
 
 function updateStatsMini() {
@@ -3423,14 +3427,14 @@ function updateRoundHUD() {
   if (hudClicksEl)    hudClicksEl.textContent    = rd.clicksLeft
   if (hudRefreshesEl) hudRefreshesEl.textContent  = rd.refreshesLeft
   if (hudGoalMaxEl)   hudGoalMaxEl.textContent    = fmt(rd.goal)
-  if (hudGoalCurEl)   hudGoalCurEl.textContent    = fmt(st.coins)
 
-  // Round number in the top HUD (replaced "Chain" display)
+  // Round number (row 2 left of unified HUD)
   const roundNumEl = document.getElementById('hud-round-num')
   if (roundNumEl) roundNumEl.textContent = rd.number
 
+  // goal-met class lives on hud-coins (the score value in the center button)
   const goalMet = st.coins >= rd.goal
-  hudGoalCurEl?.classList.toggle('goal-met', goalMet)
+  hudCoins?.classList.toggle('goal-met', goalMet)
 
   // Dim refresh button when out of refreshes
   btnRefresh?.classList.toggle('disabled', rd.refreshesLeft <= 0)

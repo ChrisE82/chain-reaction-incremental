@@ -13,16 +13,48 @@
 
 <!-- ── HUD ──────────────────────────────────────────────────────── -->
 <div id="hud">
-  <button class="hud-item hud-coins-btn" id="hud-coins-btn" aria-label="Stats">
-    <span class="hud-coin-icon">◆</span>
-    <span class="hud-value" id="hud-coins">0</span>
-    <span class="hud-expand-arrow" id="hud-expand-arrow">›</span>
-  </button>
-  <div class="hud-item" id="hud-chain-wrap">
-    <span class="hud-label">Round</span>
-    <span class="hud-value" id="hud-round-num">1</span>
-    <!-- kept off-screen so JS chain-pulse animation still fires -->
-    <span id="hud-chain" aria-hidden="true" class="hud-chain-hidden">×1.00</span>
+  <!-- Row 1: Clicks | Score + Goal | Refresh -->
+  <div class="hud-row hud-primary">
+
+    <div class="hud-tile">
+      <span class="hud-tile-lbl">Clicks</span>
+      <span class="hud-tile-val" id="hud-clicks">5</span>
+    </div>
+
+    <button class="hud-score-btn" id="hud-coins-btn" aria-label="Stats">
+      <div class="hud-score-row">
+        <span class="hud-coin-icon">&#9670;</span>
+        <span class="hud-score-val" id="hud-coins">0</span>
+        <span class="hud-expand-arrow" id="hud-expand-arrow">&#8250;</span>
+      </div>
+      <div class="hud-goal-row">
+        <span class="hud-goal-lbl">Goal</span>
+        <span class="hud-goal-val" id="hud-goal-max">200</span>
+      </div>
+    </button>
+
+    <button class="hud-tile hud-tile-btn" id="btn-refresh">
+      <span class="hud-tile-lbl">Refresh &#8635;</span>
+      <span class="hud-tile-val" id="hud-refreshes">5</span>
+    </button>
+
+  </div>
+
+  <!-- Row 2: Round number | Chain multiplier | (balance spacer) -->
+  <div class="hud-row hud-secondary">
+
+    <div class="hud-round">
+      <span class="hud-round-lbl">Round</span>
+      <span class="hud-round-val" id="hud-round-num">1</span>
+    </div>
+
+    <div class="hud-chain-wrap">
+      <span class="hud-chain-val" id="hud-chain">&#215;1.00</span>
+      <span class="hud-chain-lbl">Chain</span>
+    </div>
+
+    <div class="hud-spacer"></div>
+
   </div>
 </div>
 
@@ -78,31 +110,7 @@
 </div>
 
 <!-- ── Round HUD strip (clicks / goal / refresh) ────────────────── -->
-<div id="round-hud">
-  <!-- Left: clicks remaining -->
-  <div class="rhud-tile" id="rhud-clicks-wrap">
-    <span class="rhud-tile-val" id="hud-clicks">5</span>
-    <span class="rhud-tile-lbl">Clicks</span>
-  </div>
-
-  <!-- Center: current score / goal -->
-  <div class="rhud-center">
-    <div class="rhud-score">
-      <span class="rhud-score-icon">&#9670;</span>
-      <span class="rhud-score-val" id="hud-goal-cur">0</span>
-    </div>
-    <div class="rhud-goal-line">
-      <span class="rhud-goal-label">Goal</span>
-      <span class="rhud-goal-val" id="hud-goal-max">200</span>
-    </div>
-  </div>
-
-  <!-- Right: refresh button -->
-  <button id="btn-refresh" class="rhud-tile rhud-tile-btn">
-    <span class="rhud-tile-val" id="hud-refreshes">5</span>
-    <span class="rhud-tile-lbl">Refresh &#8635;</span>
-  </button>
-</div>
+<!-- #round-hud removed — all round info is in the unified #hud above -->
 
 <!-- ── Quick-buy bar (always visible, bottom) ───────────────────── -->
 <div id="quick-buy-bar">
