@@ -409,7 +409,7 @@ function endChain() {
   // Force-shrink any idle balls still on the board so the overlay never
   // appears over full-sized balls. _waitingForRoundEnd (checked in update())
   // then calls endRound() once every shrink + tap-circle visual finishes.
-  if (_pendingRoundEnd && !introMode) {
+  if (_pendingRoundEnd) {  // !introMode redundant: _pendingRoundEnd is only ever set inside !introMode
     _pendingRoundEnd = false
     for (const b of balls) {
       if (b.state === 'idle') {
@@ -1236,7 +1236,7 @@ function update(dt) {
         b.sqx = 1; b.sqy = 1
         b.spawnGen++        // new spawn generation — can be caught again in active chain
         b.state = 'idle'
-        wasBoardActiveSinceLastKickstart = true
+        // wasBoardActiveSinceLastKickstart already true from the chain that triggered this ball
       }
       continue
     }
@@ -1317,12 +1317,10 @@ function update(dt) {
 
   // Board-empty check: no idle or actively exploding balls remain.
   if (balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
-    // Include 'done' (brief shrink→respawn gap) alongside 'respawning' so the
-    // check is robust against any single-frame timing edge cases.
+    // If the outer condition passed, every ball must be in 'respawning' or 'done'
+    // (those are the only two non-idle, non-active states), so no inner length check needed.
     const inactive = balls.filter(b => b.state === 'respawning' || b.state === 'done')
-
-    if (inactive.length > 0) {
-      if (wasBoardActiveSinceLastKickstart && !introMode) {
+    if (wasBoardActiveSinceLastKickstart && !introMode) {
         // ── Board-clear bonus ─────────────────────────────────────────────
         // We do NOT gate on !currentChain here. The tap circle that started the
         // chain may still be in its hold/shrink phase (400 ms active window) long
@@ -1370,7 +1368,6 @@ function update(dt) {
         soonest.respawnTimer = 0
         if (soonest.state === 'done') soonest.state = 'respawning'
       }
-    }
   }
 
   if (refillInputLock > 0) refillInputLock = Math.max(0, refillInputLock - dt)
