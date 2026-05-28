@@ -15,12 +15,32 @@
 
 import posthog from 'posthog-js'
 
-posthog.init('phc_BnK9pbs6ZZ4T34aToKKg5mSk64zDSKsbtdePMeXc5mEA', {
-  api_host:        'https://us.i.posthog.com',  // official PostHog ingest endpoint
-  defaults:        '2026-01-30',                // pins PostHog default behaviours to this snapshot
-  person_profiles: 'identified_only',
-  capture_pageleave: true,                       // enables bounce rate + session duration
-})
+// Never track localhost — dev builds produce noise, not signal.
+const _isLocalhost = typeof location !== 'undefined' &&
+  (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+
+if (!_isLocalhost) {
+  posthog.init('phc_BnK9pbs6ZZ4T34aToKKg5mSk64zDSKsbtdePMeXc5mEA', {
+    api_host:        'https://us.i.posthog.com',
+    defaults:        '2026-01-30',
+    person_profiles: 'identified_only',
+    capture_pageleave: true,
+  })
+}
+
+// ── Device opt-out (persists in localStorage) ──────────────────────────────
+// Call once per device to permanently suppress analytics on that device.
+// Uses PostHog's built-in opt-out mechanism — survives page refreshes.
+
+export function analyticsOptOut() {
+  posthog.opt_out_capturing()
+}
+export function analyticsOptIn() {
+  posthog.opt_in_capturing()
+}
+export function analyticsIsOptedOut() {
+  return posthog.has_opted_out_capturing()
+}
 
 // ── Activation ─────────────────────────────────────────────────────────────
 
@@ -232,6 +252,12 @@ export function exportTelemetry() {
 if (typeof window !== 'undefined') {
   window.__crTelemetry = {
     isEnabled,
+
+    // Permanently ignore this device (stored in localStorage).
+    // Run once on each of your own devices to filter out owner traffic.
+    ignoreDevice()   { posthog.opt_out_capturing();  console.log('[telemetry] This device is now ignored by analytics.') },
+    unignoreDevice() { posthog.opt_in_capturing();   console.log('[telemetry] Analytics re-enabled for this device.') },
+    isIgnored()      { return posthog.has_opted_out_capturing() },
 
     export() {
       const json = exportTelemetry()

@@ -16,7 +16,8 @@ import {
 } from './store.js'
 
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
-import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade } from './telemetry.js'
+import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade,
+         analyticsOptOut, analyticsOptIn, analyticsIsOptedOut } from './telemetry.js'
 import { getBallSprite, getSpriteCount, setSpriteRes } from './gfxCache.js'
 import * as PlayFab from './playfab.js'
 
@@ -73,7 +74,8 @@ const devGrowVal      = document.getElementById('dev-grow-val')
 const devHoldVal      = document.getElementById('dev-hold-val')
 const devShrinkVal    = document.getElementById('dev-shrink-val')
 const devSpeedVal     = document.getElementById('dev-speed-val')
-const devFeelResetBtn = document.getElementById('dev-feel-reset')
+const devFeelResetBtn    = document.getElementById('dev-feel-reset')
+const devIgnoreDeviceBtn = document.getElementById('dev-ignore-device')
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -3179,6 +3181,26 @@ devResetIntroBtn.addEventListener('click', () => {
   shopPanel.classList.add('hidden')
   devPanel.classList.add('hidden')
   updateHUD()
+})
+
+document.getElementById('dev-export-telemetry')?.addEventListener('click', () => {
+  window.__crTelemetry?.download()
+})
+
+function _updateIgnoreDeviceBtn() {
+  const ignored = analyticsIsOptedOut()
+  devIgnoreDeviceBtn.textContent = ignored ? '✓ Device Ignored' : '🚫 Ignore Device'
+  devIgnoreDeviceBtn.classList.toggle('dev-btn-active', ignored)
+}
+_updateIgnoreDeviceBtn()
+
+devIgnoreDeviceBtn.addEventListener('click', () => {
+  if (analyticsIsOptedOut()) {
+    analyticsOptIn()
+  } else {
+    analyticsOptOut()
+  }
+  _updateIgnoreDeviceBtn()
 })
 
 // ─── Dev feel-tuning sliders ──────────────────────────────────────────────
