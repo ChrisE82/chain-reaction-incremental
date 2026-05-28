@@ -322,10 +322,23 @@ function mergeState(saved) {
   merged.clicks = { ...def.clicks, ...(saved.clicks ?? {}) }
   merged.round  = { ...def.round,  ...(saved.round  ?? {}) }
   merged.stats  = { ...def.stats,  ...(saved.stats  ?? {}) }
-  const mergedBuckets = {}
-  for (const c of COLOR_ORDER)
-    mergedBuckets[c] = { ...newColorBucket(), ...(saved.colorBuckets?.[c] ?? {}) }
-  merged.colorBuckets = mergedBuckets
+
+  if (!saved.round) {
+    // Pre-roguelite save: reset run state to a clean round-1 start.
+    // Preserve introComplete / firstBallCueShown so the intro isn't shown again.
+    merged.coins               = 0
+    merged.totalCoins          = 0
+    merged.colorBuckets        = defaultRunColorBuckets()
+    merged.totalBallsPurchased = 6
+    merged.clicks              = { radiusLevel: 0, durationLevel: 0 }
+    merged.round               = defaultRound()
+  } else {
+    const mergedBuckets = {}
+    for (const c of COLOR_ORDER)
+      mergedBuckets[c] = { ...newColorBucket(), ...(saved.colorBuckets?.[c] ?? {}) }
+    merged.colorBuckets = mergedBuckets
+  }
+
   // Ensure all nested stat fields exist (handles saves from before nested stats)
   ensureStatsFields(merged)
   return merged
