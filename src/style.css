@@ -99,7 +99,7 @@ canvas {
 #hud-chain-wrap .hud-label {
   font-size: clamp(0.6rem, 2vmin, 0.78rem);
   letter-spacing: 0.22em;
-  color: rgba(79, 255, 176, 0.55);
+  color: rgba(66, 212, 255, 0.55);
   line-height: 1;
 }
 
@@ -107,11 +107,20 @@ canvas {
   font-size: clamp(1.5rem, 6.5vmin, 2.4rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: #4fffb0;
+  color: #42d4ff;
   text-shadow:
-    0 0 10px rgba(79, 255, 176, 0.80),
-    0 0 26px rgba(79, 255, 176, 0.35);
+    0 0 10px rgba(66, 212, 255, 0.80),
+    0 0 26px rgba(66, 212, 255, 0.35);
   line-height: 1.05;
+}
+
+/* Chain element kept for JS pulse animation — never visible */
+.hud-chain-hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px; height: 1px;
+  overflow: hidden;
 }
 
 /* ─── HUD coin button (tappable, opens mini stats) ────────── */
@@ -1920,22 +1929,22 @@ body.intro-completing #hud {
 
 .rhud-tile-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.55rem, 1.9vmin, 0.78rem);
-  letter-spacing: 0.22em;
-  color: rgba(255,255,255,0.35);
+  font-size: clamp(0.9rem, 2.8vmin, 1.1rem);
+  letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.45);
   text-transform: uppercase;
   line-height: 1;
 }
 
 .rhud-tile-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.5rem, 6.5vmin, 2.4rem);
+  font-size: clamp(1.8rem, 7vmin, 2.6rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.88);
+  color: rgba(255,255,255,0.92);
   text-shadow:
-    0 0 8px  rgba(255,255,255,0.20),
-    0 0 20px rgba(255,255,255,0.08);
+    0 0 10px rgba(255,255,255,0.25),
+    0 0 24px rgba(255,255,255,0.10);
   line-height: 1.05;
 }
 
@@ -1980,7 +1989,7 @@ body.intro-completing #hud {
 }
 
 .rhud-score-icon {
-  font-size: clamp(1.1rem, 4.5vmin, 1.8rem);
+  font-size: clamp(1.2rem, 5vmin, 2rem);
   color: #ffe566;
   filter: drop-shadow(0 0 6px rgba(255,229,102,0.75));
   line-height: 1;
@@ -1989,7 +1998,7 @@ body.intro-completing #hud {
 
 .rhud-score-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.5rem, 6.5vmin, 2.4rem);
+  font-size: clamp(1.8rem, 7vmin, 2.6rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #ffe566;
@@ -2020,19 +2029,19 @@ body.intro-completing #hud {
 
 .rhud-goal-label {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.55rem, 1.9vmin, 0.78rem);
-  letter-spacing: 0.22em;
-  color: rgba(255,255,255,0.28);
+  font-size: clamp(0.9rem, 2.8vmin, 1.1rem);
+  letter-spacing: 0.18em;
+  color: rgba(255,255,255,0.35);
   text-transform: uppercase;
   line-height: 1;
 }
 
 .rhud-goal-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.9rem, 3.8vmin, 1.35rem);
+  font-size: clamp(1.1rem, 4.5vmin, 1.6rem);
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.50);
+  color: rgba(255,255,255,0.60);
   line-height: 1;
 }
 

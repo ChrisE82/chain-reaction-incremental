@@ -3425,6 +3425,10 @@ function updateRoundHUD() {
   if (hudGoalMaxEl)   hudGoalMaxEl.textContent    = fmt(rd.goal)
   if (hudGoalCurEl)   hudGoalCurEl.textContent    = fmt(st.coins)
 
+  // Round number in the top HUD (replaced "Chain" display)
+  const roundNumEl = document.getElementById('hud-round-num')
+  if (roundNumEl) roundNumEl.textContent = rd.number
+
   const goalMet = st.coins >= rd.goal
   hudGoalCurEl?.classList.toggle('goal-met', goalMet)
 
