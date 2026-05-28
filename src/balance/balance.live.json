@@ -8,7 +8,7 @@
     "value":    { "maxBonus": 25,  "curve": 20 },
     "speed":    { "base": 0.36, "maxBonus": 2.0, "curve": 7 },
     "diameter": { "baseR": 6.5, "maxR": 18, "curve": 4 },
-    "duration": { "baseMs": 260, "maxBonus": 2.0, "curve": 5 },
+    "duration": { "baseMs": 650, "maxBonus": 2.0, "curve": 5 },
 
     "tap": {
       "radius":   { "baseR": 9.6,  "maxBonus": 1.0, "curve": 8 },
@@ -56,9 +56,9 @@
   },
 
   "ballBase": {
-    "growDuration":   200,
-    "holdDuration":   260,
-    "shrinkDuration": 160
+    "growDuration":   420,
+    "holdDuration":   650,
+    "shrinkDuration": 280
   },
 
   "timing": {
