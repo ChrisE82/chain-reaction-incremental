@@ -896,7 +896,7 @@ function triggerBall(b, src) {
   // pct = fraction of the current board being cleared — weights visual punch so
   // popping 3/3 feels as impactful as popping 30/30.
   const _pct = Math.min((chainIndex + 1) / Math.max(balls.length, 1), 1.0)
-  spawnPopRing(b.x, b.y, b.color, b.baseRadius * 1.5, b.maxRadius * (2.5 + _pct * 5.0), chainIndex, _pct)
+  spawnPopRing(b.x, b.y, b.color, b.baseRadius * 1.5, b.maxRadius * (2.2 + _pct * 0.8), chainIndex, _pct)
   const coins = b.value
   if (currentChain) {
     currentChain.index++
