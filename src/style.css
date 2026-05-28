@@ -1895,20 +1895,15 @@ body.intro-completing #hud {
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Round HUD strip (clicks / score / goal / refresh) ─────────────────── */
-/* Panel style: matches the quick-buy bar — same background, blur, border. */
+/* Floats over the canvas — no background, same as the top HUD. */
 #round-hud {
   position: fixed;
   left: 0; right: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2vmin 4vw;
+  padding: 1.5vmin 4vw;
   z-index: 90;
-  background: rgba(6, 10, 22, 0.92);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-top:    1px solid rgba(255,255,255,0.09);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
   /* top is set in JS (calcUnits) so it sits directly below #hud */
   pointer-events: none;
 }
