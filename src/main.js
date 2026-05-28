@@ -524,15 +524,19 @@ const MAX_PARTICLES = 500
 
 const popRings = []
 
-function spawnPopRing(x, y, color, startR, endR, depth) {
-  const intensity = Math.min(1 + depth * 0.18, 2.2)
-  popRings.push({ x, y, color, startR, endR, intensity, life: 1.0 })
+function spawnPopRing(x, y, color, startR, endR, depth, pct) {
+  // intensity: chain depth adds drama, percentage-cleared amplifies it so
+  // popping 3/3 feels as big as popping 30/30.
+  const intensity = Math.min(1.0 + depth * 0.15 + pct * 1.4, 3.2)
+  // duration: snappy at 0% cleared, lingers up to 420 ms when board is wiped
+  const duration  = 0.28 + pct * 0.14
+  popRings.push({ x, y, color, startR, endR, intensity, duration, life: 1.0 })
 }
 
 function updatePopRings(dt) {
   const dtSec = dt / 1000
   for (let i = popRings.length - 1; i >= 0; i--) {
-    popRings[i].life -= dtSec / 0.28   // 280 ms total — snappy
+    popRings[i].life -= dtSec / popRings[i].duration
     if (popRings[i].life <= 0) {
       popRings[i] = popRings[popRings.length - 1]
       popRings.pop()
@@ -889,7 +893,10 @@ function triggerBall(b, src) {
 
   const chainIndex = currentChain ? currentChain.index : 0
   b.chainTriggerIdx = chainIndex   // stored so drawBall can scale the glow
-  spawnPopRing(b.x, b.y, b.color, b.baseRadius * 1.5, b.maxRadius * 2.5, chainIndex)
+  // pct = fraction of the current board being cleared — weights visual punch so
+  // popping 3/3 feels as impactful as popping 30/30.
+  const _pct = Math.min((chainIndex + 1) / Math.max(balls.length, 1), 1.0)
+  spawnPopRing(b.x, b.y, b.color, b.baseRadius * 1.5, b.maxRadius * (2.5 + _pct * 5.0), chainIndex, _pct)
   const coins = b.value
   if (currentChain) {
     currentChain.index++
@@ -909,7 +916,7 @@ function triggerBall(b, src) {
     cycleTriggerOccurrences++   // every pop counts, including re-triggers after respawn
     cycleBaseEarned += coins    // raw earn before chain-end bonuses
     // Screen shake — scales with chain depth, capped so it never feels nauseating
-    chainShakeAmt = Math.max(chainShakeAmt, Math.min(0.35 + chainIndex * 0.08, 1.0))
+    chainShakeAmt = Math.max(chainShakeAmt, Math.min(0.15 + _pct * 0.65 + chainIndex * 0.04, 1.0))
     // HUD chain number pulse
     hudChain.classList.remove('chain-hud-pulse')
     void hudChain.offsetWidth   // force reflow so animation restarts
