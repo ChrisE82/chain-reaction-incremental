@@ -517,6 +517,45 @@ function drawRadiusGhosts() {
 const particles     = []
 const MAX_PARTICLES = 500
 
+// ─── Pop-ring shockwaves ───────────────────────────────────────────────────
+// A fast outward ring fires the instant any ball is triggered, giving an
+// immediate visual "punch" before the slow expansion bloom even starts.
+// This makes even a single pop feel satisfying.
+
+const popRings = []
+
+function spawnPopRing(x, y, color, startR, endR, depth) {
+  const intensity = Math.min(1 + depth * 0.18, 2.2)
+  popRings.push({ x, y, color, startR, endR, intensity, life: 1.0 })
+}
+
+function updatePopRings(dt) {
+  const dtSec = dt / 1000
+  for (let i = popRings.length - 1; i >= 0; i--) {
+    popRings[i].life -= dtSec / 0.28   // 280 ms total — snappy
+    if (popRings[i].life <= 0) {
+      popRings[i] = popRings[popRings.length - 1]
+      popRings.pop()
+    }
+  }
+}
+
+function drawPopRings() {
+  for (const rng of popRings) {
+    const t     = 1 - rng.life                        // 0 → 1 as ring expands
+    const ringR = rng.startR + (rng.endR - rng.startR) * t
+    const alpha = rng.life * rng.life * 0.85           // quadratic fade
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.strokeStyle = rng.color
+    ctx.shadowColor = rng.color
+    ctx.shadowBlur  = 5 * gameScale * rng.intensity
+    ctx.lineWidth   = Math.max(0.5, (1 - t) * 2.5)    // thick at impact, tapers off
+    ctx.beginPath(); ctx.arc(rng.x, rng.y, ringR, 0, Math.PI * 2); ctx.stroke()
+    ctx.restore()
+  }
+}
+
 function spawnParticles(x, y, color, count, maxR) {
   for (let i = 0; i < count; i++) {
     if (particles.length >= MAX_PARTICLES) break
@@ -850,6 +889,7 @@ function triggerBall(b, src) {
 
   const chainIndex = currentChain ? currentChain.index : 0
   b.chainTriggerIdx = chainIndex   // stored so drawBall can scale the glow
+  spawnPopRing(b.x, b.y, b.color, b.baseRadius * 1.5, b.maxRadius * 2.5, chainIndex)
   const coins = b.value
   if (currentChain) {
     currentChain.index++
@@ -869,7 +909,7 @@ function triggerBall(b, src) {
     cycleTriggerOccurrences++   // every pop counts, including re-triggers after respawn
     cycleBaseEarned += coins    // raw earn before chain-end bonuses
     // Screen shake — scales with chain depth, capped so it never feels nauseating
-    chainShakeAmt = Math.max(chainShakeAmt, Math.min(chainIndex * 0.08, 1.0))
+    chainShakeAmt = Math.max(chainShakeAmt, Math.min(0.35 + chainIndex * 0.08, 1.0))
     // HUD chain number pulse
     hudChain.classList.remove('chain-hud-pulse')
     void hudChain.offsetWidth   // force reflow so animation restarts
@@ -991,6 +1031,7 @@ function loop(ts) {
   drawAll()
   drawRadiusGhosts()
   drawTapCircles()
+  drawPopRings()
   drawParticles()
   if (introCompleting) drawIntroTransition()
 
@@ -1259,6 +1300,7 @@ function update(dt) {
   }
 
   updateParticles(dt)
+  updatePopRings(dt)
   updateRadiusGhosts(dt)
   updateFirstBallCue(dt)
 }
@@ -1330,8 +1372,8 @@ function drawBall(b) {
   if (isActive || inSpawnGrow) {
     ctx.shadowColor = b.color
     // Glow intensifies with chain depth — more dramatic the deeper into a chain
-    const glowMult = 1 + Math.min((b.chainTriggerIdx ?? 0) * 0.14, 1.8)
-    ctx.shadowBlur  = 3 * gameScale * glowMult
+    const glowMult = 1.5 + Math.min((b.chainTriggerIdx ?? 0) * 0.15, 2.0)
+    ctx.shadowBlur  = 4 * gameScale * glowMult
   }
 
   const sp = getBallSprite(b.color, b.lightColor, r)
