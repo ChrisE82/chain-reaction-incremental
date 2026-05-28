@@ -102,7 +102,8 @@ const bstoreTitle       = document.getElementById('bstore-title')
 const bstoreContinue    = document.getElementById('bstore-continue')
 
 // ── Round state (in-memory complements persisted round state) ──
-let _pendingRoundEnd = false   // set when clicks hit 0; fires endRound() after chain
+let _pendingRoundEnd    = false   // set when clicks hit 0; defers endRound() until chain resolves
+let _waitingForRoundEnd = false   // set after chain resolves; fires endRound() once all shrinks+tap circles finish
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -403,10 +404,20 @@ function endChain() {
   currentChain = null
   if (!introMode) checkFirstBallCue()
 
-  // Fire deferred round-end once the last chain fully resolves
+  // Fire deferred round-end once the last chain fully resolves.
+  // Force-shrink any idle balls still on the board so the overlay never
+  // appears over full-sized balls. _waitingForRoundEnd (checked in update())
+  // then calls endRound() once every shrink + tap-circle visual finishes.
   if (_pendingRoundEnd && !introMode) {
     _pendingRoundEnd = false
-    endRound()
+    for (const b of balls) {
+      if (b.state === 'idle') {
+        b.state     = 'shrinking'
+        b.expTimer  = 0
+        b.curRadius = b.maxRadius
+      }
+    }
+    _waitingForRoundEnd = true
     return
   }
 
@@ -1285,8 +1296,18 @@ function update(dt) {
     endChain()
   }
 
-  // Board-empty check: no idle or actively exploding balls remain
-  if (balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
+  // Deferred round-end: fires once every forced-shrink ball AND every lingering
+  // tap-circle visual have finished. Tap circles in 'shrinking' are still in
+  // tapCircles[] until fully gone, so tapCircles.length === 0 is the right gate.
+  if (_waitingForRoundEnd && !balls.some(isExplosivelyActive) && tapCircles.length === 0) {
+    _waitingForRoundEnd = false
+    endRound()
+  }
+
+  // Board-empty check: no idle or actively exploding balls remain.
+  // Skip while waiting for the round-end shrink so the clear-bonus + refill
+  // path doesn't fire over the forced-shrink sequence.
+  if (!_waitingForRoundEnd && balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
     // Include 'done' (brief shrink→respawn gap) alongside 'respawning' so the
     // check is robust against any single-frame timing edge cases.
     const inactive = balls.filter(b => b.state === 'respawning' || b.state === 'done')
@@ -3526,6 +3547,7 @@ function startRound() {
 
   // Reset in-memory round counters
   _pendingRoundEnd            = false
+  _waitingForRoundEnd         = false
   cyclePlayerStarts           = 0
   cycleTriggerOccurrences     = 0
   cycleBaseEarned             = 0
