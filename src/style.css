@@ -1499,20 +1499,20 @@ body.intro-active #stats-screen { display: none !important; }
 
 .dev-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 4.5vmin;
-  height: 4.5vmin;
-  min-width: 1.1rem;
-  min-height: 1.1rem;
+  width: 2.2vmin;
+  height: 2.2vmin;
+  min-width: 0.55rem;
+  min-height: 0.55rem;
   border-radius: 50%;
   background: rgba(200,220,255,0.9);
   cursor: pointer;
 }
 
 .dev-slider::-moz-range-thumb {
-  width: 4.5vmin;
-  height: 4.5vmin;
-  min-width: 1.1rem;
-  min-height: 1.1rem;
+  width: 2.2vmin;
+  height: 2.2vmin;
+  min-width: 0.55rem;
+  min-height: 0.55rem;
   border-radius: 50%;
   background: rgba(200,220,255,0.9);
   border: none;
