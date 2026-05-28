@@ -6,9 +6,9 @@
     "baseCoinValue": 10,
 
     "value":    { "maxBonus": 25,  "curve": 20 },
-    "speed":    { "base": 0.45, "maxBonus": 2.0, "curve": 7 },
+    "speed":    { "base": 0.36, "maxBonus": 2.0, "curve": 7 },
     "diameter": { "baseR": 6.5, "maxR": 18, "curve": 4 },
-    "duration": { "baseMs": 200, "maxBonus": 2.0, "curve": 5 },
+    "duration": { "baseMs": 260, "maxBonus": 2.0, "curve": 5 },
 
     "tap": {
       "radius":   { "baseR": 9.6,  "maxBonus": 1.0, "curve": 8 },
@@ -56,9 +56,9 @@
   },
 
   "ballBase": {
-    "growDuration":   140,
-    "holdDuration":   200,
-    "shrinkDuration": 120
+    "growDuration":   200,
+    "holdDuration":   260,
+    "shrinkDuration": 160
   },
 
   "timing": {
