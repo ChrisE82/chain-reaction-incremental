@@ -270,6 +270,36 @@ export async function getPlayerRank(leaderboardName = STAT_BEST_CHAIN) {
   return { rank: entry.Rank + 1, value: Number(entry.Scores?.[0] ?? 0) }
 }
 
+// ── Analytics opt-out (cloud-persisted) ───────────────────────────────────
+// Stores the player's analytics preference in PlayFab UserData so it survives
+// localStorage clears and syncs across devices on the same account.
+
+const ANALYTICS_KEY = 'analyticsOptOut'
+
+/**
+ * Save analytics opt-out preference to the cloud.
+ * @param {boolean} optedOut
+ */
+export async function saveAnalyticsOptOut(optedOut) {
+  if (!_sessionTicket) return
+  return _call('/Client/UpdateUserData', {
+    Data: { [ANALYTICS_KEY]: optedOut ? '1' : '0' },
+    Permission: 'Private',
+  }, true)
+}
+
+/**
+ * Load analytics opt-out preference from the cloud.
+ * Returns true (opted out), false (opted in), or null (no preference stored yet).
+ */
+export async function loadAnalyticsOptOut() {
+  if (!_sessionTicket) return null
+  const data = await _call('/Client/GetUserData', { Keys: [ANALYTICS_KEY] }, true)
+  const val = data?.Data?.[ANALYTICS_KEY]?.Value
+  if (val === undefined || val === null) return null
+  return val === '1'
+}
+
 // ── Browser debug helpers ──────────────────────────────────────────────────
 // window.__crPlayFab is available in the browser console for manual testing.
 //

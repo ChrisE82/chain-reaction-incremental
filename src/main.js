@@ -17,7 +17,8 @@ import {
 
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
 import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade,
-         analyticsOptOut, analyticsOptIn, analyticsIsOptedOut } from './telemetry.js'
+         analyticsOptOut, analyticsOptIn, analyticsIsOptedOut,
+         isLocalhost as analyticsIsLocalhost } from './telemetry.js'
 import { getBallSprite, getSpriteCount, setSpriteRes } from './gfxCache.js'
 import * as PlayFab from './playfab.js'
 
@@ -3187,12 +3188,30 @@ document.getElementById('dev-export-telemetry')?.addEventListener('click', () =>
   window.__crTelemetry?.download()
 })
 
-function _updateIgnoreDeviceBtn() {
-  const ignored = analyticsIsOptedOut()
-  devIgnoreDeviceBtn.textContent = ignored ? '✓ Device Ignored' : '🚫 Ignore Device'
-  devIgnoreDeviceBtn.classList.toggle('dev-btn-active', ignored)
+const _devAnalyticsStatus = document.getElementById('dev-analytics-status')
+
+function _updateAnalyticsStatus() {
+  const optedOut = analyticsIsOptedOut()
+  if (analyticsIsLocalhost) {
+    _devAnalyticsStatus.textContent = '📊 Analytics: localhost — OFF'
+    _devAnalyticsStatus.style.color = 'rgba(255,255,255,0.3)'
+    devIgnoreDeviceBtn.disabled = true
+    devIgnoreDeviceBtn.textContent = '🚫 Ignore Device'
+  } else if (optedOut) {
+    _devAnalyticsStatus.textContent = '📊 Analytics: opted out'
+    _devAnalyticsStatus.style.color = 'rgba(255,120,100,0.85)'
+    devIgnoreDeviceBtn.disabled = false
+    devIgnoreDeviceBtn.textContent = '✓ Device Ignored'
+    devIgnoreDeviceBtn.classList.add('dev-btn-active')
+  } else {
+    _devAnalyticsStatus.textContent = '📊 Analytics: active'
+    _devAnalyticsStatus.style.color = 'rgba(100,220,140,0.85)'
+    devIgnoreDeviceBtn.disabled = false
+    devIgnoreDeviceBtn.textContent = '🚫 Ignore Device'
+    devIgnoreDeviceBtn.classList.remove('dev-btn-active')
+  }
 }
-_updateIgnoreDeviceBtn()
+_updateAnalyticsStatus()
 
 devIgnoreDeviceBtn.addEventListener('click', () => {
   if (analyticsIsOptedOut()) {
@@ -3200,7 +3219,9 @@ devIgnoreDeviceBtn.addEventListener('click', () => {
   } else {
     analyticsOptOut()
   }
-  _updateIgnoreDeviceBtn()
+  _updateAnalyticsStatus()
+  // Persist preference to PlayFab so it survives localStorage clears
+  PlayFab.saveAnalyticsOptOut(analyticsIsOptedOut()).catch(() => {})
 })
 
 // ─── Dev feel-tuning sliders ──────────────────────────────────────────────
@@ -3423,6 +3444,12 @@ init()
         location.reload()
       }
     }
+
+    // Restore analytics opt-out from cloud (survives localStorage clears).
+    const cloudOptOut = await PlayFab.loadAnalyticsOptOut()
+    if (cloudOptOut === true  && !analyticsIsOptedOut()) analyticsOptOut()
+    if (cloudOptOut === false &&  analyticsIsOptedOut()) analyticsOptIn()
+    if (cloudOptOut !== null) _updateAnalyticsStatus()
 
     console.log('[PlayFab] Ready. Player:', PlayFab.getPlayFabId())
   } catch (err) {

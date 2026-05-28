@@ -1407,6 +1407,13 @@ body.intro-active #stats-screen { display: none !important; }
 
 .dev-body { display: flex; flex-direction: column; gap: 7px; }
 
+.dev-analytics-status {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  padding: 0 0.2vmin 0.5vmin;
+  color: rgba(255,255,255,0.35);
+}
+
 .dev-row-btns { display: flex; gap: 7px; }
 
 .dev-small-btn {
