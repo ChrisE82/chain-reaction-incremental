@@ -19,9 +19,11 @@ export const BALANCE = assertBalance(raw)
 export const EconomyConstants = {
   baseCoinValue: BALANCE.economy.baseCoinValue,
   value:         BALANCE.economy.value,
-  speed:         BALANCE.economy.speed,
+  // speed.base and duration.baseMs are sourced from ballBase (single feel-tuning block)
+  // so they are mutable at runtime via the dev-panel sliders without touching the JSON.
+  speed:    { ...BALANCE.economy.speed,    base:   BALANCE.ballBase.baseSpeed    },
   diameter:      BALANCE.economy.diameter,
-  duration:      BALANCE.economy.duration,
+  duration: { ...BALANCE.economy.duration, baseMs: BALANCE.ballBase.holdDuration },
   tap:           BALANCE.economy.tap,
   upgradeCost:   BALANCE.economy.upgradeCost,
   ball:          BALANCE.economy.ball,
@@ -35,6 +37,7 @@ export const GameConfig = {
   growDuration:   BALANCE.ballBase.growDuration,
   holdDuration:   BALANCE.ballBase.holdDuration,
   shrinkDuration: BALANCE.ballBase.shrinkDuration,
+  baseSpeed:      BALANCE.ballBase.baseSpeed,
 }
 
 // ── PhysicsConfig ─────────────────────────────────────────────────────────────

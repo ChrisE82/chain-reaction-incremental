@@ -72,7 +72,6 @@ export function validateBalance(cfg) {
   }
 
   if (_req(errors, 'economy.speed', e.speed, 'object')) {
-    _pos(errors, 'economy.speed.base',     e.speed.base)
     _pos(errors, 'economy.speed.maxBonus', e.speed.maxBonus)
     _pos(errors, 'economy.speed.curve',    e.speed.curve)
   }
@@ -87,9 +86,8 @@ export function validateBalance(cfg) {
   }
 
   if (_req(errors, 'economy.duration', e.duration, 'object')) {
-    _pos(errors, 'economy.duration.baseMs',  e.duration.baseMs)
-    _pos(errors, 'economy.duration.maxBonus',e.duration.maxBonus)
-    _pos(errors, 'economy.duration.curve',   e.duration.curve)
+    _pos(errors, 'economy.duration.maxBonus', e.duration.maxBonus)
+    _pos(errors, 'economy.duration.curve',    e.duration.curve)
   }
 
   if (_req(errors, 'economy.tap', e.tap, 'object')) {
@@ -171,6 +169,7 @@ export function validateBalance(cfg) {
     _pos(errors, 'ballBase.growDuration',   bb.growDuration)
     _pos(errors, 'ballBase.holdDuration',   bb.holdDuration)
     _pos(errors, 'ballBase.shrinkDuration', bb.shrinkDuration)
+    _pos(errors, 'ballBase.baseSpeed',      bb.baseSpeed)
   }
 
   // ── timing ─────────────────────────────────────────────────────────────────

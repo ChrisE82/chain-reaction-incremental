@@ -122,6 +122,29 @@
     <div class="dev-row-btns">
       <button id="dev-export-telemetry" class="dev-small-btn">&#8595; Telemetry</button>
     </div>
+
+    <!-- ── Feel-tuning sliders ────────────────────────────── -->
+    <div class="dev-section">
+      <button class="dev-section-hdr" id="dev-feel-hdr">&#9881; Feel &#9658;</button>
+      <div class="dev-section-body hidden" id="dev-feel-body">
+        <div class="dev-slider-row">
+          <span class="dev-slider-lbl">Grow <b id="dev-grow-val">–</b> ms</span>
+          <input type="range" class="dev-slider" id="dev-grow" min="50" max="1000" step="10">
+        </div>
+        <div class="dev-slider-row">
+          <span class="dev-slider-lbl">Hold <b id="dev-hold-val">–</b> ms</span>
+          <input type="range" class="dev-slider" id="dev-hold" min="50" max="3000" step="10">
+        </div>
+        <div class="dev-slider-row">
+          <span class="dev-slider-lbl">Shrink <b id="dev-shrink-val">–</b> ms</span>
+          <input type="range" class="dev-slider" id="dev-shrink" min="50" max="800" step="10">
+        </div>
+        <div class="dev-slider-row">
+          <span class="dev-slider-lbl">Speed <b id="dev-speed-val">–</b></span>
+          <input type="range" class="dev-slider" id="dev-speed" min="0.05" max="2.00" step="0.01">
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 

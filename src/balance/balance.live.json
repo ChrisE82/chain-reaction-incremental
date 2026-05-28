@@ -6,9 +6,9 @@
     "baseCoinValue": 10,
 
     "value":    { "maxBonus": 25,  "curve": 20 },
-    "speed":    { "base": 0.36, "maxBonus": 2.0, "curve": 7 },
+    "speed":    { "maxBonus": 2.0, "curve": 7 },
     "diameter": { "baseR": 6.5, "maxR": 18, "curve": 4 },
-    "duration": { "baseMs": 650, "maxBonus": 2.0, "curve": 5 },
+    "duration": { "maxBonus": 2.0, "curve": 5 },
 
     "tap": {
       "radius":   { "baseR": 9.6,  "maxBonus": 1.0, "curve": 8 },
@@ -56,9 +56,11 @@
   },
 
   "ballBase": {
+    "_comment": "── Primary feel tuning ── all four values in one place",
     "growDuration":   420,
     "holdDuration":   650,
-    "shrinkDuration": 280
+    "shrinkDuration": 280,
+    "baseSpeed":      0.36
   },
 
   "timing": {

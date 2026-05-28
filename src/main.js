@@ -5,7 +5,7 @@ import {
   recordBallPopped, recordManualClick, resetCurrentStatsForPrestige,
   tryPurchaseNextBall, tryPurchaseColorUpgrade,
   getDerivedBallStats, statsFromBucket, colorUpgradeCost, nextBallCost,
-  COLOR_ORDER, COLOR_HEX, EconomyConfig, EconomyConstants,
+  COLOR_ORDER, COLOR_HEX, EconomyConfig, EconomyConstants, GameConfig,
   clickStats, tapUpgradeCost, tryUpgradeClick,
   chainEndBonus, getChainMultiplier,
   getNextPurchaseColor, getColorOrderProgress, getColorBucket,
@@ -60,6 +60,18 @@ const debugOverlay    = document.getElementById('debug-overlay')
 // ── Intro ──
 const devResetIntroBtn    = document.getElementById('dev-reset-intro')
 const devFreeUpgradesBtn  = document.getElementById('dev-free-upgrades')
+
+// ── Dev feel-tuning sliders ──
+const devFeelHdr      = document.getElementById('dev-feel-hdr')
+const devFeelBody     = document.getElementById('dev-feel-body')
+const devGrowSlider   = document.getElementById('dev-grow')
+const devHoldSlider   = document.getElementById('dev-hold')
+const devShrinkSlider = document.getElementById('dev-shrink')
+const devSpeedSlider  = document.getElementById('dev-speed')
+const devGrowVal      = document.getElementById('dev-grow-val')
+const devHoldVal      = document.getElementById('dev-hold-val')
+const devShrinkVal    = document.getElementById('dev-shrink-val')
+const devSpeedVal     = document.getElementById('dev-speed-val')
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -3153,6 +3165,65 @@ devResetIntroBtn.addEventListener('click', () => {
   shopPanel.classList.add('hidden')
   devPanel.classList.add('hidden')
   updateHUD()
+})
+
+// ─── Dev feel-tuning sliders ──────────────────────────────────────────────
+// Sliders read GameConfig / EconomyConstants at open time, then mutate them
+// live so every new ball and every existing ball reflects the change immediately.
+// Values persist for the session; refresh to reset to balance.live.json defaults.
+
+function _syncFeelSliders() {
+  devGrowSlider.value     = GameConfig.growDuration
+  devGrowVal.textContent  = GameConfig.growDuration
+  devHoldSlider.value     = EconomyConstants.duration.baseMs
+  devHoldVal.textContent  = EconomyConstants.duration.baseMs
+  devShrinkSlider.value   = GameConfig.shrinkDuration
+  devShrinkVal.textContent = GameConfig.shrinkDuration
+  devSpeedSlider.value    = EconomyConstants.speed.base
+  devSpeedVal.textContent = EconomyConstants.speed.base.toFixed(2)
+}
+_syncFeelSliders()
+
+devFeelHdr.addEventListener('click', () => {
+  const nowHidden = devFeelBody.classList.toggle('hidden')
+  devFeelHdr.innerHTML = nowHidden
+    ? '&#9881; Feel &#9658;'
+    : '&#9881; Feel &#9660;'
+  if (!nowHidden) _syncFeelSliders()   // re-read values each open
+})
+
+devGrowSlider.addEventListener('input', () => {
+  const v = +devGrowSlider.value
+  devGrowVal.textContent = v
+  GameConfig.growDuration = v
+  for (const b of balls) b.growMs = v
+})
+
+devHoldSlider.addEventListener('input', () => {
+  const v = +devHoldSlider.value
+  devHoldVal.textContent = v
+  EconomyConstants.duration.baseMs = v
+  const st = getState()
+  for (const b of balls) {
+    if (b.colorKey) b.holdMs = getDerivedBallStats(st, b.colorKey).holdMs
+  }
+})
+
+devShrinkSlider.addEventListener('input', () => {
+  const v = +devShrinkSlider.value
+  devShrinkVal.textContent = v
+  GameConfig.shrinkDuration = v
+  for (const b of balls) b.shrinkMs = v
+})
+
+devSpeedSlider.addEventListener('input', () => {
+  const v = +devSpeedSlider.value
+  devSpeedVal.textContent = v.toFixed(2)
+  const oldBase = EconomyConstants.speed.base
+  const ratio   = oldBase > 0 ? v / oldBase : 1
+  EconomyConstants.speed.base = v
+  GameConfig.baseSpeed = v
+  for (const b of balls) { b.vx *= ratio; b.vy *= ratio }
 })
 
 // ─── Keyboard shortcuts (dev) ─────────────────────────────────────────────
