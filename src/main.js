@@ -1316,16 +1316,14 @@ function update(dt) {
   }
 
   // Board-empty check: no idle or actively exploding balls remain.
-  // Skip while the round is ending so the clear-bonus + refill path
-  // doesn't fire after the final click.
-  if (!roundEnding && balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
+  if (balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
     // Include 'done' (brief shrink→respawn gap) alongside 'respawning' so the
     // check is robust against any single-frame timing edge cases.
     const inactive = balls.filter(b => b.state === 'respawning' || b.state === 'done')
 
     if (inactive.length > 0) {
       if (wasBoardActiveSinceLastKickstart && !introMode) {
-        // ── Board-clear bonus + full refill ────────────────────────────────
+        // ── Board-clear bonus ─────────────────────────────────────────────
         // We do NOT gate on !currentChain here. The tap circle that started the
         // chain may still be in its hold/shrink phase (400 ms active window) long
         // after all balls have already finished expanding and gone to 'respawning'
@@ -1357,14 +1355,14 @@ function update(dt) {
         cycleTriggerOccurrences = 0
         cycleBaseEarned         = 0
 
-        // Immediately put every owned ball back on the board.
-        // Uses refillAllOwnedBalls() which iterates the full balls array —
-        // NOT just the respawning subset — so every slot is guaranteed to return.
-        refillAllOwnedBalls()
-      } else {
+        // Refill only when the round is still in progress.
+        // On the final click the board stays empty until the next round starts.
+        if (!roundEnding) refillAllOwnedBalls()
+      } else if (!roundEnding) {
         // Safety valve: board emptied before any player interaction this cycle
         // (e.g. very first cycle after intro). Wake the soonest ball so the
-        // board never stays permanently empty.
+        // board never stays permanently empty. Skip when round is ending —
+        // the board is supposed to stay empty.
         const soonest = inactive
           .filter(b => b.state === 'respawning')
           .sort((a, b) => a.respawnTimer - b.respawnTimer)[0]
