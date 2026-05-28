@@ -1216,6 +1216,7 @@ function update(dt) {
   // Move idle balls; run respawn countdown
   for (const b of balls) {
     if (b.state === 'respawning') {
+      if (_pendingRoundEnd || _waitingForRoundEnd) continue
       b.respawnTimer -= dt
       if (b.respawnTimer <= 0) {
         const stats = b.isIntro ? INTRO_STATS : getDerivedBallStats(getState(), b.colorKey)
@@ -1311,9 +1312,9 @@ function update(dt) {
   }
 
   // Board-empty check: no idle or actively exploding balls remain.
-  // Skip while waiting for the round-end shrink so the clear-bonus + refill
-  // path doesn't fire over the forced-shrink sequence.
-  if (!_waitingForRoundEnd && balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
+  // Skip while the round is ending so the clear-bonus + refill path
+  // doesn't fire after the final click.
+  if (!_pendingRoundEnd && !_waitingForRoundEnd && balls.length > 0 && !balls.some(b => b.state === 'idle' || isExplosivelyActive(b))) {
     // Include 'done' (brief shrink→respawn gap) alongside 'respawning' so the
     // check is robust against any single-frame timing edge cases.
     const inactive = balls.filter(b => b.state === 'respawning' || b.state === 'done')
