@@ -1152,9 +1152,9 @@ body.intro-active #stats-screen { display: none !important; }
   color: #ff9f43;
 }
 
-/* Level badge: muted */
+/* Level badge: muted but still legible */
 .upg-row:disabled .upg-row-lv {
-  opacity: 0.36;
+  opacity: 0.55;
 }
 
 /* Left: icon in a rounded square — color driven by --ut-color set in JS */
@@ -1210,9 +1210,9 @@ body.intro-active #stats-screen { display: none !important; }
 .upg-row-lv {
   font-size: clamp(0.56rem, 1.75vmin, 1.09rem);
   letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--bc) 90%, white);
-  background: color-mix(in srgb, var(--bc) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bc) 32%, transparent);
+  color: rgba(255,255,255,0.88);           /* white text — guaranteed contrast */
+  background: rgba(0,0,0,0.40);            /* dark pill so text is always legible */
+  border: 1px solid color-mix(in srgb, var(--bc) 55%, transparent); /* colored border for ball ID */
   border-radius: 0.8vmin;
   padding: 0.3vmin 1vmin;
   line-height: 1.4;
@@ -1623,7 +1623,7 @@ body.intro-completing #hud {
 
 /* Icon — large emoji or symbol */
 .qb-btn-icon {
-  font-size: clamp(1.4rem, 4.5dvh, 2.0rem);
+  font-size: clamp(1.4rem, 4.5dvh, 3.8rem);
   line-height: 1;
 }
 
@@ -1635,12 +1635,12 @@ body.intro-completing #hud {
   line-height: 1;
 }
 .qb-btn-icons .qb-btn-icon {
-  font-size: clamp(1.15rem, 3.5dvh, 1.6rem);
+  font-size: clamp(1.15rem, 3.5dvh, 3rem);
 }
 
 /* Label — single uppercase word */
 .qb-btn-label {
-  font-size: clamp(0.82rem, 2.5dvh, 1.0rem);
+  font-size: clamp(0.82rem, 2.5dvh, 2.1rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   color: rgba(255,255,255,0.88);
@@ -1653,7 +1653,7 @@ body.intro-completing #hud {
 
 /* Cost badge */
 .qb-btn-cost {
-  font-size: clamp(0.74rem, 2.2dvh, 0.92rem);
+  font-size: clamp(0.74rem, 2.2dvh, 1.9rem);
   letter-spacing: 0.04em;
   color: #ffe566;
   white-space: nowrap;
@@ -1684,7 +1684,7 @@ body.intro-completing #hud {
   border-color: rgba(79, 255, 176, 0.18);
 }
 .qb-btn-store:active { background: rgba(79, 255, 176, 0.15); }
-.qb-btn-store .qb-btn-icon  { color: rgba(79, 255, 176, 0.85); font-size: clamp(1.5rem, 4.8dvh, 2.1rem); }
+.qb-btn-store .qb-btn-icon  { color: rgba(79, 255, 176, 0.85); font-size: clamp(1.5rem, 4.8dvh, 4.1rem); }
 .qb-btn-store .qb-btn-label { color: rgba(79, 255, 176, 0.85); }
 
 
