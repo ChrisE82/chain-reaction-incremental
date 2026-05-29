@@ -64,24 +64,24 @@ canvas {
 
 .hud-tile-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.05rem, 3.5vmin, 1.3rem);
+  font-size: clamp(0.9rem, 2.8vmin, 1.05rem);
   letter-spacing: 0.16em;
-  color: rgba(0,200,255,0.5);
+  color: rgba(0,200,255,0.55);
   text-transform: uppercase;
   line-height: 1;
 }
 
 .hud-tile-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(2.5rem, 10vmin, 3.8rem);
+  font-size: clamp(2rem, 8vmin, 3rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.92);
+  color: #00c8ff;
   text-shadow:
-    0 0 0.15em rgba(255,255,255,0.9),
-    0 0 0.6em rgba(255,255,255,0.6),
-    0 0 2em rgba(255,255,255,0.3),
-    0 0 4em rgba(255,255,255,0.12);
+    0 0 0.15em #00c8ff,
+    0 0 0.6em #00c8ff,
+    0 0 2em rgba(0,200,255,0.65),
+    0 0 4em rgba(0,200,255,0.25);
   line-height: 1;
 }
 
@@ -147,7 +147,7 @@ canvas {
 
 .hud-score-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(2.5rem, 10vmin, 3.8rem);
+  font-size: clamp(2rem, 8vmin, 3rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #ffe500;
@@ -182,7 +182,7 @@ canvas {
 }
 
 .hud-expand-arrow {
-  font-size: clamp(1.25rem, 4.4vmin, 1.75rem);
+  font-size: clamp(1rem, 3.5vmin, 1.4rem);
   color: rgba(255,229,0,0.65);
   text-shadow:
     0 0 0.15em rgba(255,229,0,0.8),
@@ -200,19 +200,22 @@ canvas {
 
 .hud-goal-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.05rem, 3.5vmin, 1.3rem);
+  font-size: clamp(0.85rem, 2.8vmin, 1.05rem);
   letter-spacing: 0.16em;
-  color: rgba(0,200,255,0.5);
+  color: rgba(255,229,0,0.50);
   text-transform: uppercase;
   line-height: 1;
 }
 
 .hud-goal-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.375rem, 5.625vmin, 2.125rem);
+  font-size: clamp(1.1rem, 4.5vmin, 1.7rem);
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,229,0,0.72);
+  text-shadow:
+    0 0 0.4em rgba(255,229,0,0.55),
+    0 0 1.2em rgba(255,229,0,0.25);
   line-height: 1;
 }
 
@@ -226,7 +229,7 @@ canvas {
 }
 .hud-round-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.88rem, 2.8vmin, 1.1rem);
+  font-size: clamp(0.7rem, 2.2vmin, 0.88rem);
   letter-spacing: 0.22em;
   color: rgba(180,0,255,0.7);
   text-transform: uppercase;
@@ -234,7 +237,7 @@ canvas {
 }
 .hud-round-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.75rem, 7vmin, 2.6rem);
+  font-size: clamp(1.4rem, 5.5vmin, 2.1rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #00c8ff;
@@ -265,7 +268,7 @@ canvas {
 
 .hud-chain-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.75rem, 7vmin, 2.6rem);
+  font-size: clamp(1.4rem, 5.5vmin, 2.1rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #39ff14;
@@ -278,7 +281,7 @@ canvas {
 }
 .hud-chain-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.88rem, 2.8vmin, 1.1rem);
+  font-size: clamp(0.7rem, 2.2vmin, 0.88rem);
   letter-spacing: 0.22em;
   color: rgba(57,255,20,0.7);
   text-transform: uppercase;
