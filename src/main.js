@@ -542,8 +542,8 @@ function drawRadiusGhosts() {
     if (oldAlpha > 0.01) {
       ctx.save()
       ctx.globalAlpha = oldAlpha
-      ctx.strokeStyle = 'rgba(255,255,255,0.75)'
-      ctx.lineWidth   = 0.4
+      ctx.strokeStyle = 'rgba(200,0,255,0.60)'
+      ctx.lineWidth   = 0.6
       ctx.setLineDash([2, 2])
       ctx.beginPath(); ctx.arc(g.x, g.y, g.oldR, 0, Math.PI * 2); ctx.stroke()
       ctx.setLineDash([])
@@ -558,10 +558,10 @@ function drawRadiusGhosts() {
     if (newAlpha > 0.01) {
       ctx.save()
       ctx.globalAlpha  = newAlpha
-      ctx.strokeStyle  = 'rgba(66, 212, 255, 0.95)'
-      ctx.lineWidth    = 0.7
-      ctx.shadowColor  = 'rgba(66, 212, 255, 0.7)'
-      ctx.shadowBlur   = 4 * gameScale
+      ctx.strokeStyle  = 'rgba(0, 200, 255, 0.95)'
+      ctx.lineWidth    = 0.9
+      ctx.shadowColor  = 'rgba(0, 200, 255, 0.9)'
+      ctx.shadowBlur   = 10 * gameScale
       ctx.beginPath(); ctx.arc(g.x, g.y, g.newR * expand, 0, Math.PI * 2); ctx.stroke()
       ctx.restore()
     }
@@ -608,8 +608,8 @@ function drawPopRings() {
     ctx.globalAlpha = alpha
     ctx.strokeStyle = rng.color
     ctx.shadowColor = rng.color
-    ctx.shadowBlur  = 5 * gameScale * rng.intensity
-    ctx.lineWidth   = Math.max(0.5, (1 - t) * 2.5)    // thick at impact, tapers off
+    ctx.shadowBlur  = 12 * gameScale * rng.intensity
+    ctx.lineWidth   = Math.max(0.6, (1 - t) * 3.5)    // thick at impact, tapers off
     ctx.beginPath(); ctx.arc(rng.x, rng.y, ringR, 0, Math.PI * 2); ctx.stroke()
     ctx.restore()
   }
@@ -1068,9 +1068,9 @@ function loop(ts) {
   arenaH = gamePlayH * currentArenaScale
 
   ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0)
-  ctx.fillStyle = '#000000'
+  ctx.fillStyle = '#07000d'
   ctx.fillRect(0, 0, W, H)
-  ctx.fillStyle = '#050810'
+  ctx.fillStyle = '#0e0018'
   ctx.fillRect(gameOffsetX, gameOffsetY, VIRTUAL_W * gameScale, VIRTUAL_H * gameScale)
 
   ctx.save()
@@ -1113,11 +1113,10 @@ function loop(ts) {
 
   ctx.restore()   // virtual
 
-  // Field border — now that the play area is bottom-aligned above the bar,
-  // the full virtual height is correct and no clamping is needed.
-  ctx.shadowColor = 'rgba(66,212,255,0.55)'
-  ctx.shadowBlur  = 12
-  ctx.strokeStyle = 'rgba(66,212,255,0.32)'
+  // Field border — neon purple glow frame
+  ctx.shadowColor = 'rgba(200,0,255,0.80)'
+  ctx.shadowBlur  = 22
+  ctx.strokeStyle = 'rgba(200,0,255,0.45)'
   ctx.lineWidth   = 1
   ctx.strokeRect(gameOffsetX + 0.5, gameOffsetY + 0.5,
                  VIRTUAL_W * gameScale - 1, VIRTUAL_H * gameScale - 1)
@@ -1131,7 +1130,7 @@ function loop(ts) {
 // ─── Background grid ──────────────────────────────────────────────────────
 // Single batched path instead of one stroke() call per line — one GPU flush total.
 function drawGrid() {
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)'
+  ctx.strokeStyle = 'rgba(180,0,255,0.07)'
   ctx.lineWidth   = 1 / gameScale
   const step = 8
   ctx.beginPath()
@@ -1418,10 +1417,10 @@ function drawBall(b) {
     if (elapsed >= -100 && elapsed < 0) {
       const glintT = (elapsed + 100) / 100   // 0 → 1
       ctx.save()
-      ctx.globalAlpha = glintT * 0.70
+      ctx.globalAlpha = glintT * 0.90
       ctx.fillStyle   = '#ffffff'
       ctx.shadowColor = b.color
-      ctx.shadowBlur  = 5 * gameScale
+      ctx.shadowBlur  = 12 * gameScale
       ctx.beginPath(); ctx.arc(b.x, b.y, 0.7, 0, Math.PI * 2); ctx.fill()
       ctx.restore()
     }
@@ -1431,11 +1430,11 @@ function drawBall(b) {
       const ringT = elapsed / SPAWN_GROW_DURATION
       const ringR = b.baseRadius * (1 + ringT * 2.6)
       ctx.save()
-      ctx.globalAlpha = (1 - ringT) * 0.55
-      ctx.lineWidth   = 0.85
+      ctx.globalAlpha = (1 - ringT) * 0.75
+      ctx.lineWidth   = 1.2
       ctx.strokeStyle = b.color
       ctx.shadowColor = b.color
-      ctx.shadowBlur  = 3 * gameScale
+      ctx.shadowBlur  = 8 * gameScale
       ctx.beginPath(); ctx.arc(b.x, b.y, ringR, 0, Math.PI * 2); ctx.stroke()
       ctx.restore()
     }
@@ -1465,8 +1464,8 @@ function drawBall(b) {
   if (isActive || inSpawnGrow) {
     ctx.shadowColor = b.color
     // Glow intensifies with chain depth — more dramatic the deeper into a chain
-    const glowMult = 1.5 + Math.min((b.chainTriggerIdx ?? 0) * 0.15, 2.0)
-    ctx.shadowBlur  = 4 * gameScale * glowMult
+    const glowMult = 1.5 + Math.min((b.chainTriggerIdx ?? 0) * 0.25, 3.0)
+    ctx.shadowBlur  = 9 * gameScale * glowMult
   }
 
   const sp = getBallSprite(b.color, b.lightColor, r)
@@ -1560,12 +1559,12 @@ function updateDebug(st) {
       return (baseR + (maxR - baseR) * (1 - Math.exp(-lv / curve))).toFixed(1)
     }
     statLines =
-      `<b style="color:#ffe566">── Economy (first owned bucket, cycle ${progress.cycle}) ──</b><br>` +
+      `<b style="color:#ffe500">── Economy (first owned bucket, cycle ${progress.cycle}) ──</b><br>` +
       `Coins: <b>◆${fmt(st.coins)}</b>  |  Total: ◆${fmt(st.totalCoins)}<br>` +
       `EPM: <b>◆${fmt(Math.round(epm))}/min</b>  (${_epmLog.length} samples)<br>` +
       `Cheapest upg: ◆${isFinite(cheapCost) ? fmt(cheapCost) : '–'}  → ${minsToUpg} min<br>` +
       `Next ball:    ◆${fmt(ballCost)}  → ${minsToBall} min<br>` +
-      `<span style="color:#a78bfa">` +
+      `<span style="color:#cc00ff">` +
       `Value ×${plateau(vLv, EC.value.maxBonus, EC.value.curve)}  ` +
       `Speed ×${plateau(sLv, EC.speed.maxBonus, EC.speed.curve)}  ` +
       `Hold ${Math.round(200 * (1 + EC.duration.maxBonus * (1 - Math.exp(-hLv / EC.duration.curve))))}ms  ` +
@@ -1582,7 +1581,7 @@ function updateDebug(st) {
     `Best chain: ${st.stats.bestChainLength} balls<br>` +
     `Total chains: ${st.stats.totalChains}<br>` +
     `Last kickstart: +${st.stats.lastKickstartBonus}<br>` +
-    `<span style="color:#4fffb0">Ball visual r: ${BALL_RADIUS}  ` +
+    `<span style="color:#39ff14">Ball visual r: ${BALL_RADIUS}  ` +
     `collision r: ${BALL_COLLISION_RADIUS.toFixed(2)}  ` +
     `Lv0 expansion: 6.5 u  trigger dist: ${(6.5 + BALL_COLLISION_RADIUS).toFixed(1)} u</span><br>` +
     statLines
@@ -2096,9 +2095,9 @@ function drawFirstBallCue() {
       if (ringR <= 0 || alpha <= 0) continue
       ctx.save()
       ctx.globalAlpha = alpha
-      ctx.strokeStyle = '#ffe566'
+      ctx.strokeStyle = '#ffe500'
       ctx.lineWidth   = (1 - rt) * 4 + 0.5
-      ctx.shadowColor = 'rgba(255,229,102,0.95)'
+      ctx.shadowColor = 'rgba(255,229,0,0.95)'
       ctx.shadowBlur  = 22
       ctx.beginPath()
       ctx.arc(sx, sy, ringR, 0, Math.PI * 2)
@@ -2113,8 +2112,8 @@ function drawFirstBallCue() {
     const r = Math.max(0.5, p.r * (0.4 + p.life * 0.6))
     ctx.save()
     ctx.globalAlpha = a
-    ctx.fillStyle   = '#ffe566'
-    ctx.shadowColor = 'rgba(255,229,102,0.95)'
+    ctx.fillStyle   = '#ffe500'
+    ctx.shadowColor = 'rgba(255,229,0,0.95)'
     ctx.shadowBlur  = r * 3
     ctx.beginPath()
     ctx.moveTo(p.x,         p.y - r * 1.5)
@@ -2148,7 +2147,7 @@ function drawFirstBallCue() {
     ctx.translate(cx, cy)
     ctx.scale(pulse, pulse)
     ctx.translate(-cx, -cy)
-    ctx.shadowColor = 'rgba(255,229,102,0.95)'
+    ctx.shadowColor = 'rgba(255,229,0,0.95)'
     ctx.shadowBlur  = 24
     ctx.fillStyle   = 'rgba(12, 10, 2, 0.92)'
     fbRoundRect(cx - pw * 0.5, cy - ph * 0.5, pw, ph, pr)
@@ -2157,7 +2156,7 @@ function drawFirstBallCue() {
     ctx.lineWidth   = 1.5
     ctx.stroke()
     ctx.shadowBlur  = 6
-    ctx.fillStyle   = '#ffe566'
+    ctx.fillStyle   = '#ffe500'
     ctx.font        = 'bold 12px Orbitron, monospace'
     ctx.textAlign   = 'center'
     ctx.textBaseline = 'middle'
@@ -2173,9 +2172,9 @@ function drawFirstBallCue() {
 
     ctx.save()
     ctx.globalAlpha    = alpha * 0.72
-    ctx.strokeStyle    = '#ffe566'
+    ctx.strokeStyle    = '#ffe500'
     ctx.lineWidth      = 1.8
-    ctx.shadowColor    = 'rgba(255,229,102,0.70)'
+    ctx.shadowColor    = 'rgba(255,229,0,0.70)'
     ctx.shadowBlur     = 8
     ctx.setLineDash([7, 5])
     ctx.lineDashOffset = marchOffset
@@ -2189,7 +2188,7 @@ function drawFirstBallCue() {
     const arrAngle = Math.atan2(ty - cpy, tx - cpx)
     ctx.globalAlpha = alpha * 0.92
     ctx.shadowBlur  = 10
-    ctx.fillStyle   = '#ffe566'
+    ctx.fillStyle   = '#ffe500'
     ctx.beginPath()
     ctx.moveTo(tx,     ty - rect.height * 0.5 - 2)
     ctx.lineTo(tx - 9 * Math.cos(arrAngle - 0.42), ty - rect.height * 0.5 - 2 - 9 * Math.sin(arrAngle - 0.42))
@@ -2218,7 +2217,7 @@ const UPGRADE_TYPE_ICON = {
 
 // Per-type accent colors for icon squares — distinct from ball colors
 const UPGRADE_TYPE_COLOR = {
-  value:    '#ffe566',  // gold   — earns more coins
+  value:    '#ffe500',  // gold   — earns more coins
   speed:    '#38bdf8',  // sky    — fast & energetic
   diameter: '#c084fc',  // violet — grows bigger
   duration: '#fb923c',  // orange — burns time
@@ -2402,7 +2401,7 @@ function updateQuickBuy() {
     // No suggestion — reset to empty state once
     _qbPrevBuyKey  = ''
     _qbPrevBuyCost = ''
-    qbBuyBtn.style.setProperty('--qb-color', '#42d4ff')
+    qbBuyBtn.style.setProperty('--qb-color', '#00c8ff')
     qbBuyBallIconEl.style.color  = 'rgba(255,255,255,0.30)'
     qbBuyBallIconEl.style.filter = 'none'
     qbBuyIconEl.textContent  = '⚡'
@@ -2445,13 +2444,13 @@ function toggleStatsMini() {
 function updateStatsMini() {
   const cur = getState().stats.current
   smtPopped.textContent = fmt(cur.ballsPopped)
-  smtPopped.style.color = '#42d4ff'
+  smtPopped.style.color = '#00c8ff'
   smtChain.textContent  = cur.biggestChain || '–'
-  smtChain.style.color  = cur.biggestChain ? '#4fffb0' : 'rgba(255,255,255,0.65)'
+  smtChain.style.color  = cur.biggestChain ? '#39ff14' : 'rgba(255,255,255,0.65)'
   smtPayout.textContent = cur.bestChainPayout > 0 ? `◆${fmt(cur.bestChainPayout)}` : '–'
-  smtPayout.style.color = cur.bestChainPayout > 0 ? '#ffe566' : 'rgba(255,255,255,0.65)'
+  smtPayout.style.color = cur.bestChainPayout > 0 ? '#ffe500' : 'rgba(255,255,255,0.65)'
   smtEarned.textContent = fmt(cur.totalEarned)
-  smtEarned.style.color = '#ffe566'
+  smtEarned.style.color = '#ffe500'
 }
 
 // ─── Full stats screen ────────────────────────────────────────────────────
@@ -2829,7 +2828,7 @@ function buildShop() {
   // -- Tap upgrades (radius + duration) — collapsible
   {
     const TAP_ROW_DEFS = [
-      { stat: 'radius',   icon: '◎', label: 'TAP RADIUS',   color: '#42d4ff' },
+      { stat: 'radius',   icon: '◎', label: 'TAP RADIUS',   color: '#00c8ff' },
       { stat: 'duration', icon: '⏳', label: 'TAP DURATION', color: '#fb923c' },
     ]
     const cardKey     = 'tap'
