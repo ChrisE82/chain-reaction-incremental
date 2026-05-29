@@ -621,7 +621,9 @@ function spawnParticles(x, y, color, count, maxR) {
 }
 
 function updateParticles(dt) {
-  const dtSec = dt / 1000
+  const dtSec  = dt / 1000
+  const dtNorm = dt / (1000 / 60)   // 1.0 at 60 fps
+  const drag   = 0.90 ** dtNorm     // correct per-frame drag regardless of frame rate
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]
     p.life -= p.decay * dtSec
@@ -631,10 +633,10 @@ function updateParticles(dt) {
       particles.pop()
       continue
     }
-    p.x  += p.vx
-    p.y  += p.vy
-    p.vx *= 0.90
-    p.vy *= 0.90
+    p.x  += p.vx * dtNorm
+    p.y  += p.vy * dtNorm
+    p.vx *= drag
+    p.vy *= drag
   }
 }
 
@@ -1207,6 +1209,7 @@ function update(dt) {
   const roundEnding = !introMode && getRoundState().clicksLeft <= 0
 
   const r      = BALL_RADIUS
+  const dtNorm = dt / (1000 / 60)           // 1.0 at 60 fps — normalises velocity to per-frame-at-60
   const spring = Math.min(1, dt * 0.018)
 
   for (const b of balls) b.wigTimer = Math.min(b.wigTimer + dt, WIGGLE_DUR)
@@ -1244,7 +1247,7 @@ function update(dt) {
         b.spawnInTimer = -1
     }
 
-    b.x += b.vx; b.y += b.vy
+    b.x += b.vx * dtNorm; b.y += b.vy * dtNorm
 
     if (b.x - r < 0)        { b.x = r;            b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
     if (b.x + r > arenaW)   { b.x = arenaW - r;   b.vx *= -1; b.sqx = 0.62; b.sqy = 1.38 }
