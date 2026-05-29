@@ -102,6 +102,7 @@ const bstoreContinue    = document.getElementById('bstore-continue')
 let _pendingRoundEnd    = false   // set when clicks hit 0; defers endRound() until chain resolves
 let _waitingForRoundEnd = false   // set after chain resolves; fires endRound() once all shrinks+tap circles finish
 let _roundEndTimer      = null    // setTimeout handle for the post-clear pause before the overlay
+let _forceShrankBalls   = false   // true when endChain() force-shrank idle balls — suppresses spurious clear bonus
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -408,6 +409,7 @@ function endChain() {
         b.state     = 'shrinking'
         b.expTimer  = 0
         b.curRadius = b.maxRadius
+        _forceShrankBalls = true   // board wasn't genuinely cleared — suppress clear bonus
       }
     }
     _waitingForRoundEnd = true
@@ -1326,15 +1328,18 @@ function update(dt) {
         //   popsPerTap 1 → log₂=0 → ×3.0
         //   popsPerTap 2 → log₂=1 → ×4.0
         //   popsPerTap 4 → log₂=2 → ×5.0 (cap)
+        //
+        // _forceShrankBalls: endChain() found idle balls and shrunk them by force,
+        // meaning the board wasn't genuinely cleared — no clear bonus in that case.
         wasBoardActiveSinceLastKickstart = false
 
         const popsPerTap = cycleTriggerOccurrences / Math.max(1, cyclePlayerStarts)
         const effMult    = Math.min(5.0, 3.0 + Math.max(0, Math.log2(popsPerTap)))
         const clearBonus = Math.floor(cycleBaseEarned * effMult)
 
-        console.log(`[board-clear] pops=${cycleTriggerOccurrences} taps=${cyclePlayerStarts} popsPerTap=${popsPerTap.toFixed(2)} effMult=${effMult.toFixed(2)} base=${cycleBaseEarned} bonus=${clearBonus}`)
+        console.log(`[board-clear] pops=${cycleTriggerOccurrences} taps=${cyclePlayerStarts} popsPerTap=${popsPerTap.toFixed(2)} effMult=${effMult.toFixed(2)} base=${cycleBaseEarned} bonus=${clearBonus} forceShrunk=${_forceShrankBalls}`)
 
-        if (clearBonus > 0) {
+        if (clearBonus > 0 && !_forceShrankBalls) {
           addCoins(clearBonus)
           recordKickstart(clearBonus)
           spawnClearLabel(clearBonus)
@@ -3474,6 +3479,7 @@ function startRound() {
   // Reset in-memory round counters
   _pendingRoundEnd            = false
   _waitingForRoundEnd         = false
+  _forceShrankBalls           = false
   clearTimeout(_roundEndTimer); _roundEndTimer = null
   cyclePlayerStarts           = 0
   cycleTriggerOccurrences     = 0
