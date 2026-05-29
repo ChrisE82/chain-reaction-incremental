@@ -18,6 +18,8 @@ import {
   getRoundGoal, isBossRound,
 } from './store.js'
 
+import { seededRng, deriveRoundSeed, deriveRefreshSeed, formatSeed } from './rng.js'
+
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
 import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade,
          analyticsOptOut, analyticsOptIn, analyticsIsOptedOut,
@@ -103,6 +105,14 @@ let _pendingRoundEnd    = false   // set when clicks hit 0; defers endRound() un
 let _waitingForRoundEnd = false   // set after chain resolves; fires endRound() once all shrinks+tap circles finish
 let _roundEndTimer      = null    // setTimeout handle for the post-clear pause before the overlay
 let _forceShrankBalls   = false   // true when endChain() force-shrank idle balls — suppresses spurious clear bonus
+
+// ── Seeded RNG ─────────────────────────────────────────────────────────────
+// All board-layout randomness (spawn positions, velocities, respawn positions)
+// runs through this seeded RNG. It is reseeded at each round start and at each
+// manual refresh so the same run seed always produces the same board layouts.
+let rng                = Math.random   // fallback until first startRound()
+let _currentRoundSeed  = 0             // stored so doManualRefresh() can derive refresh seeds
+let _refreshIndex      = 0             // 0 = initial board, 1+ = each manual refresh
 
 // ── Dev free-upgrades flag ──
 let devFreeUpgradesEnabled = false
@@ -818,12 +828,12 @@ function lighten(hex) {
 function makeBall(colorKey) {
   const stats = getDerivedBallStats(getState(), colorKey)
   const r     = BALL_RADIUS
-  const angle = Math.random() * Math.PI * 2
+  const angle = rng() * Math.PI * 2
   return {
     id:       nextBallId++,
     spawnGen: 1,           // increments each time ball respawns
-    x:        r + Math.random() * (arenaW - r * 2),
-    y:        r + Math.random() * (arenaH - r * 2),
+    x:        r + rng() * (arenaW - r * 2),
+    y:        r + rng() * (arenaH - r * 2),
     vx:       Math.cos(angle) * stats.speed,
     vy:       Math.sin(angle) * stats.speed,
     color:      COLOR_HEX[colorKey],
@@ -1168,9 +1178,9 @@ function refillAllOwnedBalls() {
 
   sorted.forEach((b, i) => {
     const stats = b.isIntro ? INTRO_STATS : getDerivedBallStats(st, b.colorKey)
-    const angle = Math.random() * Math.PI * 2
-    b.x = r + Math.random() * (arenaW - r * 2)
-    b.y = r + Math.random() * (arenaH - r * 2)
+    const angle = rng() * Math.PI * 2
+    b.x = r + rng() * (arenaW - r * 2)
+    b.y = r + rng() * (arenaH - r * 2)
     b.vx = Math.cos(angle) * stats.speed
     b.vy = Math.sin(angle) * stats.speed
     b.maxRadius = stats.maxRadius
@@ -1185,7 +1195,7 @@ function refillAllOwnedBalls() {
     // Wave stagger: nearest ball at REFILL_START_DELAY, furthest at +SPAWN_STAGGER_MAX.
     // Small noise (±15 ms) breaks up clusters of same-distance balls.
     const waveFrac = sorted.length > 1 ? i / (sorted.length - 1) : 0
-    const noise    = (Math.random() - 0.5) * 30
+    const noise    = (rng() - 0.5) * 30
     b.spawnInTimer = 0
     b.spawnInDelay = Math.max(0, REFILL_START_DELAY + waveFrac * SPAWN_STAGGER_MAX + noise)
   })
@@ -1221,9 +1231,9 @@ function update(dt) {
       b.respawnTimer -= dt
       if (b.respawnTimer <= 0) {
         const stats = b.isIntro ? INTRO_STATS : getDerivedBallStats(getState(), b.colorKey)
-        const angle = Math.random() * Math.PI * 2
-        b.x  = r + Math.random() * (arenaW - r * 2)
-        b.y  = r + Math.random() * (arenaH - r * 2)
+        const angle = rng() * Math.PI * 2
+        b.x  = r + rng() * (arenaW - r * 2)
+        b.y  = r + rng() * (arenaH - r * 2)
         b.vx = Math.cos(angle) * stats.speed
         b.vy = Math.sin(angle) * stats.speed
         b.maxRadius = stats.maxRadius
@@ -3149,7 +3159,14 @@ qbStoreBtn.addEventListener('click', e => {
   toggleShop()
 })
 
-devToggle.addEventListener('click', () => devPanel.classList.toggle('hidden'))
+devToggle.addEventListener('click', () => {
+  devPanel.classList.toggle('hidden')
+  if (!devPanel.classList.contains('hidden')) {
+    // Show run seed whenever panel opens so it's easy to copy/share
+    const seedEl = document.getElementById('dev-run-seed')
+    if (seedEl) seedEl.textContent = formatSeed(getState().runSeed)
+  }
+})
 devClose.addEventListener('click',  () => devPanel.classList.add('hidden'))
 
 devAddCoinsBtn.addEventListener('click', () => {
@@ -3402,6 +3419,9 @@ function doManualRefresh() {
   cycleTriggerOccurrences = 0
   cycleBaseEarned         = 0
   wasBoardActiveSinceLastKickstart = false
+  // Re-seed the RNG so each refresh board is deterministic for this (round, refreshIndex) pair.
+  _refreshIndex++
+  rng = seededRng(deriveRefreshSeed(_currentRoundSeed, _refreshIndex))
   refillAllOwnedBalls()
   updateRoundHUD()
 }
@@ -3490,8 +3510,13 @@ function startRound() {
   chainShakeAmt               = 0
   wasBoardActiveSinceLastKickstart = false
 
-  // Spawn all owned balls onto the board
+  // Seed the RNG for this round — all board layout randomness (spawn positions,
+  // velocities, respawn positions) flows through rng() from here on.
   const st = getState()
+  const rd = getRoundState()
+  _currentRoundSeed = deriveRoundSeed(st.runSeed, rd.number)
+  rng               = seededRng(_currentRoundSeed)
+  _refreshIndex     = 0
   balls = []
   for (const colorKey of COLOR_ORDER) {
     const bkt = st.colorBuckets[colorKey]

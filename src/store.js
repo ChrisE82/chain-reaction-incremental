@@ -3,6 +3,8 @@
 import { EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound } from './balance/config.js'
 export { EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound }
 
+import { makeSeed } from './rng.js'
+
 const STORAGE_KEY = 'cr_v3'
 const LEGACY_KEY  = 'cr_v2'   // read once on first launch for migration
 
@@ -284,6 +286,7 @@ function defaultRunColorBuckets() {
 
 function defaultState() {
   return {
+    runSeed:             makeSeed(),   // generated fresh; overwritten by saved value or startNewRun()
     coins:               0,
     totalCoins:          0,
     colorBuckets:        defaultRunColorBuckets(),
@@ -624,6 +627,7 @@ export function advanceRound(coinsCarried) {
 export function startNewRun() {
   const hadFirstBallCue = state.firstBallCueShown === true
   const freshBuckets = defaultRunColorBuckets()
+  state.runSeed             = makeSeed()   // fresh seed for every new run
   state.coins               = 0
   state.totalCoins          = 0
   state.colorBuckets        = freshBuckets
