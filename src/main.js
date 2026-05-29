@@ -26,6 +26,15 @@ import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade,
          isLocalhost as analyticsIsLocalhost } from './telemetry.js'
 import { getBallSprite, setSpriteRes } from './gfxCache.js'
 import * as PlayFab from './playfab.js'
+import { fmt, fmtMult, fmtBonus } from './ui/fmt.js'
+import { getAudio, playTrigger, playIntroBuildup, playRumble, playBirthPop } from './engine/audio.js'
+import { rs } from './engine/renderState.js'
+import {
+  spawnPopRing, updatePopRings, drawPopRings,
+  spawnParticles, updateParticles, drawParticles,
+  spawnCoinLabel, spawnChainBonusLabel, spawnClearLabel,
+  particles, popRings,
+} from './engine/particles.js'
 
 // Flush save and cancel any held repeat on page hide/blur.
 // The PlayFab cloud push is best-effort on pagehide — keepalive fetch ensures
@@ -195,6 +204,15 @@ function calcUnits() {
   gameOffsetY = topPx + Math.max(0, (availH - VIRTUAL_H * gameScale) / 2)
   // Full virtual height fits in the available band — no virtual-unit reduction.
   gamePlayH = VIRTUAL_H
+
+  // Sync shared render state so particle/label modules read current values.
+  rs.gameScale   = gameScale
+  rs.gameOffsetX = gameOffsetX
+  rs.gameOffsetY = gameOffsetY
+  rs.gamePlayH   = gamePlayH
+  rs.W           = W
+  rs.H           = H
+  rs.dpr         = _dpr
 
   // Keep sprite resolution matched to physical pixel density so sprites
   // are never upscaled (which causes pixelation on larger/retina screens).
@@ -568,251 +586,6 @@ function drawRadiusGhosts() {
   }
 }
 
-// ─── Particles ────────────────────────────────────────────────────────────
-const particles     = []
-const MAX_PARTICLES = 500
-
-// ─── Pop-ring shockwaves ───────────────────────────────────────────────────
-// A fast outward ring fires the instant any ball is triggered, giving an
-// immediate visual "punch" before the slow expansion bloom even starts.
-// This makes even a single pop feel satisfying.
-
-const popRings = []
-
-function spawnPopRing(x, y, color, startR, endR, depth, pct) {
-  // intensity: chain depth adds drama, percentage-cleared amplifies it so
-  // popping 3/3 feels as big as popping 30/30.
-  const intensity = Math.min(1.0 + depth * 0.15 + pct * 1.4, 3.2)
-  // duration: snappy at 0% cleared, lingers up to 420 ms when board is wiped
-  const duration  = 0.28 + pct * 0.14
-  popRings.push({ x, y, color, startR, endR, intensity, duration, life: 1.0 })
-}
-
-function updatePopRings(dt) {
-  const dtSec = dt / 1000
-  for (let i = popRings.length - 1; i >= 0; i--) {
-    popRings[i].life -= dtSec / popRings[i].duration
-    if (popRings[i].life <= 0) {
-      popRings[i] = popRings[popRings.length - 1]
-      popRings.pop()
-    }
-  }
-}
-
-function drawPopRings() {
-  for (const rng of popRings) {
-    const t     = 1 - rng.life                        // 0 → 1 as ring expands
-    const ringR = rng.startR + (rng.endR - rng.startR) * t
-    const alpha = rng.life * rng.life * 0.85           // quadratic fade
-    ctx.save()
-    ctx.globalAlpha = alpha
-    ctx.strokeStyle = rng.color
-    ctx.shadowColor = rng.color
-    ctx.shadowBlur  = 5 * gameScale * rng.intensity
-    ctx.lineWidth   = Math.max(0.5, (1 - t) * 2.5)    // thick at impact, tapers off
-    ctx.beginPath(); ctx.arc(rng.x, rng.y, ringR, 0, Math.PI * 2); ctx.stroke()
-    ctx.restore()
-  }
-}
-
-function spawnParticles(x, y, color, count, maxR) {
-  for (let i = 0; i < count; i++) {
-    if (particles.length >= MAX_PARTICLES) break
-    const angle = Math.random() * Math.PI * 2
-    const speed = maxR * 0.08 * (0.5 + Math.random())
-    particles.push({
-      x, y,
-      vx:    Math.cos(angle) * speed,
-      vy:    Math.sin(angle) * speed,
-      life:  1.0,
-      decay: 1.5 + Math.random(),
-      r:     maxR * 0.05 * (0.5 + Math.random()),
-      color,
-    })
-  }
-}
-
-function updateParticles(dt) {
-  const dtSec  = dt / 1000
-  const dtNorm = dt / (1000 / 60)   // 1.0 at 60 fps
-  const drag   = 0.90 ** dtNorm     // correct per-frame drag regardless of frame rate
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i]
-    p.life -= p.decay * dtSec
-    if (p.life <= 0) {
-      // O(1) swap-remove: copy last element over dead slot, then pop.
-      particles[i] = particles[particles.length - 1]
-      particles.pop()
-      continue
-    }
-    p.x  += p.vx * dtNorm
-    p.y  += p.vy * dtNorm
-    p.vx *= drag
-    p.vy *= drag
-  }
-}
-
-function drawParticles() {
-  for (const p of particles) {
-    ctx.globalAlpha = Math.max(0, p.life)
-    ctx.fillStyle   = p.color
-    ctx.beginPath()
-    ctx.arc(p.x, p.y, Math.max(0.05, p.r * p.life), 0, Math.PI * 2)
-    ctx.fill()
-  }
-  ctx.globalAlpha = 1
-}
-
-// ─── Audio ────────────────────────────────────────────────────────────────
-let audioCtx = null
-
-function getAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-  if (audioCtx.state === 'suspended') audioCtx.resume()
-  return audioCtx
-}
-
-// Small lookahead offset (seconds) applied to all scheduled audio events.
-// audioCtx.resume() is async — without this, sounds scheduled at ac.currentTime
-// while the context is still starting up arrive late.
-const AUDIO_AHEAD = 0.025
-
-function playTrigger(n) {
-  try {
-    const ac   = getAudio()
-    const now  = ac.currentTime + AUDIO_AHEAD
-    const osc  = ac.createOscillator()
-    const gain = ac.createGain()
-    osc.connect(gain); gain.connect(ac.destination)
-    osc.type = 'sine'
-    const freq = 300 * Math.pow(1.07, Math.min(n, 24))
-    osc.frequency.setValueAtTime(freq, now)
-    osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.07)
-    gain.gain.setValueAtTime(0.18, now)
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
-    osc.start(now); osc.stop(now + 0.22)
-  } catch (_) {}
-}
-
-// Rising pitch-sweep played during the intro rumble + suck phases.
-// Reads as a "charging up" that resolves when the birth explosion hits.
-function playIntroBuildup() {
-  try {
-    const ac  = getAudio()
-    const now = ac.currentTime + AUDIO_AHEAD
-    const dur = (INTRO_RUMBLE_DURATION + INTRO_SUCK_DURATION) / 1000  // ~3.3 s
-
-    // Primary sweep — sine tone rising from 110 Hz to 1400 Hz
-    const osc1  = ac.createOscillator()
-    const gain1 = ac.createGain()
-    osc1.type = 'sine'
-    osc1.frequency.setValueAtTime(110, now)
-    osc1.frequency.exponentialRampToValueAtTime(1400, now + dur * 0.92)
-    gain1.gain.setValueAtTime(0, now)
-    gain1.gain.linearRampToValueAtTime(0.13, now + 0.9)
-    gain1.gain.setValueAtTime(0.13, now + dur * 0.88)
-    gain1.gain.linearRampToValueAtTime(0, now + dur)
-    osc1.connect(gain1); gain1.connect(ac.destination)
-    osc1.start(now); osc1.stop(now + dur)
-
-    // Harmonic layer — a fifth above, slightly delayed entry, adds body
-    const osc2  = ac.createOscillator()
-    const gain2 = ac.createGain()
-    osc2.type = 'sine'
-    osc2.frequency.setValueAtTime(165, now)
-    osc2.frequency.exponentialRampToValueAtTime(2100, now + dur * 0.92)
-    gain2.gain.setValueAtTime(0, now)
-    gain2.gain.linearRampToValueAtTime(0.06, now + 1.4)
-    gain2.gain.setValueAtTime(0.06, now + dur * 0.88)
-    gain2.gain.linearRampToValueAtTime(0, now + dur)
-    osc2.connect(gain2); gain2.connect(ac.destination)
-    osc2.start(now); osc2.stop(now + dur)
-  } catch (_) {}
-}
-
-function playRumble() {
-  try {
-    const ac  = getAudio()
-    const now = ac.currentTime + AUDIO_AHEAD
-    const dur = (INTRO_RUMBLE_DURATION + INTRO_SUCK_DURATION) / 1000  // ~3.3 s
-
-    // White-noise buffer the length of rumble + suck phases
-    const frames = Math.ceil(ac.sampleRate * dur)
-    const buf    = ac.createBuffer(1, frames, ac.sampleRate)
-    const data   = buf.getChannelData(0)
-    for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1
-
-    const src  = ac.createBufferSource()
-    src.buffer = buf
-
-    // Low-pass filter gives it a deep "room shake" character
-    const filter = ac.createBiquadFilter()
-    filter.type  = 'lowpass'
-    filter.frequency.setValueAtTime(120, now)
-    filter.frequency.linearRampToValueAtTime(55, now + dur)
-
-    const gain = ac.createGain()
-    gain.gain.setValueAtTime(0.001, now)
-    gain.gain.linearRampToValueAtTime(0.28, now + 0.6)   // build up
-    gain.gain.setValueAtTime(0.28, now + dur - 0.9)
-    gain.gain.linearRampToValueAtTime(0.001, now + dur)   // fade out before birth
-
-    src.connect(filter)
-    filter.connect(gain)
-    gain.connect(ac.destination)
-    src.start(now); src.stop(now + dur)
-  } catch (_) {}
-}
-
-// Single sharp "collapse" pop played at the moment the shaking singularity
-// implodes just before the explosion ring fires.
-// Layers: sub-bass thump (impact body) + noise crack (transient snap) + high click (attack edge).
-function playBirthPop() {
-  try {
-    const ac  = getAudio()
-    const now = ac.currentTime + AUDIO_AHEAD
-
-    // Sub-bass thump — sine sweeping down from 90 → 28 Hz, punchy and physical
-    const osc1  = ac.createOscillator()
-    const gain1 = ac.createGain()
-    osc1.type = 'sine'
-    osc1.frequency.setValueAtTime(90, now)
-    osc1.frequency.exponentialRampToValueAtTime(28, now + 0.18)
-    gain1.gain.setValueAtTime(0, now)
-    gain1.gain.linearRampToValueAtTime(0.85, now + 0.004)   // near-instant attack
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.40)
-    osc1.connect(gain1); gain1.connect(ac.destination)
-    osc1.start(now); osc1.stop(now + 0.40)
-
-    // Noise crack — band-passed white noise for the "snap" texture
-    const frames = Math.ceil(ac.sampleRate * 0.20)
-    const buf    = ac.createBuffer(1, frames, ac.sampleRate)
-    const data   = buf.getChannelData(0)
-    for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1
-    const src    = ac.createBufferSource()
-    src.buffer   = buf
-    const filt   = ac.createBiquadFilter()
-    filt.type    = 'bandpass'
-    filt.frequency.setValueAtTime(1200, now)
-    filt.Q.setValueAtTime(0.7, now)
-    const gain2  = ac.createGain()
-    gain2.gain.setValueAtTime(0.45, now)
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.20)
-    src.connect(filt); filt.connect(gain2); gain2.connect(ac.destination)
-    src.start(now); src.stop(now + 0.20)
-
-    // High-frequency click — very brief bright transient that sells the "point" moment
-    const osc2  = ac.createOscillator()
-    const gain3 = ac.createGain()
-    osc2.type = 'triangle'
-    osc2.frequency.setValueAtTime(3200, now)
-    gain3.gain.setValueAtTime(0.30, now)
-    gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.06)
-    osc2.connect(gain3); gain3.connect(ac.destination)
-    osc2.start(now); osc2.stop(now + 0.06)
-  } catch (_) {}
-}
-
 // ─── Color utils ─────────────────────────────────────────────────────────
 // Memoised: each hex string is parsed once, result cached for all future calls.
 const _lightenCache = new Map()
@@ -1066,6 +839,7 @@ function loop(ts) {
   }
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
+  rs.currentArenaScale = currentArenaScale
 
   ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0)
   ctx.fillStyle = '#000000'
@@ -1485,29 +1259,6 @@ function drawBall(b) {
 }
 
 // ─── HUD ──────────────────────────────────────────────────────────────────
-function fmt(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B'
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'
-  return Math.floor(n).toString()
-}
-
-// Formats a chain multiplier for display ("0", "0.5", "1.25", "9", "52").
-function fmtMult(m) {
-  if (m === 0) return '0'
-  if (Number.isInteger(m)) return m.toString()
-  return m % 1 === 0.5 || m < 2 ? m.toFixed(2).replace(/\.?0+$/, '') : m.toFixed(1).replace(/\.?0+$/, '')
-}
-
-// Formats a bonus amount with commas for values under 10 000, then falls back to fmt.
-// "1250" → "1,250"   "12500" → "12.5K"
-function fmtBonus(n) {
-  n = Math.floor(n)
-  if (n >= 10000) return fmt(n)
-  if (n >= 1000)  return Math.floor(n / 1000) + ',' + String(n % 1000).padStart(3, '0')
-  return n.toString()
-}
-
 function updateHUD() {
   const st = getState()
   // During intro show temporary visual coins (discarded on completion)
@@ -1588,55 +1339,6 @@ function updateDebug(st) {
     statLines
 }
 
-
-// ─── Floating coin label ──────────────────────────────────────────────────
-function spawnCoinLabel(vx, vy, coins, chainIdx = 0) {
-  const sx = Math.round((vx / currentArenaScale) * gameScale + gameOffsetX)
-  const sy = Math.round((vy / currentArenaScale) * gameScale + gameOffsetY)
-  const el = document.createElement('div')
-  el.className   = 'coin-float'
-  el.textContent = `+${coins}`
-  el.style.left  = `${sx}px`
-  el.style.top   = `${sy}px`
-  // Scale font size and brightness with chain position (caps at 2× to stay readable)
-  if (chainIdx > 0) {
-    const scale = Math.min(1 + chainIdx * 0.10, 2.0)
-    el.style.fontSize = `${scale}rem`
-    if (chainIdx >= 8) {
-      el.style.color      = '#ffffff'
-      el.style.textShadow = '0 0 12px rgba(255,255,255,0.95), 0 0 28px rgba(255,229,102,0.75)'
-    } else if (chainIdx >= 4) {
-      el.style.textShadow = '0 0 14px rgba(255,229,102,1.0), 0 0 28px rgba(255,229,102,0.60)'
-    }
-  }
-  document.body.appendChild(el)
-  el.addEventListener('animationend', () => el.remove(), { once: true })
-}
-
-// Shows "6 CHAIN ×9  +1,250" — length, multiplier, and bonus coins.
-// Size scales up for big chains: 5–9 = big, 10+ = epic.
-function spawnChainBonusLabel(chainLen, mult, bonus) {
-  const el = document.createElement('div')
-  const sizeClass = chainLen >= 10 ? ' chain-float--epic'
-                  : chainLen >= 5  ? ' chain-float--big'
-                  : ''
-  el.className   = 'coin-float chain-float' + sizeClass
-  el.textContent = `${chainLen} CHAIN  ×${fmtMult(mult)}  +${fmtBonus(bonus)}`
-  el.style.left  = `${Math.round(W / 2)}px`
-  el.style.top   = `${Math.round(H * 0.30)}px`
-  document.body.appendChild(el)
-  el.addEventListener('animationend', () => el.remove(), { once: true })
-}
-
-function spawnClearLabel(bonus) {
-  const el = document.createElement('div')
-  el.className   = 'coin-float clear-float'
-  el.textContent = `CLEAR  ◆+${fmt(bonus)}`
-  el.style.left  = `${Math.round(W / 2)}px`
-  el.style.top   = `${Math.round(H * 0.57)}px`
-  document.body.appendChild(el)
-  el.addEventListener('animationend', () => el.remove(), { once: true })
-}
 
 // ─── Intro transition ─────────────────────────────────────────────────────
 
@@ -3599,6 +3301,11 @@ window.addEventListener('resize', () => calcUnits())
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 function init() {
+  // Wire up the shared render state for particle/label modules.
+  rs.ctx    = ctx
+  rs.canvas = canvas
+  rs.dpr    = _dpr
+
   const st = getState()
   introMode = !st.introComplete
 
