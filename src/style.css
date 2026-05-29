@@ -53,7 +53,7 @@ canvas {
 
 .hud-tile-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.85rem, 2.8vmin, 1.05rem);
+  font-size: clamp(0.85rem, 2.8vmin, 1.75rem);
   letter-spacing: 0.16em;
   color: rgba(255,255,255,0.40);
   text-transform: uppercase;
@@ -62,7 +62,7 @@ canvas {
 
 .hud-tile-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(2rem, 8vmin, 3rem);
+  font-size: clamp(2rem, 8vmin, 5rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: rgba(255,255,255,0.92);
@@ -125,7 +125,7 @@ canvas {
 }
 
 .hud-coin-icon {
-  font-size: clamp(1.2rem, 5vmin, 1.9rem);
+  font-size: clamp(1.2rem, 5vmin, 3.13rem);
   color: #ffe566;
   filter: drop-shadow(0 0 6px rgba(255,229,102,0.75));
   align-self: center;
@@ -134,7 +134,7 @@ canvas {
 
 .hud-score-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(2rem, 8vmin, 3rem);
+  font-size: clamp(2rem, 8vmin, 5rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #ffe566;
@@ -162,7 +162,7 @@ canvas {
 }
 
 .hud-expand-arrow {
-  font-size: clamp(1rem, 3.5vmin, 1.4rem);
+  font-size: clamp(1rem, 3.5vmin, 2.19rem);
   color: rgba(255,229,102,0.65);
   text-shadow: 0 0 8px rgba(255,229,102,0.40);
   line-height: 1;
@@ -177,7 +177,7 @@ canvas {
 
 .hud-goal-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.85rem, 2.8vmin, 1.05rem);
+  font-size: clamp(0.85rem, 2.8vmin, 1.75rem);
   letter-spacing: 0.16em;
   color: rgba(255,255,255,0.30);
   text-transform: uppercase;
@@ -186,7 +186,7 @@ canvas {
 
 .hud-goal-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.1rem, 4.5vmin, 1.7rem);
+  font-size: clamp(1.1rem, 4.5vmin, 2.81rem);
   font-weight: 700;
   letter-spacing: 0.04em;
   color: rgba(255,255,255,0.55);
@@ -203,7 +203,7 @@ canvas {
 }
 .hud-round-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.7rem, 2.2vmin, 0.88rem);
+  font-size: clamp(0.7rem, 2.2vmin, 1.38rem);
   letter-spacing: 0.22em;
   color: rgba(66,212,255,0.50);
   text-transform: uppercase;
@@ -211,7 +211,7 @@ canvas {
 }
 .hud-round-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.4rem, 5.5vmin, 2.1rem);
+  font-size: clamp(1.4rem, 5.5vmin, 3.44rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #42d4ff;
@@ -240,7 +240,7 @@ canvas {
 
 .hud-chain-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.4rem, 5.5vmin, 2.1rem);
+  font-size: clamp(1.4rem, 5.5vmin, 3.44rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #4fffb0;
@@ -251,7 +251,7 @@ canvas {
 }
 .hud-chain-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.7rem, 2.2vmin, 0.88rem);
+  font-size: clamp(0.7rem, 2.2vmin, 1.38rem);
   letter-spacing: 0.22em;
   color: rgba(79,255,176,0.50);
   text-transform: uppercase;
@@ -277,7 +277,7 @@ body.intro-active .hud-goal-row { display: none; }
   border-radius: 2vmin;
   padding: 2.5vmin 3vmin;
   backdrop-filter: blur(14px);
-  min-width: clamp(11rem, 47vmin, 15rem);
+  min-width: clamp(11rem, 47vmin, 29.38rem);
   max-width: min(68vmin, 86vw);
   transition: opacity 0.2s ease, transform 0.2s ease;
   pointer-events: auto;
@@ -308,13 +308,13 @@ body.intro-active .hud-goal-row { display: none; }
 }
 
 .smt-val {
-  font-size: clamp(1.15rem, 4.2vmin, 1.65rem);
+  font-size: clamp(1.15rem, 4.2vmin, 2.63rem);
   font-weight: 900;
   letter-spacing: 0.04em;
 }
 
 .smt-lbl {
-  font-size: clamp(0.60rem, 2vmin, 0.75rem);
+  font-size: clamp(0.60rem, 2vmin, 1.25rem);
   letter-spacing: 0.10em;
   color: rgba(255, 255, 255, 0.78);
   text-transform: uppercase;
@@ -328,7 +328,7 @@ body.intro-active .hud-goal-row { display: none; }
   border: 1px solid rgba(66, 212, 255, 0.50);
   border-radius: 2vmin;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.72rem, 2.3vmin, 0.86rem);
+  font-size: clamp(0.72rem, 2.3vmin, 1.44rem);
   font-weight: 700;
   letter-spacing: 0.18em;
   color: #42d4ff;
@@ -382,7 +382,7 @@ body.intro-active .hud-goal-row { display: none; }
 }
 
 .stats-screen-title {
-  font-size: clamp(1rem, 3.2vmin, 1.25rem);
+  font-size: clamp(1rem, 3.2vmin, 2rem);
   letter-spacing: 0.3em;
   color: rgba(255, 229, 102, 0.82);
   text-transform: uppercase;
@@ -416,7 +416,7 @@ body.intro-active .hud-goal-row { display: none; }
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 1.5vmin;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
+  font-size: clamp(0.58rem, 1.85vmin, 1.16rem);
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.72);
   cursor: pointer;
@@ -459,7 +459,7 @@ body.intro-active .hud-goal-row { display: none; }
   padding: 2vmin 2.5vmin 2vmin 3vmin;
   border-left: 2px solid rgba(66, 212, 255, 0.55);
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.75rem, 2.5vmin, 0.92rem);
+  font-size: clamp(0.75rem, 2.5vmin, 1.56rem);
   font-weight: 700;
   letter-spacing: 0.22em;
   color: rgba(66, 212, 255, 0.88);
@@ -473,7 +473,7 @@ body.intro-active .hud-goal-row { display: none; }
 .stats-section-hdr > .stats-section-title-text { flex: 1; }
 
 .stats-section-chevron {
-  font-size: clamp(0.80rem, 2.6vmin, 1rem);
+  font-size: clamp(0.80rem, 2.6vmin, 1.63rem);
   color: rgba(66, 212, 255, 0.90);
   transition: transform 0.25s ease;
   flex-shrink: 0;
@@ -523,14 +523,14 @@ body.intro-active .hud-goal-row { display: none; }
 .stats-row:last-child { border-bottom: none; }
 
 .stats-row-lbl {
-  font-size: clamp(0.68rem, 2.2vmin, 0.82rem);
+  font-size: clamp(0.68rem, 2.2vmin, 1.38rem);
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.82);
   text-transform: uppercase;
 }
 
 .stats-row-val {
-  font-size: clamp(0.88rem, 2.9vmin, 1.05rem);
+  font-size: clamp(0.88rem, 2.9vmin, 1.81rem);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.95);
   letter-spacing: 0.04em;
@@ -550,7 +550,7 @@ body.intro-active .hud-goal-row { display: none; }
 }
 
 .stats-color-name {
-  font-size: clamp(0.78rem, 2.5vmin, 0.92rem);
+  font-size: clamp(0.78rem, 2.5vmin, 1.56rem);
   font-weight: 900;
   letter-spacing: 0.20em;
   text-transform: uppercase;
@@ -558,7 +558,7 @@ body.intro-active .hud-goal-row { display: none; }
 }
 
 .stats-empty-msg {
-  font-size: clamp(0.80rem, 2.6vmin, 0.96rem);
+  font-size: clamp(0.80rem, 2.6vmin, 1.63rem);
   color: rgba(255, 255, 255, 0.70);
   letter-spacing: 0.08em;
   text-align: center;
@@ -574,7 +574,7 @@ body.intro-active #stats-screen { display: none !important; }
 #shop-panel {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 95;  /* above #hud (90); below round-end overlays (200) */
   display: flex;
   flex-direction: column;
   background: rgba(6, 10, 22, 0.99);
@@ -629,7 +629,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .shop-title {
-  font-size: clamp(1rem, 3.2vmin, 1.25rem);
+  font-size: clamp(1rem, 3.2vmin, 2rem);
   letter-spacing: 0.3em;
   color: rgba(66, 212, 255, 0.82);
   text-transform: uppercase;
@@ -682,8 +682,8 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Rainbow ball orb — conic-gradient circle, no text needed */
 .reactor-ball-orb {
-  width: clamp(0.9rem, 3.2vmin, 1.3rem);
-  height: clamp(0.9rem, 3.2vmin, 1.3rem);
+  width: clamp(0.9rem, 3.2vmin, 2rem);
+  height: clamp(0.9rem, 3.2vmin, 2rem);
   border-radius: 50%;
   background: conic-gradient(
     #a78bfa 0%,
@@ -699,7 +699,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .reactor-ball-val {
-  font-size: clamp(1.1rem, 3.8vmin, 1.7rem);
+  font-size: clamp(1.1rem, 3.8vmin, 2.38rem);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.70);
   letter-spacing: 0.03em;
@@ -715,7 +715,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .reactor-coin-icon {
-  font-size: clamp(1.1rem, 3.6vmin, 1.5rem);
+  font-size: clamp(1.1rem, 3.6vmin, 2.25rem);
   color: #ffe566;
   filter: drop-shadow(0 0 6px rgba(255,229,102,0.85));
   line-height: 1;
@@ -723,7 +723,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .reactor-coin-val {
-  font-size: clamp(1.6rem, 5vmin, 2.4rem);
+  font-size: clamp(1.6rem, 5vmin, 3.13rem);
   font-weight: 700;
   color: #ffe566;
   letter-spacing: 0.04em;
@@ -734,7 +734,7 @@ body.intro-active #stats-screen { display: none !important; }
 .shop-compact-btn {
   all: unset;
   box-sizing: border-box;
-  font-size: clamp(1.1rem, 3.8vmin, 1.5rem);
+  font-size: clamp(1.1rem, 3.8vmin, 2.38rem);
   color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
   padding: 1vmin 1.5vmin;
@@ -778,8 +778,8 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .spec-orb {
-  width: clamp(1rem, 4.5vmin, 1.4rem);
-  height: clamp(1rem, 4.5vmin, 1.4rem);
+  width: clamp(1rem, 4.5vmin, 2.81rem);
+  height: clamp(1rem, 4.5vmin, 2.81rem);
   border-radius: 50%;
   background: var(--oc);
   flex-shrink: 0;
@@ -870,8 +870,8 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .nbc-orb {
-  width: clamp(2.5rem, 12vmin, 4rem);
-  height: clamp(2.5rem, 12vmin, 4rem);
+  width: clamp(2.5rem, 12vmin, 7.5rem);
+  height: clamp(2.5rem, 12vmin, 7.5rem);
   border-radius: 50%;
   flex-shrink: 0;
   position: relative;
@@ -897,21 +897,21 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .nbc-label {
-  font-size: clamp(0.55rem, 1.75vmin, 0.68rem);
+  font-size: clamp(0.55rem, 1.75vmin, 1.09rem);
   letter-spacing: 0.18em;
   color: rgba(255,255,255,0.28);
   text-transform: uppercase;
 }
 
 .nbc-name {
-  font-size: clamp(1.05rem, 3.8vmin, 1.4rem);
+  font-size: clamp(1.05rem, 3.8vmin, 2.38rem);
   font-weight: 900;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .nbc-cost-text {
-  font-size: clamp(0.72rem, 2.3vmin, 0.88rem);
+  font-size: clamp(0.72rem, 2.3vmin, 1.44rem);
   font-weight: 700;
   color: #ffe566;
   letter-spacing: 0.04em;
@@ -927,7 +927,7 @@ body.intro-active #stats-screen { display: none !important; }
   border-radius: 5vmin;
   border: 1px solid rgba(255,255,255,0.14);
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.62rem, 1.95vmin, 0.76rem);
+  font-size: clamp(0.62rem, 1.95vmin, 1.22rem);
   font-weight: 700;
   letter-spacing: 0.14em;
   color: rgba(255,255,255,0.30);
@@ -959,7 +959,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .bucket-chevron {
-  font-size: clamp(0.9rem, 3vmin, 1.2rem);
+  font-size: clamp(0.9rem, 3vmin, 1.88rem);
   color: color-mix(in srgb, var(--bc) 90%, white);
   line-height: 1;
   flex-shrink: 0;
@@ -1007,7 +1007,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .upg-chip-icon {
-  font-size: clamp(1.05rem, 3.5vmin, 1.45rem);
+  font-size: clamp(1.05rem, 3.5vmin, 2.19rem);
   color: var(--ut-color, rgba(255,255,255,0.80));
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ut-color, white) 50%, transparent));
   line-height: 1;
@@ -1020,7 +1020,7 @@ body.intro-active #stats-screen { display: none !important; }
 .upg-chip:disabled .upg-chip-icon { filter: none; }
 
 .upg-chip-cost {
-  font-size: clamp(0.52rem, 1.7vmin, 0.65rem);
+  font-size: clamp(0.52rem, 1.7vmin, 1.06rem);
   font-weight: 700;
   color: #ffe566;
   letter-spacing: 0.02em;
@@ -1062,7 +1062,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .bucket-name {
-  font-size: clamp(0.78rem, 2.5vmin, 0.94rem);
+  font-size: clamp(0.78rem, 2.5vmin, 1.56rem);
   font-weight: 900;
   letter-spacing: 0.20em;
   text-transform: uppercase;
@@ -1081,14 +1081,14 @@ body.intro-active #stats-screen { display: none !important; }
 
 .bucket-pip {
   display: inline-block;
-  width: clamp(0.4rem, 2vmin, 0.6rem);
-  height: clamp(0.4rem, 2vmin, 0.6rem);
+  width: clamp(0.4rem, 2vmin, 1.25rem);
+  height: clamp(0.4rem, 2vmin, 1.25rem);
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .bucket-pip-more {
-  font-size: clamp(0.58rem, 1.85vmin, 0.70rem);
+  font-size: clamp(0.58rem, 1.85vmin, 1.16rem);
   color: rgba(255,255,255,0.40);
   letter-spacing: 0.04em;
 }
@@ -1167,7 +1167,7 @@ body.intro-active #stats-screen { display: none !important; }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(0.95rem, 3.1vmin, 1.2rem);
+  font-size: clamp(0.95rem, 3.1vmin, 1.94rem);
   flex-shrink: 0;
   line-height: 1;
   color: var(--ut-color, rgba(255,255,255,0.75));
@@ -1200,7 +1200,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .upg-row-label {
-  font-size: clamp(0.75rem, 2.4vmin, 0.92rem);
+  font-size: clamp(0.75rem, 2.4vmin, 1.5rem);
   font-weight: 700;
   letter-spacing: 0.10em;
   color: rgba(255,255,255,0.88);
@@ -1208,7 +1208,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .upg-row-lv {
-  font-size: clamp(0.56rem, 1.75vmin, 0.68rem);
+  font-size: clamp(0.56rem, 1.75vmin, 1.09rem);
   letter-spacing: 0.04em;
   color: color-mix(in srgb, var(--bc) 90%, white);
   background: color-mix(in srgb, var(--bc) 14%, transparent);
@@ -1221,7 +1221,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Right: cost right-aligned */
 .upg-row-cost {
-  font-size: clamp(0.78rem, 2.5vmin, 0.95rem);
+  font-size: clamp(0.78rem, 2.5vmin, 1.56rem);
   font-weight: 700;
   color: #ffe566;
   letter-spacing: 0.02em;
@@ -1243,15 +1243,15 @@ body.intro-active #stats-screen { display: none !important; }
   bottom: calc(var(--qb-h) + 2.5vmin);
   left: 4vw;
   z-index: 22;
-  width: clamp(3rem, 12vmin, 4rem);
-  height: clamp(3rem, 12vmin, 4rem);
+  width: clamp(3rem, 12vmin, 7.5rem);
+  height: clamp(3rem, 12vmin, 7.5rem);
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.11);
   border-radius: 50%;
-  font-size: clamp(1.3rem, 5vmin, 1.8rem);
+  font-size: clamp(1.3rem, 5vmin, 3.13rem);
   color: rgba(255,255,255,0.3);
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
@@ -1269,7 +1269,7 @@ body.intro-active #stats-screen { display: none !important; }
   bottom: calc(var(--qb-h) + 9vmin + 4.5vmin);
   left: 4vw;
   z-index: 22;
-  min-width: clamp(11rem, 45vmin, 14rem);
+  min-width: clamp(11rem, 45vmin, 28.13rem);
   background: rgba(8, 12, 24, 0.97);
   border: 1px solid rgba(255,255,255,0.09);
   border-radius: 3vmin;
@@ -1436,7 +1436,7 @@ body.intro-active #stats-screen { display: none !important; }
   pointer-events: none;
   font-family: 'Orbitron', monospace;
   font-weight: 700;
-  font-size: clamp(1rem, 3.2vmin, 1.3rem);
+  font-size: clamp(1rem, 3.2vmin, 2rem);
   letter-spacing: 0.06em;
   color: #ffe566;
   text-shadow: 0 0 10px rgba(255, 229, 102, 0.85);
@@ -1455,7 +1455,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 .kickstart-float {
   color: #4fffb0 !important;
-  font-size: clamp(0.85rem, 2.8vmin, 1.1rem) !important;
+  font-size: clamp(0.85rem, 2.8vmin, 1.75rem) !important;
   text-shadow: 0 0 12px rgba(79, 255, 176, 0.9) !important;
   letter-spacing: 0.08em;
 }
@@ -1466,7 +1466,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 .chain-float {
   color: #4fffb0 !important;
-  font-size: clamp(1.3rem, 4.8vmin, 1.9rem) !important;
+  font-size: clamp(1.3rem, 4.8vmin, 3rem) !important;
   font-weight: 900 !important;
   letter-spacing: 0.08em !important;
   text-shadow:
@@ -1486,13 +1486,13 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* 5–9 chain: noticeably bigger popup */
 .chain-float--big {
-  font-size: clamp(1.7rem, 6.2vmin, 2.5rem) !important;
+  font-size: clamp(1.7rem, 6.2vmin, 3.88rem) !important;
   animation-duration: 2.0s !important;
 }
 
 /* 10+ chain: full epic treatment */
 .chain-float--epic {
-  font-size: clamp(2.1rem, 7.8vmin, 3.0rem) !important;
+  font-size: clamp(2.1rem, 7.8vmin, 4.88rem) !important;
   animation-duration: 2.4s !important;
   text-shadow:
     0 0 16px rgba(79, 255, 176, 1.0),
@@ -1504,7 +1504,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 .clear-float {
   color: #4fffb0 !important;
-  font-size: clamp(1.5rem, 6vmin, 2.3rem) !important;
+  font-size: clamp(1.5rem, 6vmin, 3.75rem) !important;
   font-weight: 900 !important;
   letter-spacing: 0.14em !important;
   text-shadow:
@@ -1521,7 +1521,7 @@ body.intro-active #stats-screen { display: none !important; }
   left: 0; right: 0;
   padding: 1.5vmin 3.5vmin;
   font-family: monospace;
-  font-size: clamp(0.7rem, 2.4vmin, 0.95rem);
+  font-size: clamp(0.7rem, 2.4vmin, 1.5rem);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.65);
   background: rgba(0, 0, 0, 0.45);
@@ -1570,7 +1570,7 @@ body.intro-completing #hud {
   background: rgba(6, 10, 22, 0.97);
   border-top: 1px solid rgba(255,255,255,0.09);
   backdrop-filter: blur(14px);
-  z-index: 60;   /* above shop panel (z-index 50) so it stays visible */
+  z-index: 100;  /* above #hud (90) and shop panel (95) so it stays visible */
 }
 
 .qb-btn {
@@ -1722,7 +1722,7 @@ body.intro-completing #hud {
   pointer-events: none;
   font-family: 'Orbitron', monospace;
   font-weight: 700;
-  font-size: clamp(0.75rem, 2.5vmin, 0.95rem);
+  font-size: clamp(0.75rem, 2.5vmin, 1.56rem);
   letter-spacing: 0.1em;
   color: #4fffb0;
   text-shadow: 0 0 10px rgba(79,255,176,0.75);
@@ -1816,14 +1816,14 @@ body.intro-completing #hud {
   display: flex; flex-direction: column; gap: 3vmin;
   text-align: center;
 }
-.reo-title  { font-family: 'Orbitron', monospace; font-size: clamp(1rem, 4vmin, 1.6rem); color: #fff; }
-.reo-body   { font-size: clamp(0.75rem, 2.6vmin, 1rem); color: rgba(255,255,255,0.6); line-height: 1.75; }
+.reo-title  { font-family: 'Orbitron', monospace; font-size: clamp(1rem, 4vmin, 2.5rem); color: #fff; }
+.reo-body   { font-size: clamp(0.75rem, 2.6vmin, 1.63rem); color: rgba(255,255,255,0.6); line-height: 1.75; }
 .reo-actions { display: flex; flex-direction: column; gap: 2vmin; }
 
 .reo-btn {
   all: unset; text-align: center;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.8rem, 3vmin, 1.05rem);
+  font-size: clamp(0.8rem, 3vmin, 1.88rem);
   padding: 2.5vmin;
   border-radius: 2vmin;
   cursor: pointer;
@@ -1852,7 +1852,7 @@ body.intro-completing #hud {
 }
 .bstore-title {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1rem, 4vmin, 1.5rem);
+  font-size: clamp(1rem, 4vmin, 2.5rem);
   color: #fff;
 }
 .bstore-body {
@@ -1864,7 +1864,7 @@ body.intro-completing #hud {
 }
 .bstore-coming-soon {
   color: rgba(255,255,255,0.3);
-  font-size: clamp(0.8rem, 3vmin, 1rem);
+  font-size: clamp(0.8rem, 3vmin, 1.88rem);
   font-family: 'Orbitron', monospace;
 }
 /* #bstore-continue reuses .reo-btn .reo-btn-primary */
