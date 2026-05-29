@@ -610,7 +610,6 @@ export function advanceRound(coinsCarried) {
   const nextGoal = getRoundGoal(nextNum)
   const nextAct  = Math.ceil(nextNum / RoundConfig.bossRoundInterval)
   state.coins        = coinsCarried
-  state.totalCoins   = Math.max(state.totalCoins, state.coins)
   state.round = {
     number:        nextNum,
     actNumber:     nextAct,
@@ -628,6 +627,7 @@ export function advanceRound(coinsCarried) {
  * Upgrade levels and ball counts all go back to zero/1.
  */
 export function startNewRun() {
+  const hadFirstBallCue = state.firstBallCueShown === true
   const freshBuckets = defaultRunColorBuckets()
   state.coins               = 0
   state.totalCoins          = 0
@@ -648,6 +648,7 @@ export function startNewRun() {
     byColor:        Object.fromEntries(COLOR_ORDER.map(c => [c, defaultColorStats()])),
     chainsByLength: {},
   }
+  if (hadFirstBallCue) state.firstBallCueShown = true
   saveState(state, true)
 }
 
