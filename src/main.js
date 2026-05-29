@@ -15,14 +15,14 @@ import {
   devFreeColorUpgrade, devFreeUpgradeClick, devFreeUnlockNextBall,
   // ── Round/run system ──
   getRoundState, setRoundState, startNewRun, advanceRound,
-  getRoundGoal, isBossRound, RoundConfig,
+  getRoundGoal, isBossRound,
 } from './store.js'
 
 import { attachArmedHold, cancelAll as cancelArmedHold } from './armedHold.js'
 import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade,
          analyticsOptOut, analyticsOptIn, analyticsIsOptedOut,
          isLocalhost as analyticsIsLocalhost } from './telemetry.js'
-import { getBallSprite, getSpriteCount, setSpriteRes } from './gfxCache.js'
+import { getBallSprite, setSpriteRes } from './gfxCache.js'
 import * as PlayFab from './playfab.js'
 
 // Flush save and cancel any held repeat on page hide/blur.
@@ -54,7 +54,6 @@ const statsTabBody    = document.getElementById('stats-tab-body')
 const shopPanel  = document.getElementById('shop-panel')
 const shopBody   = document.getElementById('shop-body')
 const shopClose  = document.getElementById('shop-close')
-const shopToggle = document.getElementById('shop-toggle')
 const devPanel   = document.getElementById('dev-panel')
 const devToggle  = document.getElementById('dev-toggle')
 const devClose   = document.getElementById('dev-close')
@@ -82,10 +81,8 @@ const devFeelResetBtn    = document.getElementById('dev-feel-reset')
 const devIgnoreDeviceBtn = document.getElementById('dev-ignore-device')
 
 // ── Round HUD ──
-const roundHudEl     = document.getElementById('round-hud')
 const hudClicksEl    = document.getElementById('hud-clicks')
 const hudRefreshesEl = document.getElementById('hud-refreshes')
-const hudGoalCurEl   = document.getElementById('hud-goal-cur')
 const hudGoalMaxEl   = document.getElementById('hud-goal-max')
 const btnRefresh     = document.getElementById('btn-refresh')
 
@@ -173,13 +170,10 @@ function calcUnits() {
   canvas.style.height = H + 'px'
   // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
   const barPx  = qbBar.offsetHeight
-  // Reserve space at the top for the HUD + round HUD strip so balls never
+  // Reserve space at the top for the HUD strip so balls never
   // render behind UI elements that have pointer-events:auto.
   const hudBottom  = hudEl.getBoundingClientRect().bottom
-  // Position the round HUD strip directly below the main HUD
-  if (roundHudEl) roundHudEl.style.top = hudBottom + 'px'
-  const roundHudH  = roundHudEl ? roundHudEl.getBoundingClientRect().height : 0
-  const topPx      = hudBottom + roundHudH
+  const topPx      = hudBottom
   const availH = H - barPx - topPx
   // Scale so the virtual field fits inside the space between HUD and bar.
   gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
@@ -356,7 +350,6 @@ function runAutoUpgrade(dt) {
 //   from being counted twice, while still allowing a respawned ball (new
 //   spawnGen) to be caught by a still-active expansion.
 let currentChain = null
-let nextChainId  = 1
 
 // ─── First-ball attention cue ─────────────────────────────────────────────
 // Fires once (per fresh save) after coins first reach Ball 2's cost (10).
@@ -378,7 +371,6 @@ const FB_TRAIL_MS = 2200
 function startChain() {
   wasBoardActiveSinceLastKickstart = true
   currentChain = {
-    id:           nextChainId++,
     index:        0,       // number of balls triggered so far
     coins:        0,       // per-pop coins earned this chain
     chainContrib: 0,       // sum of b.value — kept for when chain-breaker relic is implemented
@@ -1617,18 +1609,6 @@ function spawnChainBonusLabel(chainLen, mult, bonus) {
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
 
-function spawnKickstartLabel(vx, vy, bonus) {
-  const sx = Math.round((vx / currentArenaScale) * gameScale + gameOffsetX)
-  const sy = Math.round((vy / currentArenaScale) * gameScale + gameOffsetY)
-  const el = document.createElement('div')
-  el.className   = 'coin-float kickstart-float'
-  el.textContent = `KICKSTART +${bonus}`
-  el.style.left  = `${sx}px`
-  el.style.top   = `${sy}px`
-  document.body.appendChild(el)
-  el.addEventListener('animationend', () => el.remove(), { once: true })
-}
-
 function spawnClearLabel(bonus) {
   const el = document.createElement('div')
   el.className   = 'coin-float clear-float'
@@ -2635,70 +2615,6 @@ function buildStatsByColorTab(st) {
 }
 
 // ─── Shop UI ──────────────────────────────────────────────────────────────
-function makeUpgradeBtn(icon, label, level, statText, costText, canAfford, onClick) {
-  const btn = document.createElement('button')
-  btn.className = 'upgrade-btn'
-  btn.disabled  = !canAfford
-
-  const iconEl = document.createElement('span')
-  iconEl.className   = 'upgrade-btn-icon'
-  iconEl.textContent = icon
-
-  const infoEl = document.createElement('div')
-  infoEl.className = 'upgrade-btn-info'
-
-  const nameRow = document.createElement('div')
-  nameRow.className = 'upgrade-btn-name-row'
-
-  const nameEl = document.createElement('span')
-  nameEl.className   = 'upgrade-btn-name'
-  nameEl.textContent = label
-
-  const levelEl = document.createElement('span')
-  levelEl.className   = 'upgrade-btn-level'
-  levelEl.textContent = `Lv ${level}`
-
-  nameRow.appendChild(nameEl)
-  nameRow.appendChild(levelEl)
-
-  const statEl = document.createElement('span')
-  statEl.className   = 'upgrade-btn-stat'
-  statEl.textContent = statText
-
-  infoEl.appendChild(nameRow)
-  infoEl.appendChild(statEl)
-
-  const costEl = document.createElement('span')
-  costEl.className   = 'upgrade-btn-cost'
-  costEl.textContent = costText
-
-  btn.appendChild(iconEl)
-  btn.appendChild(infoEl)
-  btn.appendChild(costEl)
-  btn.addEventListener('click', onClick)
-  return btn
-}
-
-function makeSectionTitle(icon, text) {
-  const wrap = document.createElement('div')
-  wrap.className = 'upgrade-card-title'
-
-  const iconEl = document.createElement('span')
-  iconEl.className   = 'card-title-icon'
-  iconEl.textContent = icon
-
-  const textEl = document.createElement('span')
-  textEl.className   = 'card-title-text'
-  textEl.textContent = text
-
-  const dotEl = document.createElement('span')
-  dotEl.className = 'card-title-dot'
-
-  wrap.appendChild(iconEl)
-  wrap.appendChild(textEl)
-  wrap.appendChild(dotEl)
-  return wrap
-}
 
 // Per-type icon and label for upgrade tiles in the reactor panel.
 const UPGRADE_TYPE_DEFS = [
@@ -3166,7 +3082,6 @@ statsScreen.querySelectorAll('.stats-tab').forEach(tab => {
   })
 })
 
-shopToggle.addEventListener('click', toggleShop)   // legacy button (hidden)
 shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); cancelArmedHold(); updateQuickBuy() })
 
 // Full-screen panel — no backdrop tap-to-close needed
