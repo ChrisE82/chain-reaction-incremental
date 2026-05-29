@@ -18,9 +18,8 @@ import posthog from 'posthog-js'
 // Never track localhost — dev builds produce noise, not signal.
 export const isLocalhost = typeof location !== 'undefined' &&
   (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-const _isLocalhost = isLocalhost
 
-if (!_isLocalhost) {
+if (!isLocalhost) {
   posthog.init('phc_BnK9pbs6ZZ4T34aToKKg5mSk64zDSKsbtdePMeXc5mEA', {
     api_host:        'https://us.i.posthog.com',
     defaults:        '2026-01-30',

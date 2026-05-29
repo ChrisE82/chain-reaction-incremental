@@ -40,18 +40,6 @@ export const GameConfig = {
   baseSpeed:      BALANCE.ballBase.baseSpeed,
 }
 
-// ── PhysicsConfig ─────────────────────────────────────────────────────────────
-// New — consumed by main.js to replace its inline physics constants.
-export const PhysicsConfig = {
-  ballRadius:              BALANCE.physics.ballRadius,
-  ballCollisionRadiusMult: BALANCE.physics.ballCollisionRadiusMult,
-  arenaScale:              BALANCE.physics.arenaScale,
-}
-
-// ── TimingConfig ──────────────────────────────────────────────────────────────
-// New — consumed by main.js to replace its inline timing constants.
-export const TimingConfig = { ...BALANCE.timing }
-
 // ── RoundConfig ───────────────────────────────────────────────────────────────
 // Roguelite round progression constants.
 export const RoundConfig = {

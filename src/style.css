@@ -569,32 +569,6 @@ body.intro-active .hud-goal-row { display: none; }
 body.intro-active #stats-mini,
 body.intro-active #stats-screen { display: none !important; }
 
-/* ─── Shop toggle (bottom-right) ──────────────────────────── */
-
-#shop-toggle {
-  position: fixed;
-  bottom: max(2dvh, env(safe-area-inset-bottom, 16px));
-  right: 4vw;
-  z-index: 22;
-  width: clamp(48px, 12vmin, 64px);
-  height: clamp(48px, 12vmin, 64px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 229, 102, 0.08);
-  border: 1px solid rgba(255, 229, 102, 0.28);
-  border-radius: 50%;
-  font-size: clamp(1.2rem, 4.5vmin, 1.7rem);
-  color: rgba(255, 229, 102, 0.65);
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-}
-
-#shop-toggle:active {
-  background: rgba(255, 229, 102, 0.2);
-  color: #ffe566;
-}
-
 /* ─── Shop panel (full-screen) ─────────────────────────────── */
 
 #shop-panel {
@@ -686,165 +660,6 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 #shop-body::-webkit-scrollbar { display: none; } /* Chrome / Safari / WebKit */
-
-/* ─── Upgrade card (one per ball slot) ────────────────────── */
-
-.upgrade-card {
-  background: rgba(255,255,255,0.025);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-  padding: 12px 14px 14px;
-}
-
-.upgrade-card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.card-title-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(66, 212, 255, 0.1);
-  border: 1px solid rgba(66, 212, 255, 0.22);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  color: rgba(66, 212, 255, 0.78);
-  flex-shrink: 0;
-}
-
-.card-title-text {
-  font-size: clamp(0.8rem, 2.6vmin, 0.95rem);
-  letter-spacing: 0.2em;
-  color: rgba(66, 212, 255, 0.72);
-  text-transform: uppercase;
-  flex: 1;
-}
-
-.card-title-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(66, 212, 255, 0.45);
-  flex-shrink: 0;
-}
-
-.upgrade-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.upgrade-btn {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px 7px 8px;
-  background: rgba(66, 212, 255, 0.04);
-  border: 1px solid rgba(66, 212, 255, 0.14);
-  border-radius: 8px;
-  font-family: 'Orbitron', monospace;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-/* Affordable — mild cyan glow so it feels tappable */
-.upgrade-btn:not(:disabled) {
-  background: rgba(66, 212, 255, 0.09);
-  border-color: rgba(66, 212, 255, 0.30);
-  box-shadow: 0 0 8px 0 rgba(66, 212, 255, 0.14);
-}
-
-.upgrade-btn:active { background: rgba(66, 212, 255, 0.18) !important; }
-.upgrade-btn:disabled:active { background: rgba(255, 72, 38, 0.20) !important; border-color: rgba(255, 72, 38, 0.45) !important; }
-
-.upgrade-btn:disabled {
-  cursor: default;
-  border-color: rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.006);
-  box-shadow: none;
-}
-
-/* Dim icon + label */
-.upgrade-btn:disabled .upgrade-btn-icon {
-  opacity: 0.30;
-  filter: saturate(0.2);
-}
-.upgrade-btn:disabled .upgrade-btn-name,
-.upgrade-btn:disabled .upgrade-btn-level,
-.upgrade-btn:disabled .upgrade-btn-stat {
-  opacity: 0.38;
-}
-/* Cost in orange — clearly "can't afford yet" while still readable */
-.upgrade-btn:disabled .upgrade-btn-cost {
-  color: rgba(255, 130, 50, 0.90);
-}
-
-.upgrade-btn-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 7px;
-  background: rgba(66, 212, 255, 0.09);
-  border: 1px solid rgba(66, 212, 255, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.upgrade-btn-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.upgrade-btn-name-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.upgrade-btn-name {
-  font-size: clamp(0.8rem, 2.6vmin, 0.92rem);
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.88);
-}
-
-.upgrade-btn-level {
-  font-size: clamp(0.6rem, 1.9vmin, 0.72rem);
-  letter-spacing: 0.05em;
-  color: rgba(66, 212, 255, 0.7);
-  background: rgba(66, 212, 255, 0.09);
-  border: 1px solid rgba(66, 212, 255, 0.2);
-  border-radius: 3px;
-  padding: 1px 4px;
-  line-height: 1.4;
-}
-
-.upgrade-btn-stat {
-  font-size: clamp(0.68rem, 2.1vmin, 0.8rem);
-  letter-spacing: 0.05em;
-  color: rgba(255,255,255,0.3);
-}
-
-.upgrade-btn-cost {
-  font-size: clamp(0.8rem, 2.6vmin, 0.95rem);
-  letter-spacing: 0.05em;
-  color: #ffe566;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
 
 /* ─── Reactor panel — new upgrades UI ─────────────────────── */
 
@@ -1238,8 +1053,6 @@ body.intro-active #stats-screen { display: none !important; }
   color: rgba(66,212,255,0.85);
 }
 
-.tap-orb::after { display: none; }
-
 .bucket-top-right {
   flex: 1;
   display: flex;
@@ -1422,30 +1235,6 @@ body.intro-active #stats-screen { display: none !important; }
   color: #ff9f43;
 }
 
-
-/* ─── Unlock slot button ───────────────────────────────────── */
-
-.unlock-slot-btn {
-  width: 100%;
-  padding: 14px;
-  background: rgba(79, 255, 176, 0.055);
-  border: 1px solid rgba(79, 255, 176, 0.22);
-  border-radius: 8px;
-  color: #4fffb0;
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.9rem, 3vmin, 1.1rem);
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.unlock-slot-btn:active   { background: rgba(79, 255, 176, 0.16); }
-.unlock-slot-btn:disabled {
-  cursor: default;
-  color: rgba(255, 130, 50, 0.85);
-  border-color: rgba(255, 130, 50, 0.18);
-  background: rgba(255, 130, 50, 0.03);
-}
 
 /* ─── Dev toggle (bottom-left) ────────────────────────────── */
 
@@ -1754,8 +1543,7 @@ body.intro-active #stats-screen { display: none !important; }
 /* Hide store-related UI while the power-preview intro is running.  */
 
 body.intro-active #quick-buy-bar,
-body.intro-active #shop-panel,
-body.intro-active #shop-toggle {
+body.intro-active #shop-panel {
   display: none !important;
 }
 

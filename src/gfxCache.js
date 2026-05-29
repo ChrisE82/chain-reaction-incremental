@@ -78,6 +78,3 @@ export function getBallSprite(color, lightColor, r) {
 
 /** Number of sprites currently cached. */
 export function getSpriteCount() { return _count }
-
-/** Clear all cached sprites (e.g. on full reset). */
-export function clearSpriteCache() { _cache.clear(); _count = 0 }

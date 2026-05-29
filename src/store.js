@@ -42,7 +42,6 @@ export const COLOR_HEX = {
 // Legacy alias — kept so any code importing EconomyConfig still works.
 export const EconomyConfig = {
   baseCoinValue:  EconomyConstants.baseCoinValue,
-  softCapDivisor: 120,
 }
 
 // ─── Chain multiplier ─────────────────────────────────────────────────────
@@ -185,10 +184,6 @@ function newColorBucket() {
 
 export function getColorBucket(state, color) {
   return state.colorBuckets?.[color] ?? newColorBucket()
-}
-
-export function getColorUpgradeLevel(state, color, upgradeType) {
-  return getColorBucket(state, color)[upgradeType + 'Level'] ?? 0
 }
 
 // Returns the color that will be purchased next.
