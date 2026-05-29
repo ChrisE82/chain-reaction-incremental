@@ -403,6 +403,7 @@ function endChain() {
       addCoins(bonus)
       spawnChainBonusLabel(chainLen, mult, bonus)
     }
+    invalidateUpgradeSuggestion()
     recordChainEnd(chainLen, chainCoins, bonus)
     onChainEnd(chainLen, chainCoins + bonus, getState().coins, balls.length)
   }
@@ -1355,6 +1356,7 @@ function update(dt) {
           addCoins(clearBonus)
           recordKickstart(clearBonus)
           spawnClearLabel(clearBonus)
+          invalidateUpgradeSuggestion()
         }
 
         // Reset counters for the next cycle
@@ -2322,10 +2324,14 @@ function spawnQbToast(text) {
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
 
-// Cache for findSuggestedColorUpgrade — recomputed only when coins change.
-// This avoids running 6×4 upgrade evals + Math.pow calls every animation frame.
-let _qbSugCache     = null
-let _qbSugCoinCache = -1
+// Cache for findSuggestedColorUpgrade.
+// Recalculated only when: (a) coins drop — a purchase was made, or
+// (b) explicitly dirtied via invalidateUpgradeSuggestion() — called at end
+// of each chain/clear after bonuses land so newly-affordable upgrades appear.
+let _qbSugCache     = null   // null = must recalculate
+let _qbSugCoinCache = -1     // last coin value the cache was computed at
+
+function invalidateUpgradeSuggestion() { _qbSugCache = null }
 
 // Previous rendered state — skip style/text writes when value is unchanged.
 let _qbPrevBallColor  = ''
@@ -2359,8 +2365,9 @@ function updateQuickBuy() {
   qbBallBtn.classList.toggle('qb-btn-cue-pulse',
     st.totalBallsPurchased === 1 && st.coins >= ballCost && !st.firstBallCueShown)
 
-  // ── BUY button — recompute suggestion only when coins changed ──
-  if (st.coins !== _qbSugCoinCache) {
+  // ── BUY button — recompute suggestion when coins dropped (purchase) or
+  //    when explicitly invalidated (end of chain, after bonuses land) ──
+  if (_qbSugCache === null || st.coins < _qbSugCoinCache) {
     _qbSugCache     = findSuggestedColorUpgrade(st)
     _qbSugCoinCache = st.coins
   }
