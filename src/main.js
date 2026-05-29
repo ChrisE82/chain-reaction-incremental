@@ -2427,14 +2427,14 @@ function closeStatsMini() {
   if (!statsMiniOpen) return
   statsMiniOpen = false
   statsMini.classList.add('hidden')
-  hudExpandArrow.textContent = '▸'
+  hudExpandArrow.classList.remove('open')
 }
 
 function toggleStatsMini() {
   if (introMode) return
   statsMiniOpen = !statsMiniOpen
   statsMini.classList.toggle('hidden', !statsMiniOpen)
-  hudExpandArrow.textContent = statsMiniOpen ? '▾' : '▸'
+  hudExpandArrow.classList.toggle('open', statsMiniOpen)
   if (statsMiniOpen) {
     // Position the panel just below the unified HUD (height varies by device)
     statsMini.style.top = (hudEl.getBoundingClientRect().bottom + 4) + 'px'

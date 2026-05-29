@@ -48,7 +48,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 20vw;
+  flex: 0 0 28vw;   /* fixed, matches .hud-tile-btn so center is truly centred */
 }
 
 .hud-tile-lbl {
@@ -78,7 +78,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 20vw;
+  flex: 0 0 28vw;   /* same as .hud-tile — both sides equal */
   padding: 1.2vmin 2.5vmin;
   border-radius: 2vmin;
   border: 1px solid rgba(255,255,255,0.18);
@@ -157,16 +157,21 @@ canvas {
   filter: drop-shadow(0 0 6px rgba(79,255,176,0.75));
 }
 .hud-score-btn:has(#hud-coins.goal-met) .hud-expand-arrow {
-  color: rgba(79,255,176,0.65);
-  text-shadow: 0 0 8px rgba(79,255,176,0.40);
+  color: rgba(79,255,176,0.45);
 }
 
 .hud-expand-arrow {
-  font-size: clamp(1rem, 3.5vmin, 2.19rem);
-  color: rgba(255,229,102,0.65);
-  text-shadow: 0 0 8px rgba(255,229,102,0.40);
+  display: block;
+  text-align: center;
+  font-size: clamp(0.55rem, 1.8vmin, 1.1rem);
+  color: rgba(255,229,102,0.38);
   line-height: 1;
-  transition: color 0.25s, transform 0.2s;
+  margin-top: 0.5vmin;
+  transition: color 0.25s, transform 0.25s;
+}
+.hud-expand-arrow.open {
+  transform: rotate(180deg);
+  color: rgba(255,229,102,0.55);
 }
 
 .hud-goal-row {
