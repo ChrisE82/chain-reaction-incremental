@@ -86,6 +86,7 @@ const devIgnoreDeviceBtn = document.getElementById('dev-ignore-device')
 const hudClicksEl    = document.getElementById('hud-clicks')
 const hudRefreshesEl = document.getElementById('hud-refreshes')
 const hudGoalMaxEl   = document.getElementById('hud-goal-max')
+const hudRoundNumEl  = document.getElementById('hud-round-num')
 const btnRefresh     = document.getElementById('btn-refresh')
 
 // ── Round-end / store overlays ──
@@ -1350,8 +1351,6 @@ function update(dt) {
         const effMult    = Math.min(5.0, 3.0 + Math.max(0, Math.log2(popsPerTap)))
         const clearBonus = Math.floor(cycleBaseEarned * effMult)
 
-        console.log(`[board-clear] pops=${cycleTriggerOccurrences} taps=${cyclePlayerStarts} popsPerTap=${popsPerTap.toFixed(2)} effMult=${effMult.toFixed(2)} base=${cycleBaseEarned} bonus=${clearBonus} forceShrunk=${_forceShrankBalls}`)
-
         if (clearBonus > 0 && !_forceShrankBalls) {
           addCoins(clearBonus)
           recordKickstart(clearBonus)
@@ -2234,9 +2233,6 @@ function sugReason(upgradeType, marginalGain) {
   }[upgradeType] ?? 'Upgrade'
 }
 
-// Track last BUY target so we can flash when it changes
-let prevBuyKey = ''
-
 // Returns { color, upgradeType, cost } for the cheapest upgrade across all
 // color buckets that own at least one ball.
 function findCheapestColorUpgrade(st) {
@@ -2326,49 +2322,80 @@ function spawnQbToast(text) {
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
 
+// Cache for findSuggestedColorUpgrade — recomputed only when coins change.
+// This avoids running 6×4 upgrade evals + Math.pow calls every animation frame.
+let _qbSugCache     = null
+let _qbSugCoinCache = -1
+
+// Previous rendered state — skip style/text writes when value is unchanged.
+let _qbPrevBallColor  = ''
+let _qbPrevBallCost   = ''
+let _qbPrevBuyKey     = ''   // replaces prevBuyKey for the BUY button identity
+let _qbPrevBuyCost    = ''
+let _qbPrevStoreArrow = ''
+
 // Refreshes labels, costs, and disabled states on the quick-buy bar.
-// Called from updateHUD() every frame — only updates text/disabled, no DOM rebuild.
+// Called from updateHUD() every frame — writes to DOM only when values change.
 function updateQuickBuy() {
   const st        = getState()
   const nextColor = getNextPurchaseColor(st)
   const ballCost  = nextBallCost(st)
 
-  // ── BALL button — colored ball circle + color name ──
-  qbBallBtn.style.setProperty('--qb-color', COLOR_HEX[nextColor])
-  qbBallIconEl.textContent  = '●'
-  qbBallIconEl.style.color  = COLOR_HEX[nextColor]
-  qbBallIconEl.style.filter = `drop-shadow(0 0 5px ${COLOR_HEX[nextColor]})`
-  qbBallLabelEl.textContent = nextColor.toUpperCase()
-  qbBallCostEl.textContent  = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(ballCost)}`
+  // ── BALL button — only update when color or affordability changes ──
+  const ballHex      = COLOR_HEX[nextColor]
+  const ballCostText = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(ballCost)}`
+  if (ballHex !== _qbPrevBallColor) {
+    qbBallBtn.style.setProperty('--qb-color', ballHex)
+    qbBallIconEl.style.color  = ballHex
+    qbBallIconEl.style.filter = `drop-shadow(0 0 5px ${ballHex})`
+    qbBallLabelEl.textContent = nextColor.toUpperCase()
+    _qbPrevBallColor = ballHex
+  }
+  if (ballCostText !== _qbPrevBallCost) {
+    qbBallCostEl.textContent = ballCostText
+    _qbPrevBallCost = ballCostText
+  }
   qbBallBtn.disabled = !devFreeUpgradesEnabled && st.coins < ballCost
   qbBallBtn.classList.toggle('qb-btn-cue-pulse',
     st.totalBallsPurchased === 1 && st.coins >= ballCost && !st.firstBallCueShown)
 
-  // ── BUY button — best suggested upgrade ──
-  const sug = findSuggestedColorUpgrade(st)
+  // ── BUY button — recompute suggestion only when coins changed ──
+  if (st.coins !== _qbSugCoinCache) {
+    _qbSugCache     = findSuggestedColorUpgrade(st)
+    _qbSugCoinCache = st.coins
+  }
+  const sug = _qbSugCache
   if (sug) {
-    const sugKey = `${sug.color}-${sug.upgradeType}`
-    if (sugKey !== prevBuyKey && prevBuyKey !== '') {
-      qbBuyLabelEl.classList.remove('qb-target-changed')
-      void qbBuyLabelEl.offsetWidth
-      qbBuyLabelEl.classList.add('qb-target-changed')
+    const sugKey     = `${sug.color}-${sug.upgradeType}`
+    const buyCostTxt = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(sug.cost)}`
+    if (sugKey !== _qbPrevBuyKey) {
+      // Target changed — animate the label and refresh all button styles
+      if (_qbPrevBuyKey !== '') {
+        qbBuyLabelEl.classList.remove('qb-target-changed')
+        void qbBuyLabelEl.offsetWidth   // force reflow to restart the animation
+        qbBuyLabelEl.classList.add('qb-target-changed')
+      }
+      _qbPrevBuyKey = sugKey
+      qbBuyBtn.style.setProperty('--qb-color', COLOR_HEX[sug.color])
+      qbBuyBallIconEl.style.color  = COLOR_HEX[sug.color]
+      qbBuyBallIconEl.style.filter = `drop-shadow(0 0 5px ${COLOR_HEX[sug.color]})`
+      const utColor = UPGRADE_TYPE_COLOR[sug.upgradeType] ?? 'rgba(255,255,255,0.75)'
+      qbBuyIconEl.textContent  = UPGRADE_TYPE_ICON[sug.upgradeType] ?? '⚡'
+      qbBuyIconEl.style.color  = utColor
+      qbBuyIconEl.style.filter = `drop-shadow(0 0 5px ${utColor})`
+      qbBuyLabelEl.textContent = (UPGRADE_TYPE_LABEL[sug.upgradeType] ?? 'BUY').toUpperCase()
+      _qbPrevBuyCost = ''   // force cost refresh on target change
     }
-    prevBuyKey = sugKey
-    qbBuyBtn.style.setProperty('--qb-color', COLOR_HEX[sug.color])
-    qbBuyBallIconEl.textContent  = '●'
-    qbBuyBallIconEl.style.color  = COLOR_HEX[sug.color]
-    qbBuyBallIconEl.style.filter = `drop-shadow(0 0 5px ${COLOR_HEX[sug.color]})`
-    const utColor = UPGRADE_TYPE_COLOR[sug.upgradeType] ?? 'rgba(255,255,255,0.75)'
-    qbBuyIconEl.textContent  = UPGRADE_TYPE_ICON[sug.upgradeType] ?? '⚡'
-    qbBuyIconEl.style.color  = utColor
-    qbBuyIconEl.style.filter = `drop-shadow(0 0 5px ${utColor})`
-    qbBuyLabelEl.textContent = (UPGRADE_TYPE_LABEL[sug.upgradeType] ?? 'BUY').toUpperCase()
-    qbBuyCostEl.textContent  = devFreeUpgradesEnabled ? 'FREE' : `◆ ${fmt(sug.cost)}`
+    if (buyCostTxt !== _qbPrevBuyCost) {
+      qbBuyCostEl.textContent = buyCostTxt
+      _qbPrevBuyCost = buyCostTxt
+    }
     qbBuyBtn.disabled = !devFreeUpgradesEnabled && st.coins < sug.cost
-  } else {
-    prevBuyKey = ''
+  } else if (_qbPrevBuyKey !== '') {
+    // No suggestion — reset to empty state once
+    _qbPrevBuyKey  = ''
+    _qbPrevBuyCost = ''
     qbBuyBtn.style.setProperty('--qb-color', '#42d4ff')
-    qbBuyBallIconEl.textContent  = '●'
     qbBuyBallIconEl.style.color  = 'rgba(255,255,255,0.30)'
     qbBuyBallIconEl.style.filter = 'none'
     qbBuyIconEl.textContent  = '⚡'
@@ -2379,8 +2406,12 @@ function updateQuickBuy() {
     qbBuyBtn.disabled = !devFreeUpgradesEnabled
   }
 
-  // ── Store arrow — flips when panel is open ──
-  qbStoreArrow.textContent = shopPanel.classList.contains('hidden') ? '▲' : '▼'
+  // ── Store arrow — only write when panel state flips ──
+  const arrowChar = shopPanel.classList.contains('hidden') ? '▲' : '▼'
+  if (arrowChar !== _qbPrevStoreArrow) {
+    qbStoreArrow.textContent = arrowChar
+    _qbPrevStoreArrow = arrowChar
+  }
 }
 
 // ─── Stats mini panel ─────────────────────────────────────────────────────
@@ -3388,24 +3419,25 @@ devFeelResetBtn.addEventListener('click', () => {
 
 // ─── Round / run system ───────────────────────────────────────────────────
 
+// Cached values — skip DOM writes when nothing changed (called every frame).
+let _prevClicks = -1, _prevRefreshes = -1, _prevGoal = -1, _prevRoundNum = -1
+let _prevGoalMet = null
+
 function updateRoundHUD() {
   const rd = getRoundState()
   const st = getState()
 
-  if (hudClicksEl)    hudClicksEl.textContent    = rd.clicksLeft
-  if (hudRefreshesEl) hudRefreshesEl.textContent  = rd.refreshesLeft
-  if (hudGoalMaxEl)   hudGoalMaxEl.textContent    = fmt(rd.goal)
+  if (hudClicksEl    && rd.clicksLeft    !== _prevClicks)    { hudClicksEl.textContent   = rd.clicksLeft;    _prevClicks    = rd.clicksLeft }
+  if (hudRefreshesEl && rd.refreshesLeft !== _prevRefreshes) { hudRefreshesEl.textContent = rd.refreshesLeft; _prevRefreshes = rd.refreshesLeft }
+  if (hudGoalMaxEl   && rd.goal          !== _prevGoal)      { hudGoalMaxEl.textContent   = fmt(rd.goal);     _prevGoal      = rd.goal }
+  if (hudRoundNumEl  && rd.number        !== _prevRoundNum)  { hudRoundNumEl.textContent  = rd.number;        _prevRoundNum  = rd.number }
 
-  // Round number (row 2 left of unified HUD)
-  const roundNumEl = document.getElementById('hud-round-num')
-  if (roundNumEl) roundNumEl.textContent = rd.number
-
-  // goal-met class lives on hud-coins (the score value in the center button)
   const goalMet = st.coins >= rd.goal
-  hudCoins?.classList.toggle('goal-met', goalMet)
+  if (goalMet !== _prevGoalMet) { hudCoins?.classList.toggle('goal-met', goalMet); _prevGoalMet = goalMet }
 
-  // Dim refresh button when out of refreshes
-  btnRefresh?.classList.toggle('disabled', rd.refreshesLeft <= 0)
+  // Dim refresh button only when state actually changed
+  const noRefreshes = rd.refreshesLeft <= 0
+  btnRefresh?.classList.toggle('disabled', noRefreshes)
 }
 
 function doManualRefresh() {
