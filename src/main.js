@@ -2275,7 +2275,7 @@ function getUpgradeStatValue(upgradeType, bkt) {
     case 'value':    return stats.value
     case 'speed':    return stats.speed
     case 'diameter': return stats.maxRadius
-    case 'duration': return stats.growMs + stats.holdMs
+    case 'duration': return stats.holdMs
     default:         return 1
   }
 }
@@ -3469,6 +3469,8 @@ function updateRoundHUD() {
 }
 
 function doManualRefresh() {
+  if (introMode) return                          // button must not fire during intro
+  if (getRoundState().clicksLeft <= 0) return    // round is ending; board must stay empty
   const rd = getRoundState()
   if (rd.refreshesLeft <= 0) return
   if (refillInputLock > 0) return
