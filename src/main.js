@@ -1231,15 +1231,17 @@ function drawBall(b) {
     ctx.translate(-b.x, -b.y)
   }
 
-  // Glow when actively expanding, or during the spawn-in grow window.
+  // Glow — all balls emit ambient neon light; active balls pulse much brighter.
   const inSpawnGrow = b.spawnInTimer >= 0
     && (b.spawnInTimer - b.spawnInDelay) >= 0
     && (b.spawnInTimer - b.spawnInDelay) < SPAWN_GROW_DURATION
+  ctx.shadowColor = b.color
   if (isActive || inSpawnGrow) {
-    ctx.shadowColor = b.color
     // Glow intensifies with chain depth — more dramatic the deeper into a chain
     const glowMult = 1.5 + Math.min((b.chainTriggerIdx ?? 0) * 0.25, 3.0)
     ctx.shadowBlur  = 9 * gameScale * glowMult
+  } else {
+    ctx.shadowBlur  = 5 * gameScale   // ambient neon corona on idle balls
   }
 
   const sp = getBallSprite(b.color, b.lightColor, r)
