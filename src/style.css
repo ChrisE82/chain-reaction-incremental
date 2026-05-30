@@ -2,45 +2,47 @@
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
   --qb-h: calc(15dvh + env(safe-area-inset-bottom, 0px));
 
-  /* ── Brand colours ──────────────────────────────────────────── */
-  --c-gold:         #ffe566;
-  --c-gold-80:      rgba(255, 229, 102, 0.80);
-  --c-gold-60:      rgba(255, 229, 102, 0.60);
-  --c-gold-45:      rgba(255, 229, 102, 0.45);
-  --c-gold-38:      rgba(255, 229, 102, 0.38);
-  --c-gold-35:      rgba(255, 229, 102, 0.35);
-  --c-gold-25:      rgba(255, 229, 102, 0.25);
-  --c-gold-12:      rgba(255, 229, 102, 0.12);
-  --c-gold-10:      rgba(255, 229, 102, 0.10);
-  --c-gold-04:      rgba(255, 229, 102, 0.04);
+  /* ── Brand colours (semantic names) ─────────────────────────── */
+  --color-highlight:         #ffe566;
+  --color-highlight-80:      rgba(255, 229, 102, 0.80);
+  --color-highlight-60:      rgba(255, 229, 102, 0.60);
+  --color-highlight-45:      rgba(255, 229, 102, 0.45);
+  --color-highlight-38:      rgba(255, 229, 102, 0.38);
+  --color-highlight-35:      rgba(255, 229, 102, 0.35);
+  --color-highlight-25:      rgba(255, 229, 102, 0.25);
+  --color-highlight-12:      rgba(255, 229, 102, 0.12);
+  --color-highlight-10:      rgba(255, 229, 102, 0.10);
+  --color-highlight-04:      rgba(255, 229, 102, 0.04);
 
-  --c-green:        #4fffb0;
-  --c-green-80:     rgba(79, 255, 176, 0.80);
-  --c-green-75:     rgba(79, 255, 176, 0.75);
-  --c-green-50:     rgba(79, 255, 176, 0.50);
-  --c-green-45:     rgba(79, 255, 176, 0.45);
-  --c-green-35:     rgba(79, 255, 176, 0.35);
-  --c-green-18:     rgba(79, 255, 176, 0.18);
-  --c-green-05:     rgba(79, 255, 176, 0.05);
+  --color-success:        #4fffb0;
+  --color-success-80:     rgba(79, 255, 176, 0.80);
+  --color-success-75:     rgba(79, 255, 176, 0.75);
+  --color-success-50:     rgba(79, 255, 176, 0.50);
+  --color-success-45:     rgba(79, 255, 176, 0.45);
+  --color-success-35:     rgba(79, 255, 176, 0.35);
+  --color-success-18:     rgba(79, 255, 176, 0.18);
+  --color-success-05:     rgba(79, 255, 176, 0.05);
 
-  --c-blue:         #42d4ff;
-  --c-blue-85:      rgba(66, 212, 255, 0.85);
-  --c-blue-50:      rgba(66, 212, 255, 0.50);
-  --c-blue-35:      rgba(66, 212, 255, 0.35);
-  --c-blue-30:      rgba(66, 212, 255, 0.30);
-  --c-blue-22:      rgba(66, 212, 255, 0.22);
-  --c-blue-15:      rgba(66, 212, 255, 0.15);
-  --c-blue-12:      rgba(66, 212, 255, 0.12);
+  --color-accent:         #42d4ff;
+  --color-accent-85:      rgba(66, 212, 255, 0.85);
+  --color-accent-50:      rgba(66, 212, 255, 0.50);
+  --color-accent-35:      rgba(66, 212, 255, 0.35);
+  --color-accent-30:      rgba(66, 212, 255, 0.30);
+  --color-accent-22:      rgba(66, 212, 255, 0.22);
+  --color-accent-15:      rgba(66, 212, 255, 0.15);
+  --color-accent-12:      rgba(66, 212, 255, 0.12);
 
-  --c-red:          #ff4f6a;
-  --c-orange-warn:  #ff9f43;
+  --color-danger:          #ff4f6a;
+  --color-warn:  #ff9f43;
 
   /* ── Surfaces & borders ─────────────────────────────────────── */
-  --surface-bg:     #050810;
-  --surface-panel:  rgba(6, 10, 22, 0.97);
-  --surface-panel2: rgba(6, 10, 22, 0.99);
-  --surface-row:    rgba(255, 255, 255, 0.03);
-  --surface-hover:  rgba(255, 255, 255, 0.05);
+  --bg-base:     #050810;
+  --bg-panel:  rgba(6, 10, 22, 0.97);
+  --bg-panel-deep: rgba(6, 10, 22, 0.99);
+  --bg-row:    rgba(255, 255, 255, 0.03);
+  --bg-hover:  rgba(255, 255, 255, 0.05);
+
+  --color-secondary:  rgba(66, 212, 255, 0.50);  /* dim accent; neon overrides with purple */
 
   --border-subtle:  rgba(255, 255, 255, 0.09);
   --border-mid:     rgba(255, 255, 255, 0.14);
@@ -55,6 +57,72 @@
   --text-ghost:     rgba(255, 255, 255, 0.30);
 
 
+}
+
+
+/* ─── Neon-80s theme overrides ──────────────────────────────────────
+   Only properties that differ from the default theme are listed here.
+   Structural additions (extra glow layers, bg grid) live in the
+   art/neon-80s branch — these are pure colour/value swaps.
+──────────────────────────────────────────────────────────────────── */
+[data-theme="neon"] {
+  /* ── Background ───────────────────────────────────────────── */
+  --bg-base:                #07000d;
+
+  /* ── Accent: cyan replaces blue ───────────────────────────── */
+  --color-accent:           #00c8ff;
+  --color-accent-85:        rgba(0, 200, 255, 0.85);
+  --color-accent-55:        rgba(0, 200, 255, 0.55);
+  --color-accent-50:        rgba(0, 200, 255, 0.50);
+  --color-accent-45:        rgba(0, 200, 255, 0.45);
+  --color-accent-35:        rgba(0, 200, 255, 0.35);
+  --color-accent-30:        rgba(0, 200, 255, 0.30);
+  --color-accent-22:        rgba(0, 200, 255, 0.22);
+  --color-accent-18:        rgba(0, 200, 255, 0.18);
+  --color-accent-15:        rgba(0, 200, 255, 0.15);
+  --color-accent-14:        rgba(0, 200, 255, 0.14);
+  --color-accent-12:        rgba(0, 200, 255, 0.12);
+  --color-accent-10:        rgba(0, 200, 255, 0.10);
+  --color-accent-08:        rgba(0, 200, 255, 0.08);
+  --color-accent-04:        rgba(0, 200, 255, 0.04);
+  --color-accent-03:        rgba(0, 200, 255, 0.03);
+  --color-accent-02:        rgba(0, 200, 255, 0.02);
+
+  /* ── Highlight: pure yellow replaces warm yellow ───────────── */
+  --color-highlight:        #ffe500;
+  --color-highlight-80:     rgba(255, 229, 0, 0.80);
+  --color-highlight-72:     rgba(255, 229, 0, 0.72);
+  --color-highlight-65:     rgba(255, 229, 0, 0.65);
+  --color-highlight-60:     rgba(255, 229, 0, 0.60);
+  --color-highlight-50:     rgba(255, 229, 0, 0.50);
+  --color-highlight-45:     rgba(255, 229, 0, 0.45);
+  --color-highlight-40:     rgba(255, 229, 0, 0.40);
+  --color-highlight-38:     rgba(255, 229, 0, 0.38);
+  --color-highlight-35:     rgba(255, 229, 0, 0.35);
+  --color-highlight-30:     rgba(255, 229, 0, 0.30);
+  --color-highlight-25:     rgba(255, 229, 0, 0.25);
+  --color-highlight-14:     rgba(255, 229, 0, 0.14);
+  --color-highlight-12:     rgba(255, 229, 0, 0.12);
+  --color-highlight-10:     rgba(255, 229, 0, 0.10);
+  --color-highlight-06:     rgba(255, 229, 0, 0.06);
+  --color-highlight-04:     rgba(255, 229, 0, 0.04);
+
+  /* ── Success: electric green replaces mint ─────────────────── */
+  --color-success:          #39ff14;
+  --color-success-90:       rgba(57, 255, 20, 0.90);
+  --color-success-80:       rgba(57, 255, 20, 0.80);
+  --color-success-75:       rgba(57, 255, 20, 0.75);
+  --color-success-70:       rgba(57, 255, 20, 0.70);
+  --color-success-65:       rgba(57, 255, 20, 0.65);
+  --color-success-50:       rgba(57, 255, 20, 0.50);
+  --color-success-45:       rgba(57, 255, 20, 0.45);
+  --color-success-35:       rgba(57, 255, 20, 0.35);
+  --color-success-30:       rgba(57, 255, 20, 0.30);
+  --color-success-18:       rgba(57, 255, 20, 0.18);
+  --color-success-05:       rgba(57, 255, 20, 0.05);
+
+  /* ── Secondary: purple accent replaces dim blue ────────────── */
+  --color-secondary:        rgba(180, 0, 255, 0.70);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -965,13 +1033,13 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* "NEXT BALL" label: full-brightness warning */
 .next-ball-card:disabled .nbc-label {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
   opacity: 1;
 }
 
 /* BUY pill: warning text + border */
 .next-ball-card:disabled .nbc-buy-pill {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
   border-color: rgba(255, 159, 67, 0.40);
 }
 
@@ -1024,7 +1092,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .next-ball-card:disabled .nbc-cost-text {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
 }
 
 /* Buy pill — visual zone only, pointer-events go to parent */
@@ -1255,7 +1323,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Upgrade name ("VALUE", "SPEED" etc.): full-brightness warning */
 .upg-row:disabled .upg-row-label {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
 }
 
 /* Level badge: muted but still legible */
@@ -1341,7 +1409,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Cost: full-brightness warning */
 .upg-row:disabled .upg-row-cost {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
 }
 
 
@@ -1791,12 +1859,12 @@ body.intro-completing #hud {
 /* BALL disabled: mute the orb icon + color name; warning on cost */
 #qb-ball:disabled .qb-btn-icon  { opacity: 0.40; }
 #qb-ball:disabled .qb-btn-label { opacity: 0.38; }
-#qb-ball:disabled .qb-btn-cost  { color: var(--c-orange-warn); }
+#qb-ball:disabled .qb-btn-cost  { color: var(--color-warn); }
 
 /* BUY disabled: barely mute icon; warning amber on name + cost */
 #qb-buy:disabled .qb-btn-icon  { opacity: 0.65; }
-#qb-buy:disabled .qb-btn-label { color: var(--c-orange-warn); }
-#qb-buy:disabled .qb-btn-cost  { color: var(--c-orange-warn); }
+#qb-buy:disabled .qb-btn-label { color: var(--color-warn); }
+#qb-buy:disabled .qb-btn-cost  { color: var(--color-warn); }
 
 /* Store button — green accent, never disabled */
 .qb-btn-store {
