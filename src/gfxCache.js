@@ -98,11 +98,11 @@ export function getBallSprite(color, lightColor, r) {
   const edgeStop = rPx / ctr   // e.g. ≈0.667 for a typical ball
 
   const glowGrad = cx.createRadialGradient(ctr, ctr, 0, ctr, ctr, ctr)
-  glowGrad.addColorStop(0,                              `rgba(${cr},${cg},${cb},0.08)`)
-  glowGrad.addColorStop(edgeStop * 0.75,                `rgba(${cr},${cg},${cb},0.45)`)
-  glowGrad.addColorStop(edgeStop,                       `rgba(${cr},${cg},${cb},0.65)`)
-  glowGrad.addColorStop(Math.min(0.98, edgeStop + 0.10),`rgba(${cr},${cg},${cb},0.30)`)
-  glowGrad.addColorStop(1,                              `rgba(${cr},${cg},${cb},0.00)`)
+  glowGrad.addColorStop(0,                               `rgba(${cr},${cg},${cb},0.05)`)
+  glowGrad.addColorStop(edgeStop * 0.80,                 `rgba(${cr},${cg},${cb},0.55)`)
+  glowGrad.addColorStop(edgeStop,                        `rgba(${cr},${cg},${cb},0.85)`)
+  glowGrad.addColorStop(Math.min(0.98, edgeStop + 0.12), `rgba(${cr},${cg},${cb},0.40)`)
+  glowGrad.addColorStop(1,                               `rgba(${cr},${cg},${cb},0.00)`)
 
   cx.fillStyle = glowGrad
   cx.fillRect(0, 0, sizePx, sizePx)
@@ -110,23 +110,27 @@ export function getBallSprite(color, lightColor, r) {
   // ── Layer 2: Ball body — neon tube gradient ────────────────────────────
   //
   // Clipped to the ball arc so the body never bleeds into the haze zone.
-  //   centre  → #ffffff     : white-hot plasma core
-  //   20%     → lightColor  : bright saturated colour ring
-  //   58%     → color       : main neon colour
-  //   100%    → darkened    : slightly cooler glass-wall rim
+  // The bright zone covers most of the ball; the saturated neon colour lives
+  // in the outer ring; a thin dark rim at the very edge reads as the glass wall.
+  //   0%   → #ffffff     : white-hot plasma core
+  //   45%  → lightColor  : bright saturated glow — takes up nearly half the ball
+  //   78%  → color       : full neon colour starts near the edge
+  //   94%  → color       : holds the saturated colour
+  //   100% → darkened    : thin cool rim — the neon tube glass wall
   cx.save()
   cx.beginPath()
   cx.arc(ctr, ctr, rPx, 0, Math.PI * 2)
   cx.clip()
 
-  const darkR = Math.max(0, cr - 45)
-  const darkG = Math.max(0, cg - 45)
-  const darkB = Math.max(0, cb - 45)
+  const darkR = Math.max(0, cr - 65)
+  const darkG = Math.max(0, cg - 65)
+  const darkB = Math.max(0, cb - 65)
 
   const bodyGrad = cx.createRadialGradient(ctr, ctr, 0, ctr, ctr, rPx)
   bodyGrad.addColorStop(0,    '#ffffff')
-  bodyGrad.addColorStop(0.20, lightColor)
-  bodyGrad.addColorStop(0.58, color)
+  bodyGrad.addColorStop(0.45, lightColor)
+  bodyGrad.addColorStop(0.78, color)
+  bodyGrad.addColorStop(0.94, color)
   bodyGrad.addColorStop(1,    `rgb(${darkR},${darkG},${darkB})`)
 
   cx.fillStyle = bodyGrad
