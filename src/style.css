@@ -2,45 +2,47 @@
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
   --qb-h: calc(15dvh + env(safe-area-inset-bottom, 0px));
 
-  /* ── Brand colours ──────────────────────────────────────────── */
-  --c-gold:         #ffe566;
-  --c-gold-80:      rgba(255, 229, 102, 0.80);
-  --c-gold-60:      rgba(255, 229, 102, 0.60);
-  --c-gold-45:      rgba(255, 229, 102, 0.45);
-  --c-gold-38:      rgba(255, 229, 102, 0.38);
-  --c-gold-35:      rgba(255, 229, 102, 0.35);
-  --c-gold-25:      rgba(255, 229, 102, 0.25);
-  --c-gold-12:      rgba(255, 229, 102, 0.12);
-  --c-gold-10:      rgba(255, 229, 102, 0.10);
-  --c-gold-04:      rgba(255, 229, 102, 0.04);
+  /* ── Brand colours (semantic names) ─────────────────────────── */
+  --color-highlight:         #ffe566;
+  --color-highlight-80:      rgba(255, 229, 102, 0.80);
+  --color-highlight-60:      rgba(255, 229, 102, 0.60);
+  --color-highlight-45:      rgba(255, 229, 102, 0.45);
+  --color-highlight-38:      rgba(255, 229, 102, 0.38);
+  --color-highlight-35:      rgba(255, 229, 102, 0.35);
+  --color-highlight-25:      rgba(255, 229, 102, 0.25);
+  --color-highlight-12:      rgba(255, 229, 102, 0.12);
+  --color-highlight-10:      rgba(255, 229, 102, 0.10);
+  --color-highlight-04:      rgba(255, 229, 102, 0.04);
 
-  --c-green:        #4fffb0;
-  --c-green-80:     rgba(79, 255, 176, 0.80);
-  --c-green-75:     rgba(79, 255, 176, 0.75);
-  --c-green-50:     rgba(79, 255, 176, 0.50);
-  --c-green-45:     rgba(79, 255, 176, 0.45);
-  --c-green-35:     rgba(79, 255, 176, 0.35);
-  --c-green-18:     rgba(79, 255, 176, 0.18);
-  --c-green-05:     rgba(79, 255, 176, 0.05);
+  --color-success:        #4fffb0;
+  --color-success-80:     rgba(79, 255, 176, 0.80);
+  --color-success-75:     rgba(79, 255, 176, 0.75);
+  --color-success-50:     rgba(79, 255, 176, 0.50);
+  --color-success-45:     rgba(79, 255, 176, 0.45);
+  --color-success-35:     rgba(79, 255, 176, 0.35);
+  --color-success-18:     rgba(79, 255, 176, 0.18);
+  --color-success-05:     rgba(79, 255, 176, 0.05);
 
-  --c-blue:         #42d4ff;
-  --c-blue-85:      rgba(66, 212, 255, 0.85);
-  --c-blue-50:      rgba(66, 212, 255, 0.50);
-  --c-blue-35:      rgba(66, 212, 255, 0.35);
-  --c-blue-30:      rgba(66, 212, 255, 0.30);
-  --c-blue-22:      rgba(66, 212, 255, 0.22);
-  --c-blue-15:      rgba(66, 212, 255, 0.15);
-  --c-blue-12:      rgba(66, 212, 255, 0.12);
+  --color-accent:         #42d4ff;
+  --color-accent-85:      rgba(66, 212, 255, 0.85);
+  --color-accent-50:      rgba(66, 212, 255, 0.50);
+  --color-accent-35:      rgba(66, 212, 255, 0.35);
+  --color-accent-30:      rgba(66, 212, 255, 0.30);
+  --color-accent-22:      rgba(66, 212, 255, 0.22);
+  --color-accent-15:      rgba(66, 212, 255, 0.15);
+  --color-accent-12:      rgba(66, 212, 255, 0.12);
 
-  --c-red:          #ff4f6a;
-  --c-orange-warn:  #ff9f43;
+  --color-danger:          #ff4f6a;
+  --color-warn:  #ff9f43;
 
   /* ── Surfaces & borders ─────────────────────────────────────── */
-  --surface-bg:     #050810;
-  --surface-panel:  rgba(6, 10, 22, 0.97);
-  --surface-panel2: rgba(6, 10, 22, 0.99);
-  --surface-row:    rgba(255, 255, 255, 0.03);
-  --surface-hover:  rgba(255, 255, 255, 0.05);
+  --bg-base:     #050810;
+  --bg-panel:  rgba(6, 10, 22, 0.97);
+  --bg-panel-deep: rgba(6, 10, 22, 0.99);
+  --bg-row:    rgba(255, 255, 255, 0.03);
+  --bg-hover:  rgba(255, 255, 255, 0.05);
+
+  --color-secondary:  rgba(66, 212, 255, 0.50);  /* dim accent; neon overrides with purple */
 
   --border-subtle:  rgba(255, 255, 255, 0.09);
   --border-mid:     rgba(255, 255, 255, 0.14);
@@ -57,10 +59,76 @@
 
 }
 
+
+/* ─── Neon-80s theme overrides ──────────────────────────────────────
+   Only properties that differ from the default theme are listed here.
+   Structural additions (extra glow layers, bg grid) live in the
+   art/neon-80s branch — these are pure colour/value swaps.
+──────────────────────────────────────────────────────────────────── */
+[data-theme="neon"] {
+  /* ── Background ───────────────────────────────────────────── */
+  --bg-base:                #07000d;
+
+  /* ── Accent: cyan replaces blue ───────────────────────────── */
+  --color-accent:           #00c8ff;
+  --color-accent-85:        rgba(0, 200, 255, 0.85);
+  --color-accent-55:        rgba(0, 200, 255, 0.55);
+  --color-accent-50:        rgba(0, 200, 255, 0.50);
+  --color-accent-45:        rgba(0, 200, 255, 0.45);
+  --color-accent-35:        rgba(0, 200, 255, 0.35);
+  --color-accent-30:        rgba(0, 200, 255, 0.30);
+  --color-accent-22:        rgba(0, 200, 255, 0.22);
+  --color-accent-18:        rgba(0, 200, 255, 0.18);
+  --color-accent-15:        rgba(0, 200, 255, 0.15);
+  --color-accent-14:        rgba(0, 200, 255, 0.14);
+  --color-accent-12:        rgba(0, 200, 255, 0.12);
+  --color-accent-10:        rgba(0, 200, 255, 0.10);
+  --color-accent-08:        rgba(0, 200, 255, 0.08);
+  --color-accent-04:        rgba(0, 200, 255, 0.04);
+  --color-accent-03:        rgba(0, 200, 255, 0.03);
+  --color-accent-02:        rgba(0, 200, 255, 0.02);
+
+  /* ── Highlight: pure yellow replaces warm yellow ───────────── */
+  --color-highlight:        #ffe500;
+  --color-highlight-80:     rgba(255, 229, 0, 0.80);
+  --color-highlight-72:     rgba(255, 229, 0, 0.72);
+  --color-highlight-65:     rgba(255, 229, 0, 0.65);
+  --color-highlight-60:     rgba(255, 229, 0, 0.60);
+  --color-highlight-50:     rgba(255, 229, 0, 0.50);
+  --color-highlight-45:     rgba(255, 229, 0, 0.45);
+  --color-highlight-40:     rgba(255, 229, 0, 0.40);
+  --color-highlight-38:     rgba(255, 229, 0, 0.38);
+  --color-highlight-35:     rgba(255, 229, 0, 0.35);
+  --color-highlight-30:     rgba(255, 229, 0, 0.30);
+  --color-highlight-25:     rgba(255, 229, 0, 0.25);
+  --color-highlight-14:     rgba(255, 229, 0, 0.14);
+  --color-highlight-12:     rgba(255, 229, 0, 0.12);
+  --color-highlight-10:     rgba(255, 229, 0, 0.10);
+  --color-highlight-06:     rgba(255, 229, 0, 0.06);
+  --color-highlight-04:     rgba(255, 229, 0, 0.04);
+
+  /* ── Success: electric green replaces mint ─────────────────── */
+  --color-success:          #39ff14;
+  --color-success-90:       rgba(57, 255, 20, 0.90);
+  --color-success-80:       rgba(57, 255, 20, 0.80);
+  --color-success-75:       rgba(57, 255, 20, 0.75);
+  --color-success-70:       rgba(57, 255, 20, 0.70);
+  --color-success-65:       rgba(57, 255, 20, 0.65);
+  --color-success-50:       rgba(57, 255, 20, 0.50);
+  --color-success-45:       rgba(57, 255, 20, 0.45);
+  --color-success-35:       rgba(57, 255, 20, 0.35);
+  --color-success-30:       rgba(57, 255, 20, 0.30);
+  --color-success-18:       rgba(57, 255, 20, 0.18);
+  --color-success-05:       rgba(57, 255, 20, 0.05);
+
+  /* ── Secondary: purple accent replaces dim blue ────────────── */
+  --color-secondary:        rgba(180, 0, 255, 0.70);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: var(--surface-bg);
+  background: var(--bg-base);
   overflow: hidden;
   width: 100dvw;
   height: 100dvh;
@@ -136,7 +204,7 @@ canvas {
   padding: 1.2vmin 2.5vmin;
   border-radius: 2vmin;
   border: 1px solid var(--border-bright);
-  background: var(--surface-hover);
+  background: var(--bg-hover);
   box-shadow: 0 0 10px var(--border-row);
   cursor: pointer;
   pointer-events: auto;
@@ -159,17 +227,17 @@ canvas {
   gap: 0.4vmin;
   padding: 1vmin 3vmin;
   border-radius: 2vmin;
-  border: 1px solid var(--c-gold-25);
-  background: var(--c-gold-04);
-  box-shadow: 0 0 12px var(--c-gold-10);
+  border: 1px solid var(--color-highlight-25);
+  background: var(--color-highlight-04);
+  box-shadow: 0 0 12px var(--color-highlight-10);
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, box-shadow 0.15s;
 }
 .hud-score-btn:active {
-  background: var(--c-gold-12);
-  box-shadow: 0 0 22px var(--c-gold-25);
+  background: var(--color-highlight-12);
+  box-shadow: 0 0 22px var(--color-highlight-25);
 }
 
 .hud-score-row {
@@ -180,7 +248,7 @@ canvas {
 
 .hud-coin-icon {
   font-size: clamp(1.2rem, 5vmin, 3.13rem);
-  color: var(--c-gold);
+  color: var(--color-highlight);
   filter: drop-shadow(0 0 6px rgba(255,229,102,0.75));
   align-self: center;
   transition: color 0.25s, filter 0.25s;
@@ -191,34 +259,34 @@ canvas {
   font-size: clamp(2rem, 8vmin, 5rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: var(--c-gold);
+  color: var(--color-highlight);
   text-shadow:
-    0 0 10px var(--c-gold-80),
-    0 0 26px var(--c-gold-35);
+    0 0 10px var(--color-highlight-80),
+    0 0 26px var(--color-highlight-35);
   line-height: 1;
   transition: color 0.25s, text-shadow 0.25s;
 }
 
 /* Goal met — score and icon both go green */
 #hud-coins.goal-met {
-  color: var(--c-green);
+  color: var(--color-success);
   text-shadow:
-    0 0 10px var(--c-green-80),
-    0 0 26px var(--c-green-35);
+    0 0 10px var(--color-success-80),
+    0 0 26px var(--color-success-35);
 }
 .hud-score-btn:has(#hud-coins.goal-met) .hud-coin-icon {
-  color: var(--c-green);
-  filter: drop-shadow(0 0 6px var(--c-green-75));
+  color: var(--color-success);
+  filter: drop-shadow(0 0 6px var(--color-success-75));
 }
 .hud-score-btn:has(#hud-coins.goal-met) .hud-expand-arrow {
-  color: var(--c-green-45);
+  color: var(--color-success-45);
 }
 
 .hud-expand-arrow {
   display: block;
   text-align: center;
   font-size: clamp(0.55rem, 1.8vmin, 1.1rem);
-  color: var(--c-gold-38);
+  color: var(--color-highlight-38);
   line-height: 1;
   margin-top: 0.5vmin;
   transition: color 0.25s, transform 0.25s;
@@ -264,7 +332,7 @@ canvas {
   font-family: 'Orbitron', monospace;
   font-size: clamp(0.7rem, 2.2vmin, 1.38rem);
   letter-spacing: 0.22em;
-  color: var(--c-blue-50);
+  color: var(--color-secondary);
   text-transform: uppercase;
   line-height: 1;
 }
@@ -273,7 +341,7 @@ canvas {
   font-size: clamp(1.4rem, 5.5vmin, 3.44rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: var(--c-blue);
+  color: var(--color-accent);
   text-shadow:
     0 0 10px rgba(66,212,255,0.70),
     0 0 22px rgba(66,212,255,0.28);
@@ -302,17 +370,17 @@ canvas {
   font-size: clamp(1.4rem, 5.5vmin, 3.44rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  color: var(--c-green);
+  color: var(--color-success);
   text-shadow:
-    0 0 10px var(--c-green-80),
-    0 0 26px var(--c-green-35);
+    0 0 10px var(--color-success-80),
+    0 0 26px var(--color-success-35);
   line-height: 1.05;
 }
 .hud-chain-lbl {
   font-family: 'Orbitron', monospace;
   font-size: clamp(0.7rem, 2.2vmin, 1.38rem);
   letter-spacing: 0.22em;
-  color: var(--c-green-50);
+  color: var(--color-success-50);
   text-transform: uppercase;
   line-height: 1;
 }
@@ -331,7 +399,7 @@ body.intro-active .hud-goal-row { display: none; }
   top: 0;   /* overridden by JS when opened so it sits below #hud */
   left: 4vw;
   z-index: 10;
-  background: var(--surface-panel);
+  background: var(--bg-panel);
   border: 1px solid var(--border-subtle);
   border-radius: 2vmin;
   padding: 2.5vmin 3vmin;
@@ -384,13 +452,13 @@ body.intro-active .hud-goal-row { display: none; }
   width: 100%;
   padding: 3vmin 4vmin;
   background: rgba(66, 212, 255, 0.08);
-  border: 1px solid var(--c-blue-50);
+  border: 1px solid var(--color-accent-50);
   border-radius: 2vmin;
   font-family: 'Orbitron', monospace;
   font-size: clamp(0.72rem, 2.3vmin, 1.44rem);
   font-weight: 700;
   letter-spacing: 0.18em;
-  color: var(--c-blue);
+  color: var(--color-accent);
   text-shadow: 0 0 10px rgba(66, 212, 255, 0.65);
   cursor: pointer;
   text-transform: uppercase;
@@ -414,7 +482,7 @@ body.intro-active .hud-goal-row { display: none; }
   max-height: 78dvh;
   display: flex;
   flex-direction: column;
-  background: var(--surface-panel);
+  background: var(--bg-panel);
   border-top: 1px solid var(--border-subtle);
   border-radius: 3vmin 3vmin 0 0;
   backdrop-filter: blur(14px);
@@ -471,7 +539,7 @@ body.intro-active .hud-goal-row { display: none; }
 .stats-tab {
   flex: 1;
   padding: 1.8vmin 0;
-  background: var(--surface-row);
+  background: var(--bg-row);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 1.5vmin;
   font-family: 'Orbitron', monospace;
@@ -484,10 +552,10 @@ body.intro-active .hud-goal-row { display: none; }
 }
 
 .stats-tab.active {
-  color: var(--c-gold);
+  color: var(--color-highlight);
   background: rgba(255, 229, 102, 0.08);
   border-color: rgba(255, 229, 102, 0.42);
-  text-shadow: 0 0 8px var(--c-gold-45);
+  text-shadow: 0 0 8px var(--color-highlight-45);
 }
 
 #stats-tab-body {
@@ -527,7 +595,7 @@ body.intro-active .hud-goal-row { display: none; }
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s;
 }
-.stats-section-hdr:active { color: var(--c-blue); }
+.stats-section-hdr:active { color: var(--color-accent); }
 
 .stats-section-hdr > .stats-section-title-text { flex: 1; }
 
@@ -576,7 +644,7 @@ body.intro-active .hud-goal-row { display: none; }
   align-items: center;
   padding: 2vmin 3vmin;
   border-radius: 2vmin;
-  background: var(--surface-row);
+  background: var(--bg-row);
 }
 
 .stats-row:last-child { border-bottom: none; }
@@ -596,9 +664,9 @@ body.intro-active .hud-goal-row { display: none; }
 }
 
 /* Semantic value colors — match game accent palette */
-.stats-val-gold  { color: var(--c-gold); text-shadow: 0 0 8px var(--c-gold-45); }
-.stats-val-green { color: var(--c-green); text-shadow: 0 0 8px var(--c-green-45); }
-.stats-val-cyan  { color: var(--c-blue); text-shadow: 0 0 8px rgba(66, 212, 255, 0.45); }
+.stats-val-gold  { color: var(--color-highlight); text-shadow: 0 0 8px var(--color-highlight-45); }
+.stats-val-green { color: var(--color-success); text-shadow: 0 0 8px var(--color-success-45); }
+.stats-val-cyan  { color: var(--color-accent); text-shadow: 0 0 8px rgba(66, 212, 255, 0.45); }
 
 .stats-color-orb {
   width: 3.5vmin;
@@ -636,7 +704,7 @@ body.intro-active #stats-screen { display: none !important; }
   z-index: 95;  /* above #hud (90); below round-end overlays (200) */
   display: flex;
   flex-direction: column;
-  background: var(--surface-panel2);
+  background: var(--bg-panel-deep);
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: var(--qb-h);
   opacity: 1;
@@ -746,11 +814,11 @@ body.intro-active #stats-screen { display: none !important; }
   border-radius: 50%;
   background: conic-gradient(
     #a78bfa 0%,
-    var(--c-blue) 20%,
-    var(--c-green) 38%,
-    var(--c-gold) 54%,
+    var(--color-accent) 20%,
+    var(--color-success) 38%,
+    var(--color-highlight) 54%,
     #ff8c42 70%,
-    var(--c-red) 85%,
+    var(--color-danger) 85%,
     #a78bfa 100%
   );
   box-shadow: 0 0 5px 1px rgba(167,139,250,0.35), 0 0 10px rgba(255,229,102,0.2);
@@ -775,7 +843,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 .reactor-coin-icon {
   font-size: clamp(1.1rem, 3.6vmin, 2.25rem);
-  color: var(--c-gold);
+  color: var(--color-highlight);
   filter: drop-shadow(0 0 6px rgba(255,229,102,0.85));
   line-height: 1;
   flex-shrink: 0;
@@ -784,7 +852,7 @@ body.intro-active #stats-screen { display: none !important; }
 .reactor-coin-val {
   font-size: clamp(1.6rem, 5vmin, 3.13rem);
   font-weight: 700;
-  color: var(--c-gold);
+  color: var(--color-highlight);
   letter-spacing: 0.04em;
   text-shadow: 0 0 18px rgba(255,229,102,0.5);
 }
@@ -815,8 +883,8 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 @keyframes cv-coins-flash {
-  0%, 100% { color: var(--c-gold); text-shadow: 0 0 18px rgba(255,229,102,0.5); }
-  50% { color: var(--c-red); text-shadow: 0 0 14px rgba(255,79,106,0.6); }
+  0%, 100% { color: var(--color-highlight); text-shadow: 0 0 18px rgba(255,229,102,0.5); }
+  50% { color: var(--color-danger); text-shadow: 0 0 14px rgba(255,79,106,0.6); }
 }
 
 .reactor-coin-val.cv-bump {
@@ -876,7 +944,7 @@ body.intro-active #stats-screen { display: none !important; }
   width: 100%;
   min-height: 18vmin;
   padding: 3.5vmin;
-  background: var(--surface-row);
+  background: var(--bg-row);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 3.5vmin;
   font-family: 'Orbitron', monospace;
@@ -918,13 +986,13 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* "NEXT BALL" label: full-brightness warning */
 .next-ball-card:disabled .nbc-label {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
   opacity: 1;
 }
 
 /* BUY pill: warning text + border */
 .next-ball-card:disabled .nbc-buy-pill {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
   border-color: rgba(255, 159, 67, 0.40);
 }
 
@@ -972,12 +1040,12 @@ body.intro-active #stats-screen { display: none !important; }
 .nbc-cost-text {
   font-size: clamp(0.72rem, 2.3vmin, 1.44rem);
   font-weight: 700;
-  color: var(--c-gold);
+  color: var(--color-highlight);
   letter-spacing: 0.04em;
 }
 
 .next-ball-card:disabled .nbc-cost-text {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
 }
 
 /* Buy pill — visual zone only, pointer-events go to parent */
@@ -1040,7 +1108,7 @@ body.intro-active #stats-screen { display: none !important; }
   gap: 1.2vmin;
   min-height: 14vmin;
   border-radius: 2vmin;
-  background: var(--surface-row);
+  background: var(--bg-row);
   border: 1px solid rgba(255,255,255,0.08);
   font-family: 'Orbitron', monospace;
   cursor: pointer;
@@ -1081,7 +1149,7 @@ body.intro-active #stats-screen { display: none !important; }
 .upg-chip-cost {
   font-size: clamp(0.52rem, 1.7vmin, 1.06rem);
   font-weight: 700;
-  color: var(--c-gold);
+  color: var(--color-highlight);
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -1104,12 +1172,12 @@ body.intro-active #stats-screen { display: none !important; }
   height: 8vmin !important;
   background: rgba(66,212,255,0.10) !important;
   border: 1px solid rgba(66,212,255,0.40) !important;
-  box-shadow: 0 0 10px var(--c-blue-35) !important;
+  box-shadow: 0 0 10px var(--color-accent-35) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   font-size: 0.95rem;
-  color: var(--c-blue-85);
+  color: var(--color-accent-85);
 }
 
 .bucket-top-right {
@@ -1128,7 +1196,7 @@ body.intro-active #stats-screen { display: none !important; }
   color: var(--bc);
 }
 
-.tap-name { color: var(--c-blue-85) !important; }
+.tap-name { color: var(--color-accent-85) !important; }
 
 /* Ball pip row */
 .bucket-pips {
@@ -1168,7 +1236,7 @@ body.intro-active #stats-screen { display: none !important; }
   min-height: 12vmin;
   padding: 1.5vmin 2.5vmin 1.5vmin 2vmin;
   width: 100%;
-  background: var(--surface-row);
+  background: var(--bg-row);
   border: 1px solid var(--border-row);
   border-radius: 2.5vmin;
   font-family: 'Orbitron', monospace;
@@ -1208,7 +1276,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Upgrade name ("VALUE", "SPEED" etc.): full-brightness warning */
 .upg-row:disabled .upg-row-label {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
 }
 
 /* Level badge: muted but still legible */
@@ -1282,16 +1350,16 @@ body.intro-active #stats-screen { display: none !important; }
 .upg-row-cost {
   font-size: clamp(0.78rem, 2.5vmin, 1.56rem);
   font-weight: 700;
-  color: var(--c-gold);
+  color: var(--color-highlight);
   letter-spacing: 0.02em;
   white-space: nowrap;
   flex-shrink: 0;
-  text-shadow: 0 0 8px var(--c-gold-60);
+  text-shadow: 0 0 8px var(--color-highlight-60);
 }
 
 /* Cost: full-brightness warning */
 .upg-row:disabled .upg-row-cost {
-  color: var(--c-orange-warn);
+  color: var(--color-warn);
 }
 
 
@@ -1307,7 +1375,7 @@ body.intro-active #stats-screen { display: none !important; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-hover);
+  background: var(--bg-hover);
   border: 1px solid rgba(255,255,255,0.11);
   border-radius: 50%;
   font-size: clamp(1.3rem, 5vmin, 3.13rem);
@@ -1497,7 +1565,7 @@ body.intro-active #stats-screen { display: none !important; }
   font-weight: 700;
   font-size: clamp(1rem, 3.2vmin, 2rem);
   letter-spacing: 0.06em;
-  color: var(--c-gold);
+  color: var(--color-highlight);
   text-shadow: 0 0 10px rgba(255, 229, 102, 0.85);
   z-index: 8;
   transform: translateX(-50%);
@@ -1513,7 +1581,7 @@ body.intro-active #stats-screen { display: none !important; }
 /* ─── Kickstart floating label ─────────────────────────────── */
 
 .kickstart-float {
-  color: var(--c-green) !important;
+  color: var(--color-success) !important;
   font-size: clamp(0.85rem, 2.8vmin, 1.75rem) !important;
   text-shadow: 0 0 12px rgba(79, 255, 176, 0.9) !important;
   letter-spacing: 0.08em;
@@ -1524,7 +1592,7 @@ body.intro-active #stats-screen { display: none !important; }
 /* Larger and more vivid than regular coin labels.                    */
 
 .chain-float {
-  color: var(--c-green) !important;
+  color: var(--color-success) !important;
   font-size: clamp(1.3rem, 4.8vmin, 3rem) !important;
   font-weight: 900 !important;
   letter-spacing: 0.08em !important;
@@ -1562,7 +1630,7 @@ body.intro-active #stats-screen { display: none !important; }
 /* ─── Board-clear bonus label ──────────────────────────────── */
 
 .clear-float {
-  color: var(--c-green) !important;
+  color: var(--color-success) !important;
   font-size: clamp(1.5rem, 6vmin, 3.75rem) !important;
   font-weight: 900 !important;
   letter-spacing: 0.14em !important;
@@ -1626,7 +1694,7 @@ body.intro-completing #hud {
   padding: 1.2dvh 2vw env(safe-area-inset-bottom, 0px);
   display: flex;
   gap: 1.5vw;
-  background: var(--surface-panel);
+  background: var(--bg-panel);
   border-top: 1px solid var(--border-subtle);
   backdrop-filter: blur(14px);
   z-index: 100;  /* above #hud (90) and shop panel (95) so it stays visible */
@@ -1640,7 +1708,7 @@ body.intro-completing #hud {
   align-items: center;
   justify-content: center;
   gap: 1dvh;
-  background: var(--surface-row);
+  background: var(--bg-row);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 2vw;
   font-family: 'Orbitron', monospace;
@@ -1652,8 +1720,8 @@ body.intro-completing #hud {
 /* Affordable: same happy green-teal as the Upgrades button — signals "go" */
 .qb-btn:not(:disabled):not(.qb-btn-store) {
   background: rgba(79, 255, 176, 0.07);
-  border-color: color-mix(in srgb, var(--qb-color, var(--c-blue)) 55%, transparent);
-  box-shadow: 0 0 9px 0 color-mix(in srgb, var(--qb-color, var(--c-blue)) 30%, transparent);
+  border-color: color-mix(in srgb, var(--qb-color, var(--color-accent)) 55%, transparent);
+  box-shadow: 0 0 9px 0 color-mix(in srgb, var(--qb-color, var(--color-accent)) 30%, transparent);
 }
 
 /* Can't afford: red-orange tint signals "locked" */
@@ -1714,14 +1782,14 @@ body.intro-completing #hud {
 .qb-btn-cost {
   font-size: clamp(0.74rem, 2.2dvh, 1.9rem);
   letter-spacing: 0.04em;
-  color: var(--c-gold);
+  color: var(--color-highlight);
   white-space: nowrap;
 }
 
 /* Flash when BUY target changes — uses the button's current --qb-color */
 @keyframes qb-target-flash {
-  0%   { color: color-mix(in srgb, var(--qb-color, var(--c-blue)) 95%, white); }
-  60%  { color: color-mix(in srgb, var(--qb-color, var(--c-blue)) 70%, transparent); }
+  0%   { color: color-mix(in srgb, var(--qb-color, var(--color-accent)) 95%, white); }
+  60%  { color: color-mix(in srgb, var(--qb-color, var(--color-accent)) 70%, transparent); }
   100% { color: var(--text-body); }
 }
 .qb-target-changed { animation: qb-target-flash 0.5s ease-out forwards; }
@@ -1730,17 +1798,17 @@ body.intro-completing #hud {
 /* BALL disabled: mute the orb icon + color name; warning on cost */
 #qb-ball:disabled .qb-btn-icon  { opacity: 0.40; }
 #qb-ball:disabled .qb-btn-label { opacity: 0.38; }
-#qb-ball:disabled .qb-btn-cost  { color: var(--c-orange-warn); }
+#qb-ball:disabled .qb-btn-cost  { color: var(--color-warn); }
 
 /* BUY disabled: barely mute icon; warning amber on name + cost */
 #qb-buy:disabled .qb-btn-icon  { opacity: 0.65; }
-#qb-buy:disabled .qb-btn-label { color: var(--c-orange-warn); }
-#qb-buy:disabled .qb-btn-cost  { color: var(--c-orange-warn); }
+#qb-buy:disabled .qb-btn-label { color: var(--color-warn); }
+#qb-buy:disabled .qb-btn-cost  { color: var(--color-warn); }
 
 /* Store button — green accent, never disabled */
 .qb-btn-store {
-  background: var(--c-green-05);
-  border-color: var(--c-green-18);
+  background: var(--color-success-05);
+  border-color: var(--color-success-18);
 }
 .qb-btn-store:active { background: rgba(79, 255, 176, 0.15); }
 .qb-btn-store .qb-btn-icon  { color: rgba(79, 255, 176, 0.85); font-size: clamp(1.5rem, 4.8dvh, 4.1rem); }
@@ -1750,7 +1818,7 @@ body.intro-completing #hud {
 /* Stronger pulse applied while the first-ball cue is animating ──── */
 .qb-btn-cue-pulse {
   animation: qb-cue-throb 0.65s ease-in-out infinite alternate !important;
-  border-color: var(--c-gold) !important;
+  border-color: var(--color-highlight) !important;
   background: rgba(255, 229, 102, 0.16) !important;
 }
 
@@ -1770,7 +1838,7 @@ body.intro-completing #hud {
   to {
     box-shadow:
       0 0 22px  8px rgba(255,229,102,0.90),
-      0 0 52px 20px var(--c-gold-38);
+      0 0 52px 20px var(--color-highlight-38);
   }
 }
 
@@ -1783,8 +1851,8 @@ body.intro-completing #hud {
   font-weight: 700;
   font-size: clamp(0.75rem, 2.5vmin, 1.56rem);
   letter-spacing: 0.1em;
-  color: var(--c-green);
-  text-shadow: 0 0 10px var(--c-green-75);
+  color: var(--color-success);
+  text-shadow: 0 0 10px var(--color-success-75);
   z-index: 30;
   transform: translateX(-50%);
   animation: qb-toast-rise 1.1s ease-out forwards;
@@ -1889,9 +1957,9 @@ body.intro-completing #hud {
   -webkit-tap-highlight-color: transparent;
   transition: background 0.12s;
 }
-.reo-btn-primary   { background: var(--c-blue-12); color: var(--c-blue); border: 1px solid rgba(66,212,255,0.3); }
-.reo-btn-primary:active { background: var(--c-blue-22); }
-.reo-btn-secondary { background: var(--surface-hover); color: rgba(255,255,255,0.5); }
+.reo-btn-primary   { background: var(--color-accent-12); color: var(--color-accent); border: 1px solid rgba(66,212,255,0.3); }
+.reo-btn-primary:active { background: var(--color-accent-22); }
+.reo-btn-secondary { background: var(--bg-hover); color: rgba(255,255,255,0.5); }
 .reo-btn-secondary:active { background: rgba(255,255,255,0.1); }
 .reo-fail .reo-title { color: #ff6b6b; }
 .reo-fail { border-color: rgba(255,107,107,0.25); }
