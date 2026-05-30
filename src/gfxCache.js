@@ -110,13 +110,27 @@ export function getBallSprite(color, lightColor, r) {
   // ── Layer 2: Ball body — neon tube gradient ────────────────────────────
   //
   // Clipped to the ball arc so the body never bleeds into the haze zone.
-  // The bright zone covers most of the ball; the saturated neon colour lives
-  // in the outer ring; a thin dark rim at the very edge reads as the glass wall.
-  //   0%   → #ffffff     : white-hot plasma core
-  //   45%  → lightColor  : bright saturated glow — takes up nearly half the ball
-  //   78%  → color       : full neon colour starts near the edge
-  //   94%  → color       : holds the saturated colour
-  //   100% → darkened    : thin cool rim — the neon tube glass wall
+  //
+  // Gradient stops are SIZE-AWARE so small and large balls look like the
+  // same style.  With fixed proportions, a 2.4-unit idle ball would have a
+  // colour ring only ~5 px wide while a 6.5-unit active ball has ~40 px —
+  // completely different visual character.
+  //
+  // sizeFactor ∈ [0,1]: 0 at rPx≤15 (tiny), 1 at rPx≥60 (full-size active).
+  // As the ball grows: the white core expands (more plasma visible at scale)
+  // and the colour ring shifts outward.  At any size the colour ring is at
+  // least ~28 % of the radius so it always reads clearly.
+  //
+  //   0%          → #ffffff     : white-hot plasma core
+  //   20–45 %     → lightColor  : bright saturated zone (wider on large balls)
+  //   50–72 %     → color       : full neon colour
+  //   82–94 %     → color       : colour hold before rim
+  //   100%        → darkened    : glass-wall rim
+  const sf      = Math.min(1.0, Math.max(0, (rPx - 15) / 45))
+  const s1      = 0.20 + sf * 0.25   // white-core end:   0.20 → 0.45
+  const s2      = 0.50 + sf * 0.22   // lightColor end:   0.50 → 0.72
+  const s3      = 0.82 + sf * 0.12   // colour hold:      0.82 → 0.94
+
   cx.save()
   cx.beginPath()
   cx.arc(ctr, ctr, rPx, 0, Math.PI * 2)
@@ -127,11 +141,11 @@ export function getBallSprite(color, lightColor, r) {
   const darkB = Math.max(0, cb - 65)
 
   const bodyGrad = cx.createRadialGradient(ctr, ctr, 0, ctr, ctr, rPx)
-  bodyGrad.addColorStop(0,    '#ffffff')
-  bodyGrad.addColorStop(0.45, lightColor)
-  bodyGrad.addColorStop(0.78, color)
-  bodyGrad.addColorStop(0.94, color)
-  bodyGrad.addColorStop(1,    `rgb(${darkR},${darkG},${darkB})`)
+  bodyGrad.addColorStop(0,  '#ffffff')
+  bodyGrad.addColorStop(s1, lightColor)
+  bodyGrad.addColorStop(s2, color)
+  bodyGrad.addColorStop(s3, color)
+  bodyGrad.addColorStop(1,  `rgb(${darkR},${darkG},${darkB})`)
 
   cx.fillStyle = bodyGrad
   cx.fillRect(0, 0, sizePx, sizePx)
