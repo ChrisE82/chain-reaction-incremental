@@ -1,21 +1,4 @@
 // src/gfxCache.js — pre-rendered neon ball sprite cache.
-//
-// Each ball sprite has two painted layers:
-//
-//   1. Atmospheric glow haze
-//      A soft, foggy bloom of the ball's colour that extends `pad` virtual
-//      units beyond the ball's radius.  Peaks at the ball edge, fades to
-//      transparent at the canvas edge.  This gives idle balls an ambient
-//      neon glow without any per-frame shadow work on the main ctx.
-//
-//   2. Ball body — neon tube gradient
-//      Clipped to the ball circle so it never bleeds into the haze zone.
-//      white-hot core → bright colour ring → full neon colour → darker rim.
-//      Mimics a real neon-gas tube: the inner plasma is almost white, the
-//      glass wall is the saturated colour, the outer edge is slightly cooler.
-//
-// shadowBlur for active/popping balls is still applied on the main ctx —
-// it accumulates on top of the sprite's built-in haze for extra pop.
 
 let _ballRes = 12   // px per virtual unit; updated by setSpriteRes()
 
@@ -55,14 +38,6 @@ export function setSpriteRes(res) {
 /**
  * Returns a cached offscreen canvas with a neon ball rendered on it.
  *
- * The canvas is intentionally larger than the ball by `pad` virtual units on
- * every side so the atmospheric glow haze can bleed beyond the ball boundary.
- * Draw it centred on the ball:
- *
- *   ctx.drawImage(sp.canvas,
- *     b.x - sp.halfSize, b.y - sp.halfSize,
- *     sp.halfSize * 2,   sp.halfSize * 2)
- *
  * @param {string} color       hex colour string, e.g. '#cc00ff'
  * @param {string} lightColor  lightened rgb string, e.g. 'rgb(255,80,255)'
  * @param {number} r           ball radius in virtual units
@@ -74,7 +49,6 @@ export function getBallSprite(color, lightColor, r) {
   let e = _cache.get(key)
   if (e) return e
 
-  // Canvas dimensions — extra `pad` vunits on each side for the glow haze.
   const pad    = 2.5
   const halfV  = rB + pad
   const sizePx = halfV * 2 * _ballRes
@@ -89,66 +63,34 @@ export function getBallSprite(color, lightColor, r) {
   cx.imageSmoothingEnabled = true
   cx.imageSmoothingQuality = 'high'
 
-  // ── Layer 1: Atmospheric glow haze ────────────────────────────────────
-  //
-  // The gradient runs from the canvas centre to its corner (= ctr px).
-  // edgeStop marks where the ball boundary sits as a fraction of that range.
-  // The haze peaks at the ball edge and fades to nothing at the canvas edge.
-  // The body layer drawn next covers everything inside the ball circle.
-  const edgeStop = rPx / ctr   // e.g. ≈0.667 for a typical ball
+  // ── Layer 1: Outer glow ring ───────────────────────────────────────────
+  // Transparent inside the ball, peaks at full color right at the ball edge,
+  // fades to transparent at the canvas edge.
+  const edgeStop = rPx / ctr
 
   const glowGrad = cx.createRadialGradient(ctr, ctr, 0, ctr, ctr, ctr)
-  glowGrad.addColorStop(0,                               `rgba(${cr},${cg},${cb},0.05)`)
-  glowGrad.addColorStop(edgeStop * 0.80,                 `rgba(${cr},${cg},${cb},0.55)`)
-  glowGrad.addColorStop(edgeStop,                        `rgba(${cr},${cg},${cb},0.85)`)
-  glowGrad.addColorStop(Math.min(0.98, edgeStop + 0.12), `rgba(${cr},${cg},${cb},0.40)`)
-  glowGrad.addColorStop(1,                               `rgba(${cr},${cg},${cb},0.00)`)
+  glowGrad.addColorStop(0,        `rgba(${cr},${cg},${cb},0.00)`)
+  glowGrad.addColorStop(edgeStop, `rgba(${cr},${cg},${cb},1.00)`)
+  glowGrad.addColorStop(1,        `rgba(${cr},${cg},${cb},0.00)`)
 
   cx.fillStyle = glowGrad
   cx.fillRect(0, 0, sizePx, sizePx)
 
-  // ── Layer 2: Ball body — neon tube gradient ────────────────────────────
-  //
-  // Clipped to the ball arc so the body never bleeds into the haze zone.
-  //
-  // Gradient stops are SIZE-AWARE so small and large balls look like the
-  // same style.  With fixed proportions, a 2.4-unit idle ball would have a
-  // colour ring only ~5 px wide while a 6.5-unit active ball has ~40 px —
-  // completely different visual character.
-  //
-  // sizeFactor ∈ [0,1]: 0 at rPx≤15 (tiny), 1 at rPx≥60 (full-size active).
-  // As the ball grows: the white core expands (more plasma visible at scale)
-  // and the colour ring shifts outward.  At any size the colour ring is at
-  // least ~28 % of the radius so it always reads clearly.
-  //
-  //   0%          → #ffffff     : white-hot plasma core
-  //   20–45 %     → lightColor  : bright saturated zone (wider on large balls)
-  //   50–72 %     → color       : full neon colour
-  //   82–94 %     → color       : colour hold before rim
-  //   100%        → darkened    : glass-wall rim
-  const sf      = Math.min(1.0, Math.max(0, (rPx - 15) / 45))
-  const s1      = 0.20 + sf * 0.25   // white-core end:   0.20 → 0.45
-  const s2      = 0.50 + sf * 0.22   // lightColor end:   0.50 → 0.72
-  const s3      = 0.82 + sf * 0.12   // colour hold:      0.82 → 0.94
-
+  // ── Layer 2: Ball body — flat lightColor fill ──────────────────────────
   cx.save()
   cx.beginPath()
   cx.arc(ctr, ctr, rPx, 0, Math.PI * 2)
   cx.clip()
 
-  const darkR = Math.max(0, cr - 65)
-  const darkG = Math.max(0, cg - 65)
-  const darkB = Math.max(0, cb - 65)
-
-  const bodyGrad = cx.createRadialGradient(ctr, ctr, 0, ctr, ctr, rPx)
-  bodyGrad.addColorStop(0,  '#ffffff')
-  bodyGrad.addColorStop(s1, lightColor)
-  bodyGrad.addColorStop(s2, color)
-  bodyGrad.addColorStop(s3, color)
-  bodyGrad.addColorStop(1,  `rgb(${darkR},${darkG},${darkB})`)
-
-  cx.fillStyle = bodyGrad
+  cx.fillStyle = lightColor
   cx.fillRect(0, 0, sizePx, sizePx)
+
+  // Color border ring at ball edge
+  cx.strokeStyle = color
+  cx.lineWidth   = rPx * 0.05
+  cx.beginPath()
+  cx.arc(ctr, ctr, rPx - cx.lineWidth / 2, 0, Math.PI * 2)
+  cx.stroke()
 
   cx.restore()
 

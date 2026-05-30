@@ -97,6 +97,7 @@ const hudRefreshesEl = document.getElementById('hud-refreshes')
 const hudGoalMaxEl   = document.getElementById('hud-goal-max')
 const hudRoundNumEl  = document.getElementById('hud-round-num')
 const btnRefresh     = document.getElementById('btn-refresh')
+const btnEndRound    = document.getElementById('btn-end-round')
 
 // ── Round-end / store overlays ──
 const roundEndOverlay   = document.getElementById('round-end-overlay')
@@ -161,7 +162,7 @@ const qbStoreArrow  = document.getElementById('qb-store-arrow')
 
 // ─── Virtual resolution ───────────────────────────────────────────────────
 const VIRTUAL_W = 100
-const VIRTUAL_H = 178   // 9:16 portrait
+const VIRTUAL_H = 150   // 2:3 portrait — fits available space after HUD + quick-buy bar
 
 // ─── Canvas / scale ───────────────────────────────────────────────────────
 const _isMobile = window.matchMedia('(pointer: coarse)').matches
@@ -189,20 +190,32 @@ function calcUnits() {
   if (canvas.height !== cH) canvas.height = cH
   canvas.style.width  = W + 'px'
   canvas.style.height = H + 'px'
-  // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
-  const barPx  = qbBar.offsetHeight
-  // Reserve space at the top for the HUD strip so balls never
-  // render behind UI elements that have pointer-events:auto.
-  const hudBottom  = hudEl.getBoundingClientRect().bottom
-  const topPx      = hudBottom
-  const availH = H - barPx - topPx
-  // Scale so the virtual field fits inside the space between HUD and bar.
+  // Measure actual rendered positions with getBoundingClientRect so the
+  // calculation stays correct even when dvh-based CSS and window.innerHeight
+  // disagree (common on mobile browsers).
+  const hudBottom = hudEl.getBoundingClientRect().bottom
+  // When the bar is hidden (intro mode) offsetHeight === 0; fall back to H
+  // so the field fills the full remaining height.
+  const barTop = qbBar.offsetHeight > 0 ? qbBar.getBoundingClientRect().top : H
+
+  // Explicit clearance gaps so the neon border is always visible and the field
+  // can never accidentally overlap either the HUD or the quick-buy bar — even
+  // when there's sub-pixel rounding or a font-swap causes a brief measurement
+  // lag.  Both values need to be >= shadowBlur / 5 to show a visible glow edge.
+  const TOP_GAP    = H * 0.003   // ~0.3vh — clears HUD sub-pixel rounding
+  const BOTTOM_GAP = H * 0.015   // ~1.5vh — room for the border glow above the bar
+
+  // Available height is the band between HUD and bar, minus the two gaps.
+  const availH = barTop - hudBottom - TOP_GAP - BOTTOM_GAP
+  // Scale so the virtual field fits inside the available band.
   gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
-  // Pin the play field below the HUD; center it vertically in whatever
-  // space remains between HUD and quick-buy bar.
-  gameOffsetY = topPx + Math.max(0, (availH - VIRTUAL_H * gameScale) / 2)
-  // Full virtual height fits in the available band — no virtual-unit reduction.
+  // Pin the field to the top of the available band (just below HUD + gap).
+  // Do NOT centre vertically: on wide or desktop viewports the field is
+  // width-limited and the centering term would shove the field far down,
+  // producing a large empty zone at the top and crowding the bar at the bottom.
+  gameOffsetY = hudBottom + TOP_GAP
+  // Full virtual height always fits — no virtual-unit reduction needed.
   gamePlayH = VIRTUAL_H
 
   // Sync shared render state so particle/label modules read current values.
@@ -887,14 +900,29 @@ function loop(ts) {
 
   ctx.restore()   // virtual
 
-  // Field border — neon purple glow frame
+  // Field border — neon purple glow frame.
+  // The clip extends by the full shadowBlur (22 px) in every direction so the
+  // complete neon halo is visible: in the dark side margins, in the gap between
+  // the field and the bar below, and above the top stroke.  The HUD and
+  // quick-buy bar are opaque DOM elements stacked above the canvas, so any
+  // canvas glow that bleeds into those zones is naturally covered by their
+  // backgrounds — no visual artifact.
+  const _borderBlur = 22
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(gameOffsetX  - _borderBlur,
+           gameOffsetY  - _borderBlur,
+           VIRTUAL_W * gameScale + _borderBlur * 2,
+           VIRTUAL_H * gameScale + _borderBlur * 2)
+  ctx.clip()
   ctx.shadowColor = 'rgba(200,0,255,0.80)'
-  ctx.shadowBlur  = 22
-  ctx.strokeStyle = 'rgba(200,0,255,0.45)'
+  ctx.shadowBlur  = _borderBlur
+  ctx.strokeStyle = 'rgba(200,0,255,0.55)'
   ctx.lineWidth   = 1
   ctx.strokeRect(gameOffsetX + 0.5, gameOffsetY + 0.5,
                  VIRTUAL_W * gameScale - 1, VIRTUAL_H * gameScale - 1)
   ctx.shadowBlur = 0
+  ctx.restore()
   drawFirstBallCue()
 
   runAutoUpgrade(dt)
@@ -1179,40 +1207,8 @@ function drawAll() {
 }
 
 function drawBall(b) {
-  const isActive  = isExplosivelyActive(b)
-  const spawnSc   = getSpawnScale(b)
-
-  // Spawn-in effects — drawn before the r-gate so they fire even on first visible frame.
-  if (b.spawnInTimer >= 0) {
-    const elapsed = b.spawnInTimer - b.spawnInDelay
-
-    // Pre-pop glint: tiny bright dot visible in the last 100 ms of the delay phase,
-    // hinting where the ball will appear just before it pops.
-    if (elapsed >= -100 && elapsed < 0) {
-      const glintT = (elapsed + 100) / 100   // 0 → 1
-      ctx.save()
-      ctx.globalAlpha = glintT * 0.90
-      ctx.fillStyle   = '#ffffff'
-      ctx.shadowColor = b.color
-      ctx.shadowBlur  = 12 * gameScale
-      ctx.beginPath(); ctx.arc(b.x, b.y, 0.7, 0, Math.PI * 2); ctx.fill()
-      ctx.restore()
-    }
-
-    // Pop ring: ball-colored ring expands from baseRadius and fades over SPAWN_GROW_DURATION.
-    if (elapsed >= 0 && elapsed < SPAWN_GROW_DURATION) {
-      const ringT = elapsed / SPAWN_GROW_DURATION
-      const ringR = b.baseRadius * (1 + ringT * 2.6)
-      ctx.save()
-      ctx.globalAlpha = (1 - ringT) * 0.75
-      ctx.lineWidth   = 1.2
-      ctx.strokeStyle = b.color
-      ctx.shadowColor = b.color
-      ctx.shadowBlur  = 8 * gameScale
-      ctx.beginPath(); ctx.arc(b.x, b.y, ringR, 0, Math.PI * 2); ctx.stroke()
-      ctx.restore()
-    }
-  }
+  const isActive = isExplosivelyActive(b)
+  const spawnSc  = getSpawnScale(b)
 
   const r = (isActive ? b.curRadius : b.baseRadius) * introTransScale * spawnSc
   if (r <= 0) return
@@ -1231,18 +1227,9 @@ function drawBall(b) {
     ctx.translate(-b.x, -b.y)
   }
 
-  // Glow — all balls emit ambient neon light; active balls pulse much brighter.
-  const inSpawnGrow = b.spawnInTimer >= 0
-    && (b.spawnInTimer - b.spawnInDelay) >= 0
-    && (b.spawnInTimer - b.spawnInDelay) < SPAWN_GROW_DURATION
-  ctx.shadowColor = b.color
-  if (isActive || inSpawnGrow) {
-    // Glow intensifies with chain depth — more dramatic the deeper into a chain
-    const glowMult = 1.5 + Math.min((b.chainTriggerIdx ?? 0) * 0.25, 3.0)
-    ctx.shadowBlur  = 9 * gameScale * glowMult
-  } else {
-    ctx.shadowBlur  = 5 * gameScale   // ambient neon corona on idle balls
-  }
+  // Glow scales proportionally with r so idle and active balls look like
+  // the same style at different sizes — not a separate visual treatment.
+  ctx.shadowBlur = 0
 
   const sp = getBallSprite(b.color, b.lightColor, r)
   ctx.drawImage(sp.canvas,
@@ -2246,7 +2233,9 @@ function makeColorSection(colorKey) {
 
   const orb = document.createElement('span')
   orb.className   = 'stats-color-orb'
-  orb.style.cssText = `background:${hex};box-shadow:0 0 7px ${hex}`
+  orb.style.background = lighten(hex)
+  orb.style.border     = `2px solid ${hex}`
+  orb.style.boxShadow  = `0 0 6px ${hex}, 0 0 12px ${hex}`
 
   const nameEl = document.createElement('span')
   nameEl.className  = 'stats-color-name'
@@ -2648,8 +2637,9 @@ function buildShop() {
 
     const orbEl = document.createElement('div')
     orbEl.className = 'bucket-orb'
-    orbEl.style.background = bc
-    orbEl.style.boxShadow  = `0 0 16px ${bc}`
+    orbEl.style.background = lighten(bc)
+    orbEl.style.border     = `2px solid ${bc}`
+    orbEl.style.boxShadow  = `0 0 10px ${bc}, 0 0 20px ${bc}`
 
     const right = document.createElement('div')
     right.className = 'bucket-top-right'
@@ -3143,7 +3133,12 @@ function updateRoundHUD() {
   if (hudRoundNumEl  && rd.number        !== _prevRoundNum)  { hudRoundNumEl.textContent  = rd.number;        _prevRoundNum  = rd.number }
 
   const goalMet = st.coins >= rd.goal
-  if (goalMet !== _prevGoalMet) { hudCoins?.classList.toggle('goal-met', goalMet); _prevGoalMet = goalMet }
+  if (goalMet !== _prevGoalMet) {
+    hudCoins?.classList.toggle('goal-met', goalMet)
+    btnEndRound?.classList.toggle('goal-met', goalMet)
+    if (btnEndRound) btnEndRound.textContent = goalMet ? 'End ›' : ''
+    _prevGoalMet = goalMet
+  }
 
   // Dim refresh button only when state actually changed
   const noRefreshes = rd.refreshesLeft <= 0
@@ -3166,6 +3161,37 @@ function doManualRefresh() {
   rng = seededRng(deriveRefreshSeed(_currentRoundSeed, _refreshIndex))
   refillAllOwnedBalls()
   updateRoundHUD()
+}
+
+function endRoundEarly() {
+  // Guard: only callable when goal is met and round is still live.
+  if (introMode) return
+  const rd = getRoundState()
+  if (rd.clicksLeft <= 0) return      // already ending
+  const st = getState()
+  if (st.coins < rd.goal) return      // goal not yet met — shouldn't happen via button but defensive
+
+  // Zero out remaining clicks so no further taps register.
+  setRoundState({ clicksLeft: 0 })
+  updateRoundHUD()
+
+  if (currentChain) {
+    // A chain is still resolving — let endChain() do the force-shrink when it fires.
+    _pendingRoundEnd = true
+  } else {
+    // No active chain — force-shrink any idle balls now and proceed to the
+    // same deferred-end path as the regular "clicks exhausted" flow.
+    // _forceShrankBalls stays false: the player chose to bank early, not clear
+    // the board, so there's no spurious clear bonus to suppress.
+    for (const b of balls) {
+      if (b.state === 'idle') {
+        b.state     = 'shrinking'
+        b.expTimer  = 0
+        b.curRadius = b.maxRadius
+      }
+    }
+    _waitingForRoundEnd = true
+  }
 }
 
 function endRound() {
@@ -3241,6 +3267,16 @@ function startRound() {
   bossRewardOverlay.classList.add('hidden')
   betweenStore.classList.add('hidden')
 
+  // Reset "End Round" button to its hidden/spacer state.
+  // Also invalidate the cached goalMet value so updateRoundHUD() re-evaluates
+  // on the first frame of the new round (coins start at 0 or carry-over, never
+  // already >= goal, so the button stays hidden on a normal round start).
+  if (btnEndRound) {
+    btnEndRound.classList.remove('goal-met')
+    btnEndRound.textContent = ''
+  }
+  _prevGoalMet = null
+
   // Reset in-memory round counters
   _pendingRoundEnd            = false
   _waitingForRoundEnd         = false
@@ -3271,7 +3307,8 @@ function startRound() {
 }
 
 // Wire the refresh button
-if (btnRefresh) btnRefresh.addEventListener('click', doManualRefresh)
+if (btnRefresh)  btnRefresh.addEventListener('click', doManualRefresh)
+if (btnEndRound) btnEndRound.addEventListener('click', endRoundEarly)
 
 // Wire the dev "New Run" button
 const devNewRunBtn = document.getElementById('dev-new-run')
@@ -3297,8 +3334,29 @@ window.addEventListener('keydown', e => {
   }
 })
 
-// ─── Resize ───────────────────────────────────────────────────────────────
+// ─── Resize / layout re-measure ──────────────────────────────────────────
 window.addEventListener('resize', () => calcUnits())
+
+// On mobile, visualViewport fires when the address bar shows/hides or the
+// soft keyboard appears — window.resize often doesn't cover these cases.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => calcUnits())
+}
+
+// Re-measure once fonts are ready. calcUnits() runs at module load and
+// inside init() before Orbitron has loaded (Google Fonts uses display=swap,
+// so the browser lays out with a fallback font first). When Orbitron swaps
+// in the HUD height changes, so we need a fresh measurement.
+document.fonts.ready.then(() => calcUnits())
+
+// Whenever the HUD or bar actually resize (font swap, content changes, etc.)
+// recalculate immediately so the game field never overlaps either element.
+// ResizeObserver is supported in all target browsers.
+if (typeof ResizeObserver !== 'undefined') {
+  const _layoutObserver = new ResizeObserver(() => calcUnits())
+  _layoutObserver.observe(hudEl)
+  _layoutObserver.observe(qbBar)
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 function init() {

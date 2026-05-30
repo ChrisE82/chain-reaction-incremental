@@ -23,7 +23,7 @@ export const COLOR_HEX = {
   green:  '#39ff14',   // neon green
   yellow: '#ffe500',   // electric yellow
   orange: '#ff6200',   // neon orange
-  red:    '#ff0066',   // hot pink / neon red
+  red:    '#ff3399',   // hot pink
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────

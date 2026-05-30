@@ -206,7 +206,7 @@ canvas {
 
 .hud-tile-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.9rem, 2.8vmin, 1.75rem);
+  font-size: clamp(0.6rem, 2.2vmin, 1.75rem);
   letter-spacing: 0.16em;
   color: var(--color-accent-55);
   text-transform: uppercase;
@@ -215,9 +215,11 @@ canvas {
 
 .hud-tile-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(2rem, 8vmin, 5rem);
+  font-size: clamp(1.4rem, 6vmin, 5rem);
   font-weight: 900;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--color-accent);
   text-shadow:
     0 0 0.15em #00c8ff,
@@ -280,7 +282,7 @@ canvas {
 }
 
 .hud-coin-icon {
-  font-size: clamp(1.2rem, 5vmin, 3.13rem);
+  font-size: clamp(0.9rem, 4vmin, 3.13rem);
   color: var(--color-highlight);
   filter: drop-shadow(0 0 8px rgba(255,229,0,0.90));
   align-self: center;
@@ -289,9 +291,11 @@ canvas {
 
 .hud-score-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(2rem, 8vmin, 5rem);
+  font-size: clamp(1.4rem, 6vmin, 5rem);
   font-weight: 900;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--color-highlight);
   text-shadow:
     0 0 0.15em #ffe500,
@@ -324,7 +328,7 @@ canvas {
 }
 
 .hud-expand-arrow {
-  font-size: clamp(1rem, 3.5vmin, 2.19rem);
+  font-size: clamp(0.7rem, 2.6vmin, 2.19rem);
   color: var(--color-highlight-65);
   text-shadow:
     0 0 0.15em rgba(255,229,0,0.8),
@@ -347,7 +351,7 @@ canvas {
 
 .hud-goal-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.85rem, 2.8vmin, 1.75rem);
+  font-size: clamp(0.6rem, 2.2vmin, 1.75rem);
   letter-spacing: 0.16em;
   color: var(--color-highlight-50);
   text-transform: uppercase;
@@ -356,9 +360,11 @@ canvas {
 
 .hud-goal-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.1rem, 4.5vmin, 2.81rem);
+  font-size: clamp(0.85rem, 3.5vmin, 2.81rem);
   font-weight: 700;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--color-highlight-72);
   text-shadow:
     0 0 0.4em rgba(255,229,0,0.55),
@@ -376,7 +382,7 @@ canvas {
 }
 .hud-round-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.7rem, 2.2vmin, 1.38rem);
+  font-size: clamp(0.5rem, 1.6vmin, 1.38rem);
   letter-spacing: 0.22em;
   color: var(--color-secondary);
   text-transform: uppercase;
@@ -384,9 +390,11 @@ canvas {
 }
 .hud-round-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.4rem, 5.5vmin, 3.44rem);
+  font-size: clamp(1rem, 4.2vmin, 3.44rem);
   font-weight: 900;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--color-accent);
   text-shadow:
     0 0 0.15em #00c8ff,
@@ -415,9 +423,11 @@ canvas {
 
 .hud-chain-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.4rem, 5.5vmin, 3.44rem);
+  font-size: clamp(1rem, 4.2vmin, 3.44rem);
   font-weight: 900;
   letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--color-success);
   text-shadow:
     0 0 0.15em #39ff14,
@@ -428,15 +438,48 @@ canvas {
 }
 .hud-chain-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.7rem, 2.2vmin, 1.38rem);
+  font-size: clamp(0.5rem, 1.6vmin, 1.38rem);
   letter-spacing: 0.22em;
   color: var(--color-success-70);
   text-transform: uppercase;
   line-height: 1;
 }
 
-/* Keeps Row 2 balanced; same width as .hud-round */
-.hud-spacer { min-width: 20vw; }
+/* Keeps Row 2 balanced; same min-width as .hud-round.
+   Invisible by default; turns into an "END ›" call-to-action when the
+   goal is met.  Uses the button element for native touch hit-testing. */
+.hud-end-round-btn {
+  all: unset;
+  min-width: 20vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.5rem, 1.6vmin, 1.38rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  /* hidden state — no text, no pointer events */
+  color: transparent;
+  pointer-events: none;
+  transition: color 0.25s, text-shadow 0.25s;
+}
+/* Goal met — show the label, enable taps */
+.hud-end-round-btn.goal-met {
+  color: var(--color-success);
+  cursor: pointer;
+  pointer-events: auto;
+  text-shadow:
+    0 0 0.15em #39ff14,
+    0 0 0.6em rgba(57,255,20,0.55);
+  animation: end-round-pulse 2s ease-in-out infinite;
+}
+@keyframes end-round-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
 
 /* Hide round-specific row-1 tiles and goal during the power-preview intro */
 body.intro-active .hud-tile,
@@ -447,15 +490,19 @@ body.intro-active .hud-goal-row { display: none; }
 #stats-mini {
   position: fixed;
   top: 0;   /* overridden by JS when opened so it sits below #hud */
-  left: 4vw;
-  z-index: 10;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 110;
   background: var(--bg-panel);
-  border: 1px solid var(--color-accent-18);
-  border-radius: 2vmin;
-  padding: 2.5vmin 3vmin;
-  backdrop-filter: blur(14px);
-  min-width: clamp(11rem, 47vmin, 29.38rem);
-  max-width: min(68vmin, 86vw);
+  border: 1px solid var(--color-accent-28);
+  border-radius: 2.5vmin;
+  padding: 3vmin 3.5vmin;
+  backdrop-filter: blur(18px);
+  width: min(88vw, 32rem);
+  box-shadow:
+    0 0 24px rgba(0,200,255,0.10),
+    0 0 0 1px rgba(0,200,255,0.06) inset,
+    0 6px 32px rgba(0,0,0,0.55);
   transition: opacity 0.2s ease, transform 0.2s ease;
   pointer-events: auto;
 }
@@ -463,39 +510,48 @@ body.intro-active .hud-goal-row { display: none; }
 #stats-mini.hidden {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-6px);
+  transform: translateX(-50%) translateY(-8px);
 }
 
 .stats-mini-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.8vmin;
-  margin-bottom: 2.5vmin;
+  gap: 2vmin;
+  margin-bottom: 3vmin;
 }
 
 .smt {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.2vmin;
-  padding: 2.5vmin 2vmin;
-  background: var(--color-accent-03);
-  border: 1px solid var(--color-accent-12);
+  gap: 1.5vmin;
+  padding: 2.8vmin 2vmin;
+  background: rgba(0,200,255,0.04);
+  border: 1px solid rgba(0,200,255,0.14);
   border-radius: 2vmin;
 }
 
 .smt-val {
-  font-size: clamp(1.15rem, 4.2vmin, 2.63rem);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.2rem, 4.5vmin, 2.81rem);
   font-weight: 900;
   letter-spacing: 0.04em;
+  color: var(--color-accent);
+  text-shadow:
+    0 0 0.15em #00c8ff,
+    0 0 0.6em #00c8ff,
+    0 0 2em rgba(0,200,255,0.5);
+  line-height: 1;
 }
 
 .smt-lbl {
-  font-size: clamp(0.60rem, 2vmin, 1.25rem);
-  letter-spacing: 0.10em;
-  color: rgba(255, 255, 255, 0.78);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.55rem, 1.8vmin, 1.13rem);
+  letter-spacing: 0.18em;
+  color: var(--color-accent-50);
   text-transform: uppercase;
   text-align: center;
+  line-height: 1;
 }
 
 .stats-full-btn {
@@ -529,17 +585,14 @@ body.intro-active .hud-goal-row { display: none; }
 
 #stats-screen {
   position: fixed;
+  top: 0;
   left: 0; right: 0;
   bottom: var(--qb-h);
-  z-index: 16;
-  max-height: 78dvh;
+  z-index: 110;  /* above #hud (90) and quick-buy bar (100); below overlays (200) */
   display: flex;
   flex-direction: column;
-  background: var(--bg-panel);
-  border-top: 1px solid var(--color-accent-15);
-  border-radius: 3vmin 3vmin 0 0;
-  backdrop-filter: blur(14px);
-  padding-bottom: 3vmin;
+  background: var(--bg-panel-deep);
+  backdrop-filter: blur(18px);
   transform: translateY(0);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
               opacity  0.35s ease;
@@ -556,66 +609,67 @@ body.intro-active .hud-goal-row { display: none; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 3.5vmin 4.5vmin 3vmin;
-  border-bottom: 1px solid var(--color-accent-10);
+  padding: max(4vmin, env(safe-area-inset-top, 2vmin)) 4.5vmin 3vmin;
+  border-bottom: 1px solid var(--color-accent-18);
   flex-shrink: 0;
 }
 
 .stats-screen-title {
-  font-size: clamp(1.25rem, 4vmin, 2.5rem);
-  letter-spacing: 0.3em;
-  color: var(--color-highlight-88);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(1.25rem, 4.5vmin, 2.81rem);
+  font-weight: 900;
+  letter-spacing: 0.28em;
+  color: var(--color-highlight);
   text-transform: uppercase;
   text-shadow:
-    0 0 0.15em rgba(255,229,0,0.8),
-    0 0 0.6em rgba(255,229,0,0.5),
-    0 0 2em rgba(255,229,0,0.25);
+    0 0 0.15em #ffe500,
+    0 0 0.6em #ffe500,
+    0 0 2em rgba(255,229,0,0.45);
 }
 
 #stats-screen-close {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 2rem;
+  all: unset;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: clamp(1.4rem, 5vmin, 2rem);
   line-height: 1;
   cursor: pointer;
-  padding: 0;
+  padding: 1vmin;
+  -webkit-tap-highlight-color: transparent;
   transition: color 0.15s;
 }
-
 #stats-screen-close:active { color: #ffffff; }
 
 .stats-tab-bar {
   display: flex;
   padding: 2.5vmin 4vmin;
   gap: 1.5vmin;
-  border-bottom: 1px solid var(--color-accent-10);
+  border-bottom: 1px solid var(--color-accent-12);
   flex-shrink: 0;
 }
 
 .stats-tab {
   flex: 1;
-  padding: 1.8vmin 0;
-  background: var(--color-accent-02);
-  border: 1px solid var(--color-accent-10);
+  padding: 2vmin 0;
+  background: rgba(0,200,255,0.03);
+  border: 1px solid rgba(0,200,255,0.10);
   border-radius: 1.5vmin;
   font-family: 'Orbitron', monospace;
   font-size: clamp(0.58rem, 1.85vmin, 1.16rem);
-  letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
   text-transform: uppercase;
-  transition: color 0.15s, background 0.15s, border-color 0.15s, text-shadow 0.15s;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .stats-tab.active {
   color: var(--color-highlight);
   background: var(--color-highlight-08);
-  border-color: rgba(255, 229, 0, 0.45);
+  border-color: rgba(255, 229, 0, 0.40);
+  box-shadow: 0 0 12px rgba(255,229,0,0.18), inset 0 0 0.6em rgba(255,229,0,0.06);
   text-shadow:
     0 0 0.15em rgba(255,229,0,0.9),
-    0 0 0.6em rgba(255,229,0,0.6),
-    0 0 2em rgba(255,229,0,0.3);
+    0 0 0.6em rgba(255,229,0,0.5);
 }
 
 #stats-tab-body {
@@ -644,12 +698,15 @@ body.intro-active .hud-goal-row { display: none; }
   align-items: center;
   width: 100%;
   padding: 2vmin 2.5vmin 2vmin 3vmin;
-  border-left: 2px solid var(--color-accent-50);
+  border-left: 2px solid var(--color-accent);
   font-family: 'Orbitron', monospace;
   font-size: clamp(0.75rem, 2.5vmin, 1.56rem);
   font-weight: 700;
   letter-spacing: 0.22em;
   color: var(--color-accent);
+  text-shadow:
+    0 0 0.15em rgba(0,200,255,0.6),
+    0 0 0.6em rgba(0,200,255,0.3);
   text-transform: uppercase;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -702,24 +759,27 @@ body.intro-active .hud-goal-row { display: none; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 2vmin 3vmin;
+  padding: 2.2vmin 3vmin;
   border-radius: 2vmin;
-  background: var(--color-accent-02);
+  background: rgba(0,200,255,0.03);
+  border: 1px solid rgba(0,200,255,0.08);
 }
 
 .stats-row:last-child { border-bottom: none; }
 
 .stats-row-lbl {
-  font-size: clamp(0.68rem, 2.2vmin, 1.38rem);
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.82);
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.60rem, 1.9vmin, 1.19rem);
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
   text-transform: uppercase;
 }
 
 .stats-row-val {
+  font-family: 'Orbitron', monospace;
   font-size: clamp(0.88rem, 2.9vmin, 1.81rem);
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.90);
   letter-spacing: 0.04em;
 }
 

@@ -13,10 +13,12 @@
     "balance:sim": "node tools/balance-sim/sim.mjs",
     "balance:optimize": "node tools/balance-sim/optimize.mjs",
     "balance:compare": "node tools/balance-sim/compare.mjs",
-    "playfab:setup": "node tools/setup-playfab-stats.mjs"
+    "playfab:setup": "node tools/setup-playfab-stats.mjs",
+    "security": "snyk test"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0",
+    "snyk": "^1",
     "vite": "^5.4.0"
   },
   "dependencies": {
