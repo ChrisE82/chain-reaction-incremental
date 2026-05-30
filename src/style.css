@@ -1,6 +1,60 @@
 :root {
   /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
   --qb-h: calc(15dvh + env(safe-area-inset-bottom, 0px));
+
+  /* ── Brand colours ──────────────────────────────────────────── */
+  --c-gold:         #ffe566;
+  --c-gold-80:      rgba(255, 229, 102, 0.80);
+  --c-gold-60:      rgba(255, 229, 102, 0.60);
+  --c-gold-45:      rgba(255, 229, 102, 0.45);
+  --c-gold-38:      rgba(255, 229, 102, 0.38);
+  --c-gold-35:      rgba(255, 229, 102, 0.35);
+  --c-gold-25:      rgba(255, 229, 102, 0.25);
+  --c-gold-12:      rgba(255, 229, 102, 0.12);
+  --c-gold-10:      rgba(255, 229, 102, 0.10);
+  --c-gold-04:      rgba(255, 229, 102, 0.04);
+
+  --c-green:        #4fffb0;
+  --c-green-80:     rgba(79, 255, 176, 0.80);
+  --c-green-75:     rgba(79, 255, 176, 0.75);
+  --c-green-50:     rgba(79, 255, 176, 0.50);
+  --c-green-45:     rgba(79, 255, 176, 0.45);
+  --c-green-35:     rgba(79, 255, 176, 0.35);
+  --c-green-18:     rgba(79, 255, 176, 0.18);
+  --c-green-05:     rgba(79, 255, 176, 0.05);
+
+  --c-blue:         #42d4ff;
+  --c-blue-85:      rgba(66, 212, 255, 0.85);
+  --c-blue-50:      rgba(66, 212, 255, 0.50);
+  --c-blue-35:      rgba(66, 212, 255, 0.35);
+  --c-blue-30:      rgba(66, 212, 255, 0.30);
+  --c-blue-22:      rgba(66, 212, 255, 0.22);
+  --c-blue-15:      rgba(66, 212, 255, 0.15);
+  --c-blue-12:      rgba(66, 212, 255, 0.12);
+
+  --c-red:          #ff4f6a;
+  --c-orange-warn:  #ff9f43;
+
+  /* ── Surfaces & borders ─────────────────────────────────────── */
+  --surface-bg:     #050810;
+  --surface-panel:  rgba(6, 10, 22, 0.97);
+  --surface-panel2: rgba(6, 10, 22, 0.99);
+  --surface-row:    rgba(255, 255, 255, 0.03);
+  --surface-hover:  rgba(255, 255, 255, 0.05);
+
+  --border-subtle:  rgba(255, 255, 255, 0.09);
+  --border-mid:     rgba(255, 255, 255, 0.14);
+  --border-bright:  rgba(255, 255, 255, 0.18);
+  --border-row:     rgba(255, 255, 255, 0.07);
+
+  /* ── Text ───────────────────────────────────────────────────── */
+  --text-primary:   rgba(255, 255, 255, 0.92);
+  --text-body:      rgba(255, 255, 255, 0.88);
+  --text-muted:     rgba(255, 255, 255, 0.60);
+  --text-faint:     rgba(255, 255, 255, 0.40);
+  --text-ghost:     rgba(255, 255, 255, 0.30);
+
+
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -59,7 +113,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 20vw;
+  flex: 0 0 28vw;   /* fixed, matches .hud-tile-btn so center is truly centred */
 }
 
 .hud-tile-lbl {
@@ -91,7 +145,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 20vw;
+  flex: 0 0 28vw;   /* same as .hud-tile — both sides equal */
   padding: 1.2vmin 2.5vmin;
   border-radius: 2vmin;
   border: 1px solid rgba(0,200,255,0.22);
@@ -189,7 +243,12 @@ canvas {
     0 0 0.6em rgba(255,229,0,0.5),
     0 0 2em rgba(255,229,0,0.3);
   line-height: 1;
-  transition: color 0.25s, transform 0.2s;
+  margin-top: 0.5vmin;
+  transition: color 0.25s, transform 0.25s;
+}
+.hud-expand-arrow.open {
+  transform: rotate(180deg);
+  color: rgba(255,229,102,0.55);
 }
 
 .hud-goal-row {
@@ -614,7 +673,7 @@ body.intro-active #stats-screen { display: none !important; }
 #shop-panel {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 95;  /* above #hud (90); below round-end overlays (200) */
   display: flex;
   flex-direction: column;
   background: rgba(7, 0, 20, 0.99);
@@ -880,7 +939,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .next-ball-card:active {
-  background: rgba(255,255,255,0.09) !important;
+  background: var(--border-subtle) !important;
   transform: scale(0.98);
 }
 .next-ball-card:disabled:active {
@@ -906,13 +965,13 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* "NEXT BALL" label: full-brightness warning */
 .next-ball-card:disabled .nbc-label {
-  color: #ff9f43;
+  color: var(--c-orange-warn);
   opacity: 1;
 }
 
 /* BUY pill: warning text + border */
 .next-ball-card:disabled .nbc-buy-pill {
-  color: #ff9f43;
+  color: var(--c-orange-warn);
   border-color: rgba(255, 159, 67, 0.40);
 }
 
@@ -965,7 +1024,7 @@ body.intro-active #stats-screen { display: none !important; }
 }
 
 .next-ball-card:disabled .nbc-cost-text {
-  color: #ff9f43;
+  color: var(--c-orange-warn);
 }
 
 /* Buy pill — visual zone only, pointer-events go to parent */
@@ -977,7 +1036,7 @@ body.intro-active #stats-screen { display: none !important; }
   font-size: clamp(0.62rem, 1.95vmin, 1.22rem);
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: rgba(255,255,255,0.30);
+  color: var(--text-ghost);
   white-space: nowrap;
   flex-shrink: 0;
   pointer-events: none;
@@ -1196,12 +1255,12 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Upgrade name ("VALUE", "SPEED" etc.): full-brightness warning */
 .upg-row:disabled .upg-row-label {
-  color: #ff9f43;
+  color: var(--c-orange-warn);
 }
 
-/* Level badge: muted */
+/* Level badge: muted but still legible */
 .upg-row:disabled .upg-row-lv {
-  opacity: 0.36;
+  opacity: 0.55;
 }
 
 /* Left: icon in a rounded square — color driven by --ut-color set in JS */
@@ -1250,16 +1309,16 @@ body.intro-active #stats-screen { display: none !important; }
   font-size: clamp(0.75rem, 2.4vmin, 1.5rem);
   font-weight: 700;
   letter-spacing: 0.10em;
-  color: rgba(255,255,255,0.88);
+  color: var(--text-body);
   text-transform: uppercase;
 }
 
 .upg-row-lv {
   font-size: clamp(0.56rem, 1.75vmin, 1.09rem);
   letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--bc) 90%, white);
-  background: color-mix(in srgb, var(--bc) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bc) 32%, transparent);
+  color: var(--text-body);           /* white text — guaranteed contrast */
+  background: rgba(0,0,0,0.40);            /* dark pill so text is always legible */
+  border: 1px solid color-mix(in srgb, var(--bc) 55%, transparent); /* colored border for ball ID */
   border-radius: 0.8vmin;
   padding: 0.3vmin 1vmin;
   line-height: 1.4;
@@ -1282,7 +1341,7 @@ body.intro-active #stats-screen { display: none !important; }
 
 /* Cost: full-brightness warning */
 .upg-row:disabled .upg-row-cost {
-  color: #ff9f43;
+  color: var(--c-orange-warn);
 }
 
 
@@ -1631,7 +1690,7 @@ body.intro-completing #hud {
   border-top: 1px solid rgba(0,200,255,0.35);
   box-shadow: 0 -0.5em 2.5em rgba(0,200,255,0.12);
   backdrop-filter: blur(14px);
-  z-index: 60;   /* above shop panel (z-index 50) so it stays visible */
+  z-index: 100;  /* above #hud (90) and shop panel (95) so it stays visible */
 }
 
 .qb-btn {
@@ -1704,7 +1763,7 @@ body.intro-completing #hud {
   font-size: clamp(1rem, 3dvh, 1.88rem);
   font-weight: 700;
   letter-spacing: 0.12em;
-  color: rgba(255,255,255,0.88);
+  color: var(--text-body);
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
@@ -1732,12 +1791,12 @@ body.intro-completing #hud {
 /* BALL disabled: mute the orb icon + color name; warning on cost */
 #qb-ball:disabled .qb-btn-icon  { opacity: 0.40; }
 #qb-ball:disabled .qb-btn-label { opacity: 0.38; }
-#qb-ball:disabled .qb-btn-cost  { color: #ff9f43; }
+#qb-ball:disabled .qb-btn-cost  { color: var(--c-orange-warn); }
 
 /* BUY disabled: barely mute icon; warning amber on name + cost */
 #qb-buy:disabled .qb-btn-icon  { opacity: 0.65; }
-#qb-buy:disabled .qb-btn-label { color: #ff9f43; }
-#qb-buy:disabled .qb-btn-cost  { color: #ff9f43; }
+#qb-buy:disabled .qb-btn-label { color: var(--c-orange-warn); }
+#qb-buy:disabled .qb-btn-cost  { color: var(--c-orange-warn); }
 
 /* Store button — green accent, never disabled */
 .qb-btn-store {
