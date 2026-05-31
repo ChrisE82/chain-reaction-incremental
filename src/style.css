@@ -2152,13 +2152,146 @@ body.intro-completing #hud {
 .bstore-body {
   flex: 1;
   display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 5vmin;
-  padding: 4vmin;
+  align-items: stretch;
+  gap: 0;
+  overflow-y: auto;
+  padding-bottom: 3vmin;
 }
-.bstore-coming-soon {
-  color: rgba(255,255,255,0.3);
-  font-size: clamp(1rem, 3.8vmin, 2.38rem);
+.bstore-coins {
   font-family: 'Orbitron', monospace;
+  font-size: clamp(1.1rem, 4.5vmin, 2.75rem);
+  font-weight: 700;
+  color: #ffe500;
+  text-align: center;
+  padding: 3vmin 4vmin 1.5vmin;
+  text-shadow: 0 0 0.15em #ffe500, 0 0 0.6em rgba(255,229,0,0.7);
+  letter-spacing: 0.08em;
 }
-/* #bstore-continue reuses .reo-btn .reo-btn-primary */
+
+/* ── Store grid ──────────────────────────────────────────────────────────── */
+.bstore-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5vmin;
+  padding: 1vmin 3vmin 2vmin;
+}
+
+/* ── Individual card ─────────────────────────────────────────────────────── */
+.bstore-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 2.5vmin;
+  padding: 3vmin 2.5vmin 2.5vmin;
+  display: flex; flex-direction: column;
+  gap: 1.5vmin;
+  transition: border-color 0.2s, background 0.2s;
+}
+.bstore-card:not(.sold):hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.22);
+}
+.bstore-card.sold {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+/* Card header row: icon + color swatch */
+.bstore-card-header {
+  display: flex; align-items: center; gap: 2vmin;
+}
+.bstore-card-icon {
+  font-size: clamp(1.4rem, 5.5vmin, 3.2rem);
+  line-height: 1;
+  filter: drop-shadow(0 0 0.25em currentColor);
+}
+.bstore-relic-icon {
+  color: #ffe500;
+  filter: drop-shadow(0 0 0.25em #ffe500);
+}
+.bstore-card-color {
+  display: inline-block;
+  width: 3.5vmin; height: 3.5vmin;
+  min-width: 1rem; min-height: 1rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bstore-card-color-lbl {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.6rem, 2.4vmin, 1.5rem);
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: -0.5vmin;
+}
+.bstore-card-name {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.65rem, 2.6vmin, 1.63rem);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+.bstore-card-stack {
+  font-size: clamp(0.55rem, 2vmin, 1.25rem);
+  color: rgba(255,229,0,0.75);
+  font-family: 'Orbitron', monospace;
+  letter-spacing: 0.08em;
+}
+.bstore-card-desc {
+  font-size: clamp(0.6rem, 2.2vmin, 1.38rem);
+  color: rgba(255,255,255,0.5);
+  line-height: 1.5;
+  flex: 1;
+}
+.bstore-card-cost {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.75rem, 2.8vmin, 1.75rem);
+  font-weight: 700;
+  color: #ffe500;
+  text-shadow: 0 0 0.15em #ffe500, 0 0 0.6em rgba(255,229,0,0.55);
+  letter-spacing: 0.05em;
+}
+.bstore-card-btn {
+  width: 100%;
+  margin-top: auto;
+}
+.bstore-card-btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ── Burn card (spans full width) ────────────────────────────────────────── */
+.bstore-burn-card {
+  grid-column: 1 / -1;
+}
+.bstore-burn-colors {
+  display: flex;
+  gap: 1.5vmin;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.bstore-burn-color {
+  all: unset;
+  cursor: pointer;
+  font-size: clamp(0.6rem, 2.2vmin, 1.38rem);
+  font-family: 'Orbitron', monospace;
+  letter-spacing: 0.06em;
+  border: 1px solid;
+  border-radius: 1.5vmin;
+  padding: 1.2vmin 2.2vmin;
+  transition: background 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bstore-burn-color:hover { background: rgba(255,255,255,0.08); }
+.bstore-burn-color.selected {
+  border-color: var(--color-danger) !important;
+  color: var(--color-danger) !important;
+  box-shadow: 0 0 0.6em var(--color-danger), 0 0 2em rgba(255,79,106,0.3);
+}
+
+/* Continue button row */
+#bstore-continue {
+  margin: 2vmin 3vmin 0;
+  width: calc(100% - 6vmin);
+}

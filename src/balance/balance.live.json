@@ -85,5 +85,27 @@
     "spawnGrowMs":           220,
     "spawnSettleMs":         160,
     "autoUpgradeIntervalMs": 1000
+  },
+
+  "store": {
+    "burnBallBase": 300,
+    "burnBallMult": 2.2,
+    "ampPerPurchase": 0.15,
+    "specialBalls": [
+      { "id": "dense",  "name": "Dense Ball",  "icon": "◉", "glowColor": "#6600ff", "cost": 400, "speedMult": 0.45, "radiusMult": 1.75, "durationMult": 1.50 },
+      { "id": "nova",   "name": "Nova Ball",   "icon": "✦", "glowColor": "#ffffff", "cost": 350, "growMs": 25, "durationMult": 0.40 },
+      { "id": "anchor", "name": "Anchor Ball", "icon": "⚓", "glowColor": "#009999", "cost": 380, "speedMult": 0.30, "durationMult": 3.00, "radiusMult": 0.85 },
+      { "id": "spark",  "name": "Spark Ball",  "icon": "⚡", "glowColor": "#ffe500", "cost": 320, "speedMult": 2.00, "radiusMult": 0.70, "durationMult": 0.55 }
+    ],
+    "relics": [
+      { "id": "amp_value",      "name": "Value Amp",      "cost": 300, "stackable": true },
+      { "id": "amp_speed",      "name": "Speed Amp",      "cost": 280, "stackable": true },
+      { "id": "amp_radius",     "name": "Radius Amp",     "cost": 260, "stackable": true },
+      { "id": "amp_duration",   "name": "Duration Amp",   "cost": 250, "stackable": true },
+      { "id": "warm_fusion",    "name": "Warm Fusion",    "cost": 700, "stackable": false, "maxStack": 1 },
+      { "id": "cool_fusion",    "name": "Cool Fusion",    "cost": 700, "stackable": false, "maxStack": 1 },
+      { "id": "chain_catalyst", "name": "Chain Catalyst", "cost": 550, "stackable": true,  "maxStack": 2 },
+      { "id": "clear_surge",    "name": "Clear Surge",    "cost": 450, "stackable": true,  "maxStack": 3 }
+    ]
   }
 }

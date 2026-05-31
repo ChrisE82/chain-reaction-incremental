@@ -63,3 +63,65 @@ export function getRoundGoal(roundNumber) {
 export function isBossRound(roundNumber) {
   return roundNumber % RoundConfig.bossRoundInterval === 0
 }
+
+// ── Store / relic system ──────────────────────────────────────────────────────
+
+/** Lookup maps for store items */
+export const SpecialBallDefs = Object.fromEntries(BALANCE.store.specialBalls.map(b => [b.id, b]))
+export const RelicDefs       = Object.fromEntries(BALANCE.store.relics.map(r => [r.id, r]))
+export const StoreConfig     = {
+  burnBallBase:   BALANCE.store.burnBallBase,
+  burnBallMult:   BALANCE.store.burnBallMult,
+  ampPerPurchase: BALANCE.store.ampPerPurchase,
+}
+
+/** Scaled cost of burning a ball given how many burns have already occurred this run. */
+export function burnBallCost(n) {
+  return Math.ceil(StoreConfig.burnBallBase * Math.pow(StoreConfig.burnBallMult, n))
+}
+
+/**
+ * Compute all active relic multipliers from the player's relic array.
+ * Amplifiers stack additively (not multiplicatively).
+ */
+export function getRelicEffects(relics = []) {
+  const count = id => relics.filter(r => r === id).length
+  const amp   = StoreConfig.ampPerPurchase
+  return {
+    coinMult:      1 + count('amp_value')    * amp,
+    speedMult:     1 + count('amp_speed')    * amp,
+    radiusMult:    1 + count('amp_radius')   * amp,
+    durationMult:  1 + count('amp_duration') * amp,
+    chainCatalyst: count('chain_catalyst'),   // applied as ×(1 + 0.5n) to chain mult
+    clearSurge:    count('clear_surge'),      // each adds +1 to effMult base and cap
+    hasWarmFusion: count('warm_fusion') > 0,
+    hasCoolFusion: count('cool_fusion') > 0,
+  }
+}
+
+/** Color groups for Warm/Cool Fusion relics */
+export const WARM_COLORS = ['red', 'orange', 'yellow']
+export const COOL_COLORS = ['violet', 'blue', 'green']
+
+/**
+ * Return a color bucket with upgrade levels potentially boosted by fusion relics.
+ * If Warm/Cool Fusion is active for this color's group, each *Level is replaced
+ * by the maximum level across the entire group.
+ */
+export function resolvedBucket(state, colorKey, relicEffects) {
+  const bkt   = state.colorBuckets[colorKey] ?? {}
+  const group = WARM_COLORS.includes(colorKey) ? WARM_COLORS
+              : COOL_COLORS.includes(colorKey) ? COOL_COLORS : null
+  const fusionActive = group &&
+    ((WARM_COLORS.includes(colorKey) && relicEffects.hasWarmFusion) ||
+     (COOL_COLORS.includes(colorKey) && relicEffects.hasCoolFusion))
+  if (!fusionActive) return bkt
+  const maxLv = type => Math.max(...group.map(c => state.colorBuckets[c]?.[type] ?? 0))
+  return {
+    ...bkt,
+    valueLevel:    maxLv('valueLevel'),
+    speedLevel:    maxLv('speedLevel'),
+    diameterLevel: maxLv('diameterLevel'),
+    durationLevel: maxLv('durationLevel'),
+  }
+}

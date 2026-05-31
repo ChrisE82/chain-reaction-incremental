@@ -1,7 +1,15 @@
 // store.js — Chain Reaction: Idle  (state, config, persistence)
 
-import { EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound } from './balance/config.js'
-export { EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound }
+import {
+  EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound,
+  SpecialBallDefs, RelicDefs, StoreConfig, burnBallCost as _burnBallCost,
+  getRelicEffects, WARM_COLORS, COOL_COLORS, resolvedBucket,
+} from './balance/config.js'
+export {
+  EconomyConstants, GameConfig, RoundConfig, getRoundGoal, isBossRound,
+  SpecialBallDefs, RelicDefs, StoreConfig, getRelicEffects,
+  WARM_COLORS, COOL_COLORS, resolvedBucket,
+}
 
 import { makeSeed } from './rng.js'
 
@@ -180,6 +188,7 @@ function newColorBucket() {
     speedLevel:    0,
     diameterLevel: 0,
     durationLevel: 0,
+    specialBalls:  [],  // string[] of owned special ball types, e.g. ['dense', 'nova']
     // chainPowerLevel intentionally omitted — prestige relic unlock only
   }
 }
@@ -292,6 +301,8 @@ function defaultState() {
     colorBuckets:        defaultRunColorBuckets(),
     totalBallsPurchased: 6,   // all 6 basic balls given at run start
     clicks:              { radiusLevel: 0, durationLevel: 0 },
+    relics:              [],   // string[] — relic IDs, duplicates = stacks
+    burnCount:           0,    // # of Burn uses this run
     prestigeCount:       0,
     autoUpgradeEnabled:  false,
     introComplete:       false,
@@ -317,9 +328,11 @@ function defaultState() {
 function mergeState(saved) {
   const def = defaultState()
   const merged = { ...def, ...saved }
-  merged.clicks = { ...def.clicks, ...(saved.clicks ?? {}) }
-  merged.round  = { ...def.round,  ...(saved.round  ?? {}) }
-  merged.stats  = { ...def.stats,  ...(saved.stats  ?? {}) }
+  merged.clicks    = { ...def.clicks, ...(saved.clicks ?? {}) }
+  merged.round     = { ...def.round,  ...(saved.round  ?? {}) }
+  merged.stats     = { ...def.stats,  ...(saved.stats  ?? {}) }
+  merged.relics    = Array.isArray(saved.relics)   ? saved.relics   : []
+  merged.burnCount = typeof saved.burnCount === 'number' ? saved.burnCount : 0
 
   if (!saved.round) {
     // Pre-roguelite save: reset run state to a clean round-1 start.
@@ -329,11 +342,19 @@ function mergeState(saved) {
     merged.colorBuckets        = defaultRunColorBuckets()
     merged.totalBallsPurchased = 6
     merged.clicks              = { radiusLevel: 0, durationLevel: 0 }
+    merged.relics              = []
+    merged.burnCount           = 0
     merged.round               = defaultRound()
   } else {
     const mergedBuckets = {}
-    for (const c of COLOR_ORDER)
-      mergedBuckets[c] = { ...newColorBucket(), ...(saved.colorBuckets?.[c] ?? {}) }
+    for (const c of COLOR_ORDER) {
+      const saved_bkt = saved.colorBuckets?.[c] ?? {}
+      mergedBuckets[c] = {
+        ...newColorBucket(),
+        ...saved_bkt,
+        specialBalls: Array.isArray(saved_bkt.specialBalls) ? saved_bkt.specialBalls : [],
+      }
+    }
     merged.colorBuckets = mergedBuckets
   }
 
@@ -359,6 +380,9 @@ function migrateV2State(old) {
   const oldCount = old.unlockedSlots ?? 1
   const oldBalls = old.balls ?? []
   st.totalBallsPurchased = oldCount
+
+  st.relics    = []
+  st.burnCount = 0
 
   // Reset buckets, then distribute owned balls across COLOR_ORDER.
   for (const c of COLOR_ORDER) st.colorBuckets[c] = newColorBucket()
@@ -633,6 +657,8 @@ export function startNewRun() {
   state.colorBuckets        = freshBuckets
   state.totalBallsPurchased = 6
   state.clicks              = { radiusLevel: 0, durationLevel: 0 }
+  state.relics              = []
+  state.burnCount           = 0
   state.prestigeCount       = 0
   state.autoUpgradeEnabled  = false
   state.round               = defaultRound()
@@ -671,6 +697,75 @@ export function devFreeUnlockNextBall() {
   state.totalBallsPurchased++
   saveState(state, true)
   return colorKey
+}
+
+// ─── Store purchases ──────────────────────────────────────────────────────
+
+/** Get the player's current relic array. */
+export function getRelics() { return state.relics }
+
+/** Buy a relic and deduct its cost. Returns true on success. */
+export function buyRelic(id, cost) {
+  if (state.coins < cost) return false
+  state.coins -= cost
+  state.relics.push(id)
+  saveState(state, true)
+  return true
+}
+
+/** Buy a special ball for a color. Returns true on success. */
+export function buySpecialBall(colorKey, ballType, cost) {
+  const bkt = state.colorBuckets[colorKey]
+  if (!bkt) return false
+  if (state.coins < cost) return false
+  state.coins -= cost
+  if (!Array.isArray(bkt.specialBalls)) bkt.specialBalls = []
+  bkt.specialBalls.push(ballType)
+  saveState(state, true)
+  return true
+}
+
+/**
+ * Burn (remove) one ball from the roster.
+ * If ballType is provided, removes that special ball type from colorKey's specialBalls.
+ * Otherwise decrements ballsOwned for colorKey (regular ball).
+ * Guards: total ball count must stay >= 1.
+ */
+export function burnBall(colorKey, ballType = null) {
+  // Count total ball objects
+  let totalBalls = 0
+  for (const c of COLOR_ORDER) {
+    const b = state.colorBuckets[c]
+    if (!b) continue
+    totalBalls += b.ballsOwned
+    totalBalls += (b.specialBalls ?? []).length
+  }
+  if (totalBalls <= 1) return false
+
+  const cost = _burnBallCost(state.burnCount)
+  if (state.coins < cost) return false
+
+  const bkt = state.colorBuckets[colorKey]
+  if (!bkt) return false
+
+  if (ballType) {
+    const idx = (bkt.specialBalls ?? []).indexOf(ballType)
+    if (idx === -1) return false
+    bkt.specialBalls.splice(idx, 1)
+  } else {
+    if (bkt.ballsOwned <= 0) return false
+    bkt.ballsOwned--
+  }
+
+  state.coins -= cost
+  state.burnCount++
+  saveState(state, true)
+  return true
+}
+
+/** Cost of the next burn action. */
+export function getBurnCost() {
+  return _burnBallCost(state.burnCount)
 }
 
 export function devReset() {

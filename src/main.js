@@ -16,6 +16,10 @@ import {
   // ── Round/run system ──
   getRoundState, setRoundState, startNewRun, advanceRound,
   getRoundGoal, isBossRound,
+  // ── Store system ──
+  getRelics, buyRelic, buySpecialBall, burnBall, getBurnCost,
+  SpecialBallDefs, RelicDefs, StoreConfig,
+  getRelicEffects, WARM_COLORS, COOL_COLORS, resolvedBucket,
 } from './store.js'
 
 import { seededRng, deriveRoundSeed, deriveRefreshSeed, formatSeed } from './rng.js'
@@ -110,12 +114,19 @@ const bossRewardContinue = document.getElementById('boss-reward-continue')
 const betweenStore      = document.getElementById('between-store')
 const bstoreTitle       = document.getElementById('bstore-title')
 const bstoreContinue    = document.getElementById('bstore-continue')
+const bstoreGrid        = document.getElementById('bstore-grid')
+const bstoreCoinVal     = document.getElementById('bstore-coin-val')
 
 // ── Round state (in-memory complements persisted round state) ──
 let _pendingRoundEnd    = false   // set when clicks hit 0; defers endRound() until chain resolves
 let _waitingForRoundEnd = false   // set after chain resolves; fires endRound() once all shrinks+tap circles finish
 let _roundEndTimer      = null    // setTimeout handle for the post-clear pause before the overlay
 let _forceShrankBalls   = false   // true when endChain() force-shrank idle balls — suppresses spurious clear bonus
+
+// ── Relic effect cache ─────────────────────────────────────────────────────
+// Recomputed lazily; invalidated at round start and after any store purchase.
+let _relicFx = null
+function relicFx() { return (_relicFx ??= getRelicEffects(getState().relics)) }
 
 // ── Seeded RNG ─────────────────────────────────────────────────────────────
 // All board-layout randomness (spawn positions, velocities, respawn positions)
@@ -428,8 +439,10 @@ function endChain() {
     const chainLen   = currentChain.index
     const chainCoins = currentChain.coins
     const chainBase  = currentChain.chainContrib   // weighted sum for bonus calc
-    const mult       = getChainMultiplier(chainLen)
-    const bonus      = chainEndBonus(chainLen, chainBase)
+    const baseMult   = getChainMultiplier(chainLen)
+    const catFactor  = 1 + 0.5 * relicFx().chainCatalyst
+    const mult       = Math.floor(baseMult * catFactor)
+    const bonus      = mult > 0 ? Math.floor(chainBase * mult) : 0
     if (bonus > 0) {
       addCoins(bonus)
       spawnChainBonusLabel(chainLen, mult, bonus)
@@ -613,8 +626,29 @@ function lighten(hex) {
 }
 
 // ─── Ball factory ─────────────────────────────────────────────────────────
-function makeBall(colorKey) {
-  const stats = getDerivedBallStats(getState(), colorKey)
+function makeBall(colorKey, ballType = 'normal') {
+  const st    = getState()
+  const fx    = relicFx()
+  // Use fusion-aware bucket for stat derivation
+  const bkt   = resolvedBucket(st, colorKey, fx)
+  const stats = statsFromBucket(bkt)
+
+  // Apply global relic amplifiers
+  stats.speed     *= fx.speedMult
+  stats.maxRadius *= fx.radiusMult
+  stats.holdMs     = Math.round(stats.holdMs * fx.durationMult)
+
+  // Apply special ball type multipliers on top
+  if (ballType !== 'normal') {
+    const def = SpecialBallDefs[ballType]
+    if (def) {
+      if (def.speedMult)    stats.speed     *= def.speedMult
+      if (def.radiusMult)   stats.maxRadius *= def.radiusMult
+      if (def.durationMult) stats.holdMs     = Math.round(stats.holdMs * def.durationMult)
+      if (def.growMs)       stats.growMs     = def.growMs
+    }
+  }
+
   const r     = BALL_RADIUS
   const angle = rng() * Math.PI * 2
   return {
@@ -627,6 +661,9 @@ function makeBall(colorKey) {
     color:      COLOR_HEX[colorKey],
     lightColor: lighten(COLOR_HEX[colorKey]),   // precomputed — avoids per-frame hex parse
     colorKey,
+    ballType,
+    ballIcon:  ballType !== 'normal' ? (SpecialBallDefs[ballType]?.icon ?? null)      : null,
+    glowColor: ballType !== 'normal' ? (SpecialBallDefs[ballType]?.glowColor ?? null) : null,
     state:    'idle',
     expTimer:  0,
     curRadius: 0,
@@ -740,7 +777,7 @@ function triggerBall(b, src) {
   // popping 3/3 feels as impactful as popping 30/30.
   const _pct = Math.min((chainIndex + 1) / Math.max(balls.length, 1), 1.0)
   spawnPopRing(b.x, b.y, b.color, b.baseRadius * 1.5, b.maxRadius * (2.2 + _pct * 0.8), chainIndex, _pct)
-  const coins = b.value
+  const coins = introMode ? b.value : Math.round(b.value * relicFx().coinMult)
   if (currentChain) {
     currentChain.index++
     currentChain.coins        += coins
@@ -809,23 +846,45 @@ function triggerAtPoint(vx, vy) {
 // ─── Sync live ball stats after upgrade ───────────────────────────────────
 // Updates all balls of a given color from their bucket (used after any upgrade).
 function syncColorBalls(colorKey) {
-  const stats = getDerivedBallStats(getState(), colorKey)
+  const st  = getState()
+  const fx  = relicFx()
+  const bkt = resolvedBucket(st, colorKey, fx)
+  const base = statsFromBucket(bkt)
+  // Apply relic amplifiers to base stats
+  base.speed     *= fx.speedMult
+  base.maxRadius *= fx.radiusMult
+  base.holdMs     = Math.round(base.holdMs * fx.durationMult)
+
   for (const b of balls) {
     if (b.colorKey !== colorKey) continue
-    b.maxRadius = stats.maxRadius
-    b.growMs    = stats.growMs
-    b.holdMs    = stats.holdMs
-    b.shrinkMs  = stats.shrinkMs
-    b.respawnMs = stats.respawnMs
-    b.value     = stats.value
+    // Re-derive stats for this ball's type (special ball mults applied on top)
+    let speed     = base.speed
+    let maxRadius = base.maxRadius
+    let holdMs    = base.holdMs
+    let growMs    = base.growMs
+    if (b.ballType && b.ballType !== 'normal') {
+      const def = SpecialBallDefs[b.ballType]
+      if (def) {
+        if (def.speedMult)    speed     *= def.speedMult
+        if (def.radiusMult)   maxRadius *= def.radiusMult
+        if (def.durationMult) holdMs     = Math.round(holdMs * def.durationMult)
+        if (def.growMs)       growMs     = def.growMs
+      }
+    }
+    b.maxRadius = maxRadius
+    b.growMs    = growMs
+    b.holdMs    = holdMs
+    b.shrinkMs  = base.shrinkMs
+    b.respawnMs = base.respawnMs
+    b.value     = base.value
     const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy)
     if (spd > 0) {
-      const ratio = stats.speed / spd
+      const ratio = speed / spd
       b.vx *= ratio; b.vy *= ratio
     } else {
       const a = Math.random() * Math.PI * 2
-      b.vx = Math.cos(a) * stats.speed
-      b.vy = Math.sin(a) * stats.speed
+      b.vx = Math.cos(a) * speed
+      b.vy = Math.sin(a) * speed
     }
   }
 }
@@ -979,8 +1038,27 @@ function refillAllOwnedBalls() {
     return da - db
   })
 
+  const fx = relicFx()
   sorted.forEach((b, i) => {
-    const stats = b.isIntro ? INTRO_STATS : getDerivedBallStats(st, b.colorKey)
+    let stats
+    if (b.isIntro) {
+      stats = INTRO_STATS
+    } else {
+      const bkt  = resolvedBucket(st, b.colorKey, fx)
+      stats       = statsFromBucket(bkt)
+      stats.speed     *= fx.speedMult
+      stats.maxRadius *= fx.radiusMult
+      stats.holdMs     = Math.round(stats.holdMs * fx.durationMult)
+      if (b.ballType && b.ballType !== 'normal') {
+        const def = SpecialBallDefs[b.ballType]
+        if (def) {
+          if (def.speedMult)    stats.speed     *= def.speedMult
+          if (def.radiusMult)   stats.maxRadius *= def.radiusMult
+          if (def.durationMult) stats.holdMs     = Math.round(stats.holdMs * def.durationMult)
+          if (def.growMs)       stats.growMs     = def.growMs
+        }
+      }
+    }
     const angle = rng() * Math.PI * 2
     b.x = r + rng() * (arenaW - r * 2)
     b.y = r + rng() * (arenaH - r * 2)
@@ -1150,7 +1228,8 @@ function update(dt) {
         wasBoardActiveSinceLastKickstart = false
 
         const popsPerTap = cycleTriggerOccurrences / Math.max(1, cyclePlayerStarts)
-        const effMult    = Math.min(5.0, 3.0 + Math.max(0, Math.log2(popsPerTap)))
+        const cs         = relicFx().clearSurge
+        const effMult    = Math.min(5.0 + cs, (3.0 + cs) + Math.max(0, Math.log2(popsPerTap)))
         const clearBonus = Math.floor(cycleBaseEarned * effMult)
 
         if (clearBonus > 0 && !_forceShrankBalls) {
@@ -1243,6 +1322,34 @@ function drawBall(b) {
     ctx.globalAlpha = 1
   }
 
+  // ── Special ball overlays ──────────────────────────────────────────────
+  if (b.glowColor) {
+    // Second outer glow ring in the ball type's accent color
+    ctx.save()
+    ctx.shadowBlur  = r * 3.5
+    ctx.shadowColor = b.glowColor
+    ctx.beginPath()
+    ctx.arc(b.x, b.y, r * 0.55, 0, Math.PI * 2)
+    ctx.strokeStyle = b.glowColor + '55'  // semi-transparent stroke just to emit shadow
+    ctx.lineWidth   = r * 0.18
+    ctx.stroke()
+    ctx.shadowBlur  = 0
+    ctx.restore()
+  }
+  if (b.ballIcon) {
+    // Icon overlaid at ball center
+    ctx.save()
+    const fontSize = Math.max(0.01, r * 0.95)
+    ctx.font        = `${fontSize}px sans-serif`
+    ctx.textAlign   = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.globalAlpha  = 0.92
+    ctx.fillStyle    = '#ffffff'
+    ctx.fillText(b.ballIcon, b.x, b.y)
+    ctx.globalAlpha  = 1
+    ctx.restore()
+  }
+
   ctx.restore()
 }
 
@@ -1252,9 +1359,11 @@ function updateHUD() {
   // During intro show temporary visual coins (discarded on completion)
   hudCoins.textContent = fmt(introMode ? introCoins : st.coins)
 
-  const chainIndex = currentChain ? currentChain.index : 0
-  const mult = getChainMultiplier(chainIndex)
-  hudChain.textContent = '×' + fmtMult(Math.max(1, mult))
+  const chainIndex  = currentChain ? currentChain.index : 0
+  const baseMult    = getChainMultiplier(chainIndex)
+  const catFactor   = introMode ? 1 : (1 + 0.5 * relicFx().chainCatalyst)
+  const displayMult = Math.floor(baseMult * catFactor)
+  hudChain.textContent = '×' + fmtMult(Math.max(1, displayMult))
 
   if (!introMode) updateQuickBuy()
   if (!introMode) updateRoundHUD()
@@ -3202,6 +3311,231 @@ function endRoundEarly() {
   }
 }
 
+// ─── Between-round store ──────────────────────────────────────────────────
+
+/**
+ * Build and show the roguelite between-round store.
+ * Generates seeded card selection and renders the grid of buy options.
+ */
+function buildBetweenStore() {
+  const st = getState()
+  const rd = getRoundState()
+
+  // ── Generate seeded card selection ────────────────────────────────────
+  // Use a store-specific sub-RNG derived from the round seed so board layout RNG is unaffected.
+  const storeRng = seededRng(deriveRoundSeed(st.runSeed, rd.number + 0x8000))
+
+  // Build list of unowned (color, ballType) combinations for ball offers
+  const allBallCombos = []
+  for (const colorKey of COLOR_ORDER) {
+    const bkt = st.colorBuckets[colorKey] ?? {}
+    const owned = new Set(bkt.specialBalls ?? [])
+    for (const bt of Object.keys(SpecialBallDefs)) {
+      if (!owned.has(bt)) allBallCombos.push({ colorKey, ballType: bt })
+    }
+  }
+  // Shuffle and pick 2 ball offers
+  for (let i = allBallCombos.length - 1; i > 0; i--) {
+    const j = Math.floor(storeRng() * (i + 1));
+    [allBallCombos[i], allBallCombos[j]] = [allBallCombos[j], allBallCombos[i]]
+  }
+  const ballOffers = allBallCombos.slice(0, 2)
+
+  // Build list of available relic offers (exclude sold-out non-stackables)
+  const currentRelics = st.relics ?? []
+  const availRelics = Object.values(RelicDefs).filter(rd2 => {
+    const stackCount = currentRelics.filter(r => r === rd2.id).length
+    if (!rd2.stackable && stackCount >= 1) return false
+    if (rd2.maxStack && stackCount >= rd2.maxStack) return false
+    return true
+  })
+  // Shuffle and pick 2 relic offers
+  for (let i = availRelics.length - 1; i > 0; i--) {
+    const j = Math.floor(storeRng() * (i + 1));
+    [availRelics[i], availRelics[j]] = [availRelics[j], availRelics[i]]
+  }
+  const relicOffers = availRelics.slice(0, 2)
+
+  // Track purchased items this visit (so cards can go to sold state)
+  const purchasedBalls  = new Set()
+  const purchasedRelics = new Set()  // index-based for stackables
+
+  // ── Render the store ──────────────────────────────────────────────────
+  function renderStore() {
+    const coins    = getState().coins
+    const goalAmt  = getRoundState().goal
+    const spendable = Math.max(0, coins - goalAmt)
+    if (bstoreCoinVal) bstoreCoinVal.textContent = fmt(spendable)
+    if (!bstoreGrid) return
+    bstoreGrid.innerHTML = ''
+
+    // ── Ball offer cards ─────────────────────────────────────────────
+    ballOffers.forEach((offer, idx) => {
+      const { colorKey, ballType } = offer
+      const def    = SpecialBallDefs[ballType]
+      const hex    = COLOR_HEX[colorKey]
+      const isSold = purchasedBalls.has(idx)
+      const canAfford = spendable >= def.cost
+
+      const card = document.createElement('div')
+      card.className = 'bstore-card bstore-card-ball' + (isSold ? ' sold' : '')
+
+      // Build stat description
+      const parts = []
+      if (def.speedMult)    parts.push(`Speed ×${def.speedMult}`)
+      if (def.radiusMult)   parts.push(`Radius ×${def.radiusMult}`)
+      if (def.durationMult) parts.push(`Hold ×${def.durationMult}`)
+      if (def.growMs)       parts.push(`Grow ${def.growMs}ms`)
+
+      card.innerHTML = `
+        <div class="bstore-card-header">
+          <span class="bstore-card-icon" style="color:${def.glowColor}">${def.icon}</span>
+          <span class="bstore-card-color" style="background:${hex};box-shadow:0 0 0.6em ${hex}"></span>
+        </div>
+        <div class="bstore-card-name">${def.name}</div>
+        <div class="bstore-card-color-lbl" style="color:${hex}">${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)}</div>
+        <div class="bstore-card-desc">${parts.join(' · ')}</div>
+        <div class="bstore-card-cost">&#9670; ${fmt(def.cost)}</div>
+        <button class="bstore-card-btn reo-btn reo-btn-primary"
+          ${isSold || !canAfford ? 'disabled' : ''}>
+          ${isSold ? 'Purchased' : canAfford ? 'Buy' : 'Need ◆' + fmt(def.cost - spendable)}
+        </button>`
+
+      if (!isSold) {
+        card.querySelector('button').addEventListener('click', () => {
+          if (buySpecialBall(colorKey, ballType, def.cost)) {
+            purchasedBalls.add(idx)
+            _relicFx = null
+            renderStore()
+          }
+        })
+      }
+      bstoreGrid.appendChild(card)
+    })
+
+    // ── Relic offer cards ─────────────────────────────────────────────
+    relicOffers.forEach((relic, idx) => {
+      const isSold    = purchasedRelics.has(idx)
+      const canAfford = spendable >= relic.cost
+      const stackCount = (getState().relics ?? []).filter(r => r === relic.id).length
+      const atMax   = relic.maxStack && stackCount >= relic.maxStack
+
+      // Description based on relic type
+      let desc = ''
+      if (relic.id.startsWith('amp_')) {
+        const type = relic.id.replace('amp_', '')
+        const pct  = Math.round(StoreConfig.ampPerPurchase * 100)
+        desc = `+${pct}% ${type} for all balls${stackCount > 0 ? ` (×${1 + (stackCount + 1) * StoreConfig.ampPerPurchase} total after)` : ''}`
+      } else if (relic.id === 'warm_fusion') {
+        desc = 'Red, Orange & Yellow share the highest upgrade level across the group'
+      } else if (relic.id === 'cool_fusion') {
+        desc = 'Violet, Blue & Green share the highest upgrade level across the group'
+      } else if (relic.id === 'chain_catalyst') {
+        desc = 'Chain multiplier ×1.5 (stacks additively)'
+        if (stackCount > 0) desc += ` (currently ×${1 + (stackCount + 1) * 0.5} total)`
+      } else if (relic.id === 'clear_surge') {
+        desc = 'Clear bonus base +1, cap +1 per stack'
+      }
+
+      const card = document.createElement('div')
+      card.className = 'bstore-card bstore-card-relic' + (isSold || atMax ? ' sold' : '')
+
+      card.innerHTML = `
+        <div class="bstore-card-header">
+          <span class="bstore-card-icon bstore-relic-icon">&#11042;</span>
+        </div>
+        <div class="bstore-card-name">${relic.name}</div>
+        ${stackCount > 0 ? `<div class="bstore-card-stack">Owned: ${stackCount}</div>` : ''}
+        <div class="bstore-card-desc">${desc}</div>
+        <div class="bstore-card-cost">&#9670; ${fmt(relic.cost)}</div>
+        <button class="bstore-card-btn reo-btn reo-btn-primary"
+          ${isSold || atMax || !canAfford ? 'disabled' : ''}>
+          ${isSold ? 'Purchased' : atMax ? 'Max' : canAfford ? 'Buy' : 'Need ◆' + fmt(relic.cost - spendable)}
+        </button>`
+
+      if (!isSold && !atMax) {
+        card.querySelector('button').addEventListener('click', () => {
+          if (buyRelic(relic.id, relic.cost)) {
+            purchasedRelics.add(idx)
+            _relicFx = null
+            renderStore()
+          }
+        })
+      }
+      bstoreGrid.appendChild(card)
+    })
+
+    // ── Burn card ─────────────────────────────────────────────────────
+    {
+      const burnCost     = getBurnCost()
+      const canAffordBurn = spendable >= burnCost
+      const card = document.createElement('div')
+      card.className = 'bstore-card bstore-burn-card'
+
+      // Build burn target selector — all owned balls
+      const burnTargets = []
+      for (const colorKey of COLOR_ORDER) {
+        const bkt = getState().colorBuckets[colorKey] ?? {}
+        if ((bkt.ballsOwned ?? 0) > 0) {
+          burnTargets.push({ colorKey, ballType: null, label: `${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} (regular)` })
+        }
+        for (const bt of (bkt.specialBalls ?? [])) {
+          const def = SpecialBallDefs[bt]
+          burnTargets.push({ colorKey, ballType: bt, label: `${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} ${def?.name ?? bt}` })
+        }
+      }
+
+      let selectedBurnIdx = -1
+
+      const burnColorHtml = burnTargets.map((t, i) => {
+        const hex = COLOR_HEX[t.colorKey]
+        const icon = t.ballType ? (SpecialBallDefs[t.ballType]?.icon ?? '') : ''
+        return `<button class="bstore-burn-color" data-burn-idx="${i}"
+          style="border-color:${hex};color:${hex}">
+          ${icon || '◆'} ${t.label}
+        </button>`
+      }).join('')
+
+      card.innerHTML = `
+        <div class="bstore-card-name">&#128293; Burn a Ball</div>
+        <div class="bstore-card-desc">Remove a ball from your roster. Tighter deck = more consistent chains.</div>
+        <div class="bstore-burn-colors">${burnColorHtml}</div>
+        <div class="bstore-card-cost">&#9670; ${fmt(burnCost)}</div>
+        <button class="bstore-card-btn reo-btn" id="bstore-burn-confirm" disabled>
+          Select a ball to burn
+        </button>`
+
+      // Handle color selection
+      card.querySelectorAll('.bstore-burn-color').forEach(btn => {
+        btn.addEventListener('click', () => {
+          card.querySelectorAll('.bstore-burn-color').forEach(b2 => b2.classList.remove('selected'))
+          btn.classList.add('selected')
+          selectedBurnIdx = parseInt(btn.dataset.burnIdx, 10)
+          const confirmBtn = card.querySelector('#bstore-burn-confirm')
+          confirmBtn.disabled = !canAffordBurn
+          confirmBtn.textContent = canAffordBurn
+            ? `Burn ◆${fmt(burnCost)}`
+            : `Need ◆${fmt(burnCost - spendable)}`
+        })
+      })
+
+      // Handle burn confirm
+      card.querySelector('#bstore-burn-confirm').addEventListener('click', () => {
+        if (selectedBurnIdx < 0 || selectedBurnIdx >= burnTargets.length) return
+        const { colorKey, ballType } = burnTargets[selectedBurnIdx]
+        if (burnBall(colorKey, ballType)) {
+          _relicFx = null
+          renderStore()
+        }
+      })
+
+      bstoreGrid.appendChild(card)
+    }
+  }
+
+  renderStore()
+}
+
 function endRound() {
   const st = getState()
   const rd = getRoundState()
@@ -3216,9 +3550,11 @@ function endRound() {
         bossRewardOverlay.classList.add('hidden')
         bstoreTitle.textContent = '★ Act Store'
         betweenStore.classList.remove('hidden')
+        buildBetweenStore()
+        const goalAmt = rd.goal
         bstoreContinue.onclick = () => {
           betweenStore.classList.add('hidden')
-          advanceRound(carried)
+          advanceRound(Math.max(0, getState().coins - goalAmt))
           startRound()
         }
       }
@@ -3232,13 +3568,15 @@ Carried forward: <strong>◆ ${fmt(carried)}</strong>`
       const storeBtn = document.createElement('button')
       storeBtn.className = 'reo-btn reo-btn-primary'
       storeBtn.textContent = 'Enter Store ›'
+      const goalAmt = rd.goal
       storeBtn.onclick = () => {
         roundEndOverlay.classList.add('hidden')
         bstoreTitle.textContent = '★ Run Store'
         betweenStore.classList.remove('hidden')
+        buildBetweenStore()
         bstoreContinue.onclick = () => {
           betweenStore.classList.add('hidden')
-          advanceRound(carried)
+          advanceRound(Math.max(0, getState().coins - goalAmt))
           startRound()
         }
       }
@@ -3296,6 +3634,9 @@ function startRound() {
   chainShakeAmt               = 0
   wasBoardActiveSinceLastKickstart = false
 
+  // Invalidate relic effect cache — relics may have changed in the store
+  _relicFx = null
+
   // Seed the RNG for this round — all board layout randomness (spawn positions,
   // velocities, respawn positions) flows through rng() from here on.
   const st = getState()
@@ -3306,7 +3647,10 @@ function startRound() {
   balls = []
   for (const colorKey of COLOR_ORDER) {
     const bkt = st.colorBuckets[colorKey]
+    // Regular balls
     for (let i = 0; i < (bkt?.ballsOwned ?? 0); i++) balls.push(makeBall(colorKey))
+    // Special balls
+    for (const bt of (bkt?.specialBalls ?? [])) balls.push(makeBall(colorKey, bt))
   }
   refillAllOwnedBalls()
 
