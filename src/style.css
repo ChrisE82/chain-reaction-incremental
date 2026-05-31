@@ -229,6 +229,15 @@ canvas {
   line-height: 1;
 }
 
+/* Last-resource warning — turns the tile value red when only 1 remains */
+.hud-tile-val.last-one {
+  color: var(--color-danger);
+  text-shadow:
+    0 0 0.15em #ff4f6a,
+    0 0 0.6em rgba(255,79,106,0.75),
+    0 0 2em rgba(255,79,106,0.4);
+}
+
 /* Refresh — interactive tile button */
 .hud-tile-btn {
   all: unset;
@@ -542,6 +551,16 @@ body.intro-active .hud-goal-row { display: none; }
     0 0 0.6em #00c8ff,
     0 0 2em rgba(0,200,255,0.5);
   line-height: 1;
+}
+
+/* Coin-value stats use gold glow instead of the default blue */
+#smt-payout,
+#smt-earned {
+  color: #ffe500;
+  text-shadow:
+    0 0 0.15em #ffe500,
+    0 0 0.6em rgba(255,229,0,0.7),
+    0 0 2em rgba(255,229,0,0.35);
 }
 
 .smt-lbl {
@@ -937,15 +956,15 @@ body.intro-active #stats-screen { display: none !important; }
   height: clamp(0.9rem, 3.2vmin, 2rem);
   border-radius: 50%;
   background: conic-gradient(
-    #cc00ff 0%,
+    #9900ff 0%,
     #00c8ff 20%,
     #39ff14 38%,
     #ffe500 54%,
     #ff6200 70%,
     #ff0066 85%,
-    #cc00ff 100%
+    #9900ff 100%
   );
-  box-shadow: 0 0 8px 2px rgba(204,0,255,0.55), 0 0 16px rgba(57,255,20,0.25);
+  box-shadow: 0 0 8px 2px rgba(153,0,255,0.55), 0 0 16px rgba(57,255,20,0.25);
   flex-shrink: 0;
 }
 

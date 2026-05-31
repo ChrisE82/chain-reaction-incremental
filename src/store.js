@@ -18,7 +18,7 @@ const LEGACY_KEY  = 'cr_v2'   // read once on first launch for migration
 export const COLOR_ORDER = ['violet', 'blue', 'green', 'yellow', 'orange', 'red']
 
 export const COLOR_HEX = {
-  violet: '#cc00ff',   // neon purple/magenta
+  violet: '#9900ff',   // deep neon purple
   blue:   '#00c8ff',   // electric blue
   green:  '#39ff14',   // neon green
   yellow: '#ffe500',   // electric yellow

@@ -1304,7 +1304,7 @@ function updateDebug(st) {
       `EPM: <b>◆${fmt(Math.round(epm))}/min</b>  (${_epmLog.length} samples)<br>` +
       `Cheapest upg: ◆${isFinite(cheapCost) ? fmt(cheapCost) : '–'}  → ${minsToUpg} min<br>` +
       `Next ball:    ◆${fmt(ballCost)}  → ${minsToBall} min<br>` +
-      `<span style="color:#cc00ff">` +
+      `<span style="color:#9900ff">` +
       `Value ×${plateau(vLv, EC.value.maxBonus, EC.value.curve)}  ` +
       `Speed ×${plateau(sLv, EC.speed.maxBonus, EC.speed.curve)}  ` +
       `Hold ${Math.round(200 * (1 + EC.duration.maxBonus * (1 - Math.exp(-hLv / EC.duration.curve))))}ms  ` +
@@ -3127,8 +3127,16 @@ function updateRoundHUD() {
   const rd = getRoundState()
   const st = getState()
 
-  if (hudClicksEl    && rd.clicksLeft    !== _prevClicks)    { hudClicksEl.textContent   = rd.clicksLeft;    _prevClicks    = rd.clicksLeft }
-  if (hudRefreshesEl && rd.refreshesLeft !== _prevRefreshes) { hudRefreshesEl.textContent = rd.refreshesLeft; _prevRefreshes = rd.refreshesLeft }
+  if (hudClicksEl    && rd.clicksLeft    !== _prevClicks)    {
+    hudClicksEl.textContent = rd.clicksLeft
+    hudClicksEl.classList.toggle('last-one', rd.clicksLeft === 1)
+    _prevClicks = rd.clicksLeft
+  }
+  if (hudRefreshesEl && rd.refreshesLeft !== _prevRefreshes) {
+    hudRefreshesEl.textContent = rd.refreshesLeft
+    hudRefreshesEl.classList.toggle('last-one', rd.refreshesLeft === 1)
+    _prevRefreshes = rd.refreshesLeft
+  }
   if (hudGoalMaxEl   && rd.goal          !== _prevGoal)      { hudGoalMaxEl.textContent   = fmt(rd.goal);     _prevGoal      = rd.goal }
   if (hudRoundNumEl  && rd.number        !== _prevRoundNum)  { hudRoundNumEl.textContent  = rd.number;        _prevRoundNum  = rd.number }
 
