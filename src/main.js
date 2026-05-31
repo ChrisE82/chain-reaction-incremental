@@ -97,6 +97,7 @@ const hudRefreshesEl = document.getElementById('hud-refreshes')
 const hudGoalMaxEl   = document.getElementById('hud-goal-max')
 const hudRoundNumEl  = document.getElementById('hud-round-num')
 const btnRefresh     = document.getElementById('btn-refresh')
+const btnEndRound    = document.getElementById('btn-end-round')
 
 // ── Round-end / store overlays ──
 const roundEndOverlay   = document.getElementById('round-end-overlay')
@@ -161,7 +162,7 @@ const qbStoreArrow  = document.getElementById('qb-store-arrow')
 
 // ─── Virtual resolution ───────────────────────────────────────────────────
 const VIRTUAL_W = 100
-const VIRTUAL_H = 178   // 9:16 portrait
+const VIRTUAL_H = 150   // 2:3 portrait — fits available space after HUD + quick-buy bar
 
 // ─── Canvas / scale ───────────────────────────────────────────────────────
 const _isMobile = window.matchMedia('(pointer: coarse)').matches
@@ -189,20 +190,32 @@ function calcUnits() {
   if (canvas.height !== cH) canvas.height = cH
   canvas.style.width  = W + 'px'
   canvas.style.height = H + 'px'
-  // qbBar.offsetHeight returns 0 when the bar is hidden (intro mode).
-  const barPx  = qbBar.offsetHeight
-  // Reserve space at the top for the HUD strip so balls never
-  // render behind UI elements that have pointer-events:auto.
-  const hudBottom  = hudEl.getBoundingClientRect().bottom
-  const topPx      = hudBottom
-  const availH = H - barPx - topPx
-  // Scale so the virtual field fits inside the space between HUD and bar.
+  // Measure actual rendered positions with getBoundingClientRect so the
+  // calculation stays correct even when dvh-based CSS and window.innerHeight
+  // disagree (common on mobile browsers).
+  const hudBottom = hudEl.getBoundingClientRect().bottom
+  // When the bar is hidden (intro mode) offsetHeight === 0; fall back to H
+  // so the field fills the full remaining height.
+  const barTop = qbBar.offsetHeight > 0 ? qbBar.getBoundingClientRect().top : H
+
+  // Explicit clearance gaps so the neon border is always visible and the field
+  // can never accidentally overlap either the HUD or the quick-buy bar — even
+  // when there's sub-pixel rounding or a font-swap causes a brief measurement
+  // lag.  Both values need to be >= shadowBlur / 5 to show a visible glow edge.
+  const TOP_GAP    = H * 0.003   // ~0.3vh — clears HUD sub-pixel rounding
+  const BOTTOM_GAP = H * 0.015   // ~1.5vh — room for the border glow above the bar
+
+  // Available height is the band between HUD and bar, minus the two gaps.
+  const availH = barTop - hudBottom - TOP_GAP - BOTTOM_GAP
+  // Scale so the virtual field fits inside the available band.
   gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
-  // Pin the play field below the HUD; center it vertically in whatever
-  // space remains between HUD and quick-buy bar.
-  gameOffsetY = topPx + Math.max(0, (availH - VIRTUAL_H * gameScale) / 2)
-  // Full virtual height fits in the available band — no virtual-unit reduction.
+  // Pin the field to the top of the available band (just below HUD + gap).
+  // Do NOT centre vertically: on wide or desktop viewports the field is
+  // width-limited and the centering term would shove the field far down,
+  // producing a large empty zone at the top and crowding the bar at the bottom.
+  gameOffsetY = hudBottom + TOP_GAP
+  // Full virtual height always fits — no virtual-unit reduction needed.
   gamePlayH = VIRTUAL_H
 
   // Sync shared render state so particle/label modules read current values.
@@ -560,8 +573,8 @@ function drawRadiusGhosts() {
     if (oldAlpha > 0.01) {
       ctx.save()
       ctx.globalAlpha = oldAlpha
-      ctx.strokeStyle = 'rgba(255,255,255,0.75)'
-      ctx.lineWidth   = 0.4
+      ctx.strokeStyle = 'rgba(200,0,255,0.60)'
+      ctx.lineWidth   = 0.6
       ctx.setLineDash([2, 2])
       ctx.beginPath(); ctx.arc(g.x, g.y, g.oldR, 0, Math.PI * 2); ctx.stroke()
       ctx.setLineDash([])
@@ -576,10 +589,10 @@ function drawRadiusGhosts() {
     if (newAlpha > 0.01) {
       ctx.save()
       ctx.globalAlpha  = newAlpha
-      ctx.strokeStyle  = 'rgba(66, 212, 255, 0.95)'
-      ctx.lineWidth    = 0.7
-      ctx.shadowColor  = 'rgba(66, 212, 255, 0.7)'
-      ctx.shadowBlur   = 4 * gameScale
+      ctx.strokeStyle  = 'rgba(0, 200, 255, 0.95)'
+      ctx.lineWidth    = 0.9
+      ctx.shadowColor  = 'rgba(0, 200, 255, 0.9)'
+      ctx.shadowBlur   = 10 * gameScale
       ctx.beginPath(); ctx.arc(g.x, g.y, g.newR * expand, 0, Math.PI * 2); ctx.stroke()
       ctx.restore()
     }
@@ -842,9 +855,9 @@ function loop(ts) {
   rs.currentArenaScale = currentArenaScale
 
   ctx.setTransform(_dpr, 0, 0, _dpr, 0, 0)
-  ctx.fillStyle = '#000000'
+  ctx.fillStyle = '#07000d'
   ctx.fillRect(0, 0, W, H)
-  ctx.fillStyle = '#050810'
+  ctx.fillStyle = '#0e0018'
   ctx.fillRect(gameOffsetX, gameOffsetY, VIRTUAL_W * gameScale, VIRTUAL_H * gameScale)
 
   ctx.save()
@@ -887,15 +900,29 @@ function loop(ts) {
 
   ctx.restore()   // virtual
 
-  // Field border — now that the play area is bottom-aligned above the bar,
-  // the full virtual height is correct and no clamping is needed.
-  ctx.shadowColor = 'rgba(66,212,255,0.55)'
-  ctx.shadowBlur  = 12
-  ctx.strokeStyle = 'rgba(66,212,255,0.32)'
+  // Field border — neon purple glow frame.
+  // The clip extends by the full shadowBlur (22 px) in every direction so the
+  // complete neon halo is visible: in the dark side margins, in the gap between
+  // the field and the bar below, and above the top stroke.  The HUD and
+  // quick-buy bar are opaque DOM elements stacked above the canvas, so any
+  // canvas glow that bleeds into those zones is naturally covered by their
+  // backgrounds — no visual artifact.
+  const _borderBlur = 22
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(gameOffsetX  - _borderBlur,
+           gameOffsetY  - _borderBlur,
+           VIRTUAL_W * gameScale + _borderBlur * 2,
+           VIRTUAL_H * gameScale + _borderBlur * 2)
+  ctx.clip()
+  ctx.shadowColor = 'rgba(200,0,255,0.80)'
+  ctx.shadowBlur  = _borderBlur
+  ctx.strokeStyle = 'rgba(200,0,255,0.55)'
   ctx.lineWidth   = 1
   ctx.strokeRect(gameOffsetX + 0.5, gameOffsetY + 0.5,
                  VIRTUAL_W * gameScale - 1, VIRTUAL_H * gameScale - 1)
   ctx.shadowBlur = 0
+  ctx.restore()
   drawFirstBallCue()
 
   runAutoUpgrade(dt)
@@ -905,7 +932,7 @@ function loop(ts) {
 // ─── Background grid ──────────────────────────────────────────────────────
 // Single batched path instead of one stroke() call per line — one GPU flush total.
 function drawGrid() {
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)'
+  ctx.strokeStyle = 'rgba(180,0,255,0.07)'
   ctx.lineWidth   = 1 / gameScale
   const step = 8
   ctx.beginPath()
@@ -1180,40 +1207,8 @@ function drawAll() {
 }
 
 function drawBall(b) {
-  const isActive  = isExplosivelyActive(b)
-  const spawnSc   = getSpawnScale(b)
-
-  // Spawn-in effects — drawn before the r-gate so they fire even on first visible frame.
-  if (b.spawnInTimer >= 0) {
-    const elapsed = b.spawnInTimer - b.spawnInDelay
-
-    // Pre-pop glint: tiny bright dot visible in the last 100 ms of the delay phase,
-    // hinting where the ball will appear just before it pops.
-    if (elapsed >= -100 && elapsed < 0) {
-      const glintT = (elapsed + 100) / 100   // 0 → 1
-      ctx.save()
-      ctx.globalAlpha = glintT * 0.70
-      ctx.fillStyle   = '#ffffff'
-      ctx.shadowColor = b.color
-      ctx.shadowBlur  = 5 * gameScale
-      ctx.beginPath(); ctx.arc(b.x, b.y, 0.7, 0, Math.PI * 2); ctx.fill()
-      ctx.restore()
-    }
-
-    // Pop ring: ball-colored ring expands from baseRadius and fades over SPAWN_GROW_DURATION.
-    if (elapsed >= 0 && elapsed < SPAWN_GROW_DURATION) {
-      const ringT = elapsed / SPAWN_GROW_DURATION
-      const ringR = b.baseRadius * (1 + ringT * 2.6)
-      ctx.save()
-      ctx.globalAlpha = (1 - ringT) * 0.55
-      ctx.lineWidth   = 0.85
-      ctx.strokeStyle = b.color
-      ctx.shadowColor = b.color
-      ctx.shadowBlur  = 3 * gameScale
-      ctx.beginPath(); ctx.arc(b.x, b.y, ringR, 0, Math.PI * 2); ctx.stroke()
-      ctx.restore()
-    }
-  }
+  const isActive = isExplosivelyActive(b)
+  const spawnSc  = getSpawnScale(b)
 
   const r = (isActive ? b.curRadius : b.baseRadius) * introTransScale * spawnSc
   if (r <= 0) return
@@ -1232,16 +1227,9 @@ function drawBall(b) {
     ctx.translate(-b.x, -b.y)
   }
 
-  // Glow when actively expanding, or during the spawn-in grow window.
-  const inSpawnGrow = b.spawnInTimer >= 0
-    && (b.spawnInTimer - b.spawnInDelay) >= 0
-    && (b.spawnInTimer - b.spawnInDelay) < SPAWN_GROW_DURATION
-  if (isActive || inSpawnGrow) {
-    ctx.shadowColor = b.color
-    // Glow intensifies with chain depth — more dramatic the deeper into a chain
-    const glowMult = 1.5 + Math.min((b.chainTriggerIdx ?? 0) * 0.15, 2.0)
-    ctx.shadowBlur  = 4 * gameScale * glowMult
-  }
+  // Glow scales proportionally with r so idle and active balls look like
+  // the same style at different sizes — not a separate visual treatment.
+  ctx.shadowBlur = 0
 
   const sp = getBallSprite(b.color, b.lightColor, r)
   ctx.drawImage(sp.canvas,
@@ -1311,12 +1299,12 @@ function updateDebug(st) {
       return (baseR + (maxR - baseR) * (1 - Math.exp(-lv / curve))).toFixed(1)
     }
     statLines =
-      `<b style="color:#ffe566">── Economy (first owned bucket, cycle ${progress.cycle}) ──</b><br>` +
+      `<b style="color:#ffe500">── Economy (first owned bucket, cycle ${progress.cycle}) ──</b><br>` +
       `Coins: <b>◆${fmt(st.coins)}</b>  |  Total: ◆${fmt(st.totalCoins)}<br>` +
       `EPM: <b>◆${fmt(Math.round(epm))}/min</b>  (${_epmLog.length} samples)<br>` +
       `Cheapest upg: ◆${isFinite(cheapCost) ? fmt(cheapCost) : '–'}  → ${minsToUpg} min<br>` +
       `Next ball:    ◆${fmt(ballCost)}  → ${minsToBall} min<br>` +
-      `<span style="color:#a78bfa">` +
+      `<span style="color:#9900ff">` +
       `Value ×${plateau(vLv, EC.value.maxBonus, EC.value.curve)}  ` +
       `Speed ×${plateau(sLv, EC.speed.maxBonus, EC.speed.curve)}  ` +
       `Hold ${Math.round(200 * (1 + EC.duration.maxBonus * (1 - Math.exp(-hLv / EC.duration.curve))))}ms  ` +
@@ -1333,7 +1321,7 @@ function updateDebug(st) {
     `Best chain: ${st.stats.bestChainLength} balls<br>` +
     `Total chains: ${st.stats.totalChains}<br>` +
     `Last kickstart: +${st.stats.lastKickstartBonus}<br>` +
-    `<span style="color:#4fffb0">Ball visual r: ${BALL_RADIUS}  ` +
+    `<span style="color:#39ff14">Ball visual r: ${BALL_RADIUS}  ` +
     `collision r: ${BALL_COLLISION_RADIUS.toFixed(2)}  ` +
     `Lv0 expansion: 6.5 u  trigger dist: ${(6.5 + BALL_COLLISION_RADIUS).toFixed(1)} u</span><br>` +
     statLines
@@ -1798,9 +1786,9 @@ function drawFirstBallCue() {
       if (ringR <= 0 || alpha <= 0) continue
       ctx.save()
       ctx.globalAlpha = alpha
-      ctx.strokeStyle = '#ffe566'
+      ctx.strokeStyle = '#ffe500'
       ctx.lineWidth   = (1 - rt) * 4 + 0.5
-      ctx.shadowColor = 'rgba(255,229,102,0.95)'
+      ctx.shadowColor = 'rgba(255,229,0,0.95)'
       ctx.shadowBlur  = 22
       ctx.beginPath()
       ctx.arc(sx, sy, ringR, 0, Math.PI * 2)
@@ -1815,8 +1803,8 @@ function drawFirstBallCue() {
     const r = Math.max(0.5, p.r * (0.4 + p.life * 0.6))
     ctx.save()
     ctx.globalAlpha = a
-    ctx.fillStyle   = '#ffe566'
-    ctx.shadowColor = 'rgba(255,229,102,0.95)'
+    ctx.fillStyle   = '#ffe500'
+    ctx.shadowColor = 'rgba(255,229,0,0.95)'
     ctx.shadowBlur  = r * 3
     ctx.beginPath()
     ctx.moveTo(p.x,         p.y - r * 1.5)
@@ -1850,7 +1838,7 @@ function drawFirstBallCue() {
     ctx.translate(cx, cy)
     ctx.scale(pulse, pulse)
     ctx.translate(-cx, -cy)
-    ctx.shadowColor = 'rgba(255,229,102,0.95)'
+    ctx.shadowColor = 'rgba(255,229,0,0.95)'
     ctx.shadowBlur  = 24
     ctx.fillStyle   = 'rgba(12, 10, 2, 0.92)'
     fbRoundRect(cx - pw * 0.5, cy - ph * 0.5, pw, ph, pr)
@@ -1859,7 +1847,7 @@ function drawFirstBallCue() {
     ctx.lineWidth   = 1.5
     ctx.stroke()
     ctx.shadowBlur  = 6
-    ctx.fillStyle   = '#ffe566'
+    ctx.fillStyle   = '#ffe500'
     ctx.font        = 'bold 12px Orbitron, monospace'
     ctx.textAlign   = 'center'
     ctx.textBaseline = 'middle'
@@ -1875,9 +1863,9 @@ function drawFirstBallCue() {
 
     ctx.save()
     ctx.globalAlpha    = alpha * 0.72
-    ctx.strokeStyle    = '#ffe566'
+    ctx.strokeStyle    = '#ffe500'
     ctx.lineWidth      = 1.8
-    ctx.shadowColor    = 'rgba(255,229,102,0.70)'
+    ctx.shadowColor    = 'rgba(255,229,0,0.70)'
     ctx.shadowBlur     = 8
     ctx.setLineDash([7, 5])
     ctx.lineDashOffset = marchOffset
@@ -1891,7 +1879,7 @@ function drawFirstBallCue() {
     const arrAngle = Math.atan2(ty - cpy, tx - cpx)
     ctx.globalAlpha = alpha * 0.92
     ctx.shadowBlur  = 10
-    ctx.fillStyle   = '#ffe566'
+    ctx.fillStyle   = '#ffe500'
     ctx.beginPath()
     ctx.moveTo(tx,     ty - rect.height * 0.5 - 2)
     ctx.lineTo(tx - 9 * Math.cos(arrAngle - 0.42), ty - rect.height * 0.5 - 2 - 9 * Math.sin(arrAngle - 0.42))
@@ -1920,7 +1908,7 @@ const UPGRADE_TYPE_ICON = {
 
 // Per-type accent colors for icon squares — distinct from ball colors
 const UPGRADE_TYPE_COLOR = {
-  value:    '#ffe566',  // gold   — earns more coins
+  value:    '#ffe500',  // gold   — earns more coins
   speed:    '#38bdf8',  // sky    — fast & energetic
   diameter: '#c084fc',  // violet — grows bigger
   duration: '#fb923c',  // orange — burns time
@@ -2104,7 +2092,7 @@ function updateQuickBuy() {
     // No suggestion — reset to empty state once
     _qbPrevBuyKey  = ''
     _qbPrevBuyCost = ''
-    qbBuyBtn.style.setProperty('--qb-color', '#42d4ff')
+    qbBuyBtn.style.setProperty('--qb-color', '#00c8ff')
     qbBuyBallIconEl.style.color  = 'rgba(255,255,255,0.30)'
     qbBuyBallIconEl.style.filter = 'none'
     qbBuyIconEl.textContent  = '⚡'
@@ -2147,13 +2135,13 @@ function toggleStatsMini() {
 function updateStatsMini() {
   const cur = getState().stats.current
   smtPopped.textContent = fmt(cur.ballsPopped)
-  smtPopped.style.color = '#42d4ff'
+  smtPopped.style.color = '#00c8ff'
   smtChain.textContent  = cur.biggestChain || '–'
-  smtChain.style.color  = cur.biggestChain ? '#4fffb0' : 'rgba(255,255,255,0.65)'
+  smtChain.style.color  = cur.biggestChain ? '#39ff14' : 'rgba(255,255,255,0.65)'
   smtPayout.textContent = cur.bestChainPayout > 0 ? `◆${fmt(cur.bestChainPayout)}` : '–'
-  smtPayout.style.color = cur.bestChainPayout > 0 ? '#ffe566' : 'rgba(255,255,255,0.65)'
+  smtPayout.style.color = cur.bestChainPayout > 0 ? '#ffe500' : 'rgba(255,255,255,0.65)'
   smtEarned.textContent = fmt(cur.totalEarned)
-  smtEarned.style.color = '#ffe566'
+  smtEarned.style.color = '#ffe500'
 }
 
 // ─── Full stats screen ────────────────────────────────────────────────────
@@ -2245,7 +2233,9 @@ function makeColorSection(colorKey) {
 
   const orb = document.createElement('span')
   orb.className   = 'stats-color-orb'
-  orb.style.cssText = `background:${hex};box-shadow:0 0 7px ${hex}`
+  orb.style.background = lighten(hex)
+  orb.style.border     = `2px solid ${hex}`
+  orb.style.boxShadow  = `0 0 6px ${hex}, 0 0 12px ${hex}`
 
   const nameEl = document.createElement('span')
   nameEl.className  = 'stats-color-name'
@@ -2531,7 +2521,7 @@ function buildShop() {
   // -- Tap upgrades (radius + duration) — collapsible
   {
     const TAP_ROW_DEFS = [
-      { stat: 'radius',   icon: '◎', label: 'TAP RADIUS',   color: '#42d4ff' },
+      { stat: 'radius',   icon: '◎', label: 'TAP RADIUS',   color: '#00c8ff' },
       { stat: 'duration', icon: '⏳', label: 'TAP DURATION', color: '#fb923c' },
     ]
     const cardKey     = 'tap'
@@ -2647,8 +2637,9 @@ function buildShop() {
 
     const orbEl = document.createElement('div')
     orbEl.className = 'bucket-orb'
-    orbEl.style.background = bc
-    orbEl.style.boxShadow  = `0 0 16px ${bc}`
+    orbEl.style.background = lighten(bc)
+    orbEl.style.border     = `2px solid ${bc}`
+    orbEl.style.boxShadow  = `0 0 10px ${bc}, 0 0 20px ${bc}`
 
     const right = document.createElement('div')
     right.className = 'bucket-top-right'
@@ -3136,13 +3127,26 @@ function updateRoundHUD() {
   const rd = getRoundState()
   const st = getState()
 
-  if (hudClicksEl    && rd.clicksLeft    !== _prevClicks)    { hudClicksEl.textContent   = rd.clicksLeft;    _prevClicks    = rd.clicksLeft }
-  if (hudRefreshesEl && rd.refreshesLeft !== _prevRefreshes) { hudRefreshesEl.textContent = rd.refreshesLeft; _prevRefreshes = rd.refreshesLeft }
+  if (hudClicksEl    && rd.clicksLeft    !== _prevClicks)    {
+    hudClicksEl.textContent = rd.clicksLeft
+    hudClicksEl.classList.toggle('last-one', rd.clicksLeft === 1)
+    _prevClicks = rd.clicksLeft
+  }
+  if (hudRefreshesEl && rd.refreshesLeft !== _prevRefreshes) {
+    hudRefreshesEl.textContent = rd.refreshesLeft
+    hudRefreshesEl.classList.toggle('last-one', rd.refreshesLeft === 1)
+    _prevRefreshes = rd.refreshesLeft
+  }
   if (hudGoalMaxEl   && rd.goal          !== _prevGoal)      { hudGoalMaxEl.textContent   = fmt(rd.goal);     _prevGoal      = rd.goal }
   if (hudRoundNumEl  && rd.number        !== _prevRoundNum)  { hudRoundNumEl.textContent  = rd.number;        _prevRoundNum  = rd.number }
 
   const goalMet = st.coins >= rd.goal
-  if (goalMet !== _prevGoalMet) { hudCoins?.classList.toggle('goal-met', goalMet); _prevGoalMet = goalMet }
+  if (goalMet !== _prevGoalMet) {
+    hudCoins?.classList.toggle('goal-met', goalMet)
+    btnEndRound?.classList.toggle('goal-met', goalMet)
+    if (btnEndRound) btnEndRound.textContent = goalMet ? 'End ›' : ''
+    _prevGoalMet = goalMet
+  }
 
   // Dim refresh button only when state actually changed
   const noRefreshes = rd.refreshesLeft <= 0
@@ -3165,6 +3169,37 @@ function doManualRefresh() {
   rng = seededRng(deriveRefreshSeed(_currentRoundSeed, _refreshIndex))
   refillAllOwnedBalls()
   updateRoundHUD()
+}
+
+function endRoundEarly() {
+  // Guard: only callable when goal is met and round is still live.
+  if (introMode) return
+  const rd = getRoundState()
+  if (rd.clicksLeft <= 0) return      // already ending
+  const st = getState()
+  if (st.coins < rd.goal) return      // goal not yet met — shouldn't happen via button but defensive
+
+  // Zero out remaining clicks so no further taps register.
+  setRoundState({ clicksLeft: 0 })
+  updateRoundHUD()
+
+  if (currentChain) {
+    // A chain is still resolving — let endChain() do the force-shrink when it fires.
+    _pendingRoundEnd = true
+  } else {
+    // No active chain — force-shrink any idle balls now and proceed to the
+    // same deferred-end path as the regular "clicks exhausted" flow.
+    // _forceShrankBalls stays false: the player chose to bank early, not clear
+    // the board, so there's no spurious clear bonus to suppress.
+    for (const b of balls) {
+      if (b.state === 'idle') {
+        b.state     = 'shrinking'
+        b.expTimer  = 0
+        b.curRadius = b.maxRadius
+      }
+    }
+    _waitingForRoundEnd = true
+  }
 }
 
 function endRound() {
@@ -3240,6 +3275,16 @@ function startRound() {
   bossRewardOverlay.classList.add('hidden')
   betweenStore.classList.add('hidden')
 
+  // Reset "End Round" button to its hidden/spacer state.
+  // Also invalidate the cached goalMet value so updateRoundHUD() re-evaluates
+  // on the first frame of the new round (coins start at 0 or carry-over, never
+  // already >= goal, so the button stays hidden on a normal round start).
+  if (btnEndRound) {
+    btnEndRound.classList.remove('goal-met')
+    btnEndRound.textContent = ''
+  }
+  _prevGoalMet = null
+
   // Reset in-memory round counters
   _pendingRoundEnd            = false
   _waitingForRoundEnd         = false
@@ -3270,7 +3315,8 @@ function startRound() {
 }
 
 // Wire the refresh button
-if (btnRefresh) btnRefresh.addEventListener('click', doManualRefresh)
+if (btnRefresh)  btnRefresh.addEventListener('click', doManualRefresh)
+if (btnEndRound) btnEndRound.addEventListener('click', endRoundEarly)
 
 // Wire the dev "New Run" button
 const devNewRunBtn = document.getElementById('dev-new-run')
@@ -3296,8 +3342,29 @@ window.addEventListener('keydown', e => {
   }
 })
 
-// ─── Resize ───────────────────────────────────────────────────────────────
+// ─── Resize / layout re-measure ──────────────────────────────────────────
 window.addEventListener('resize', () => calcUnits())
+
+// On mobile, visualViewport fires when the address bar shows/hides or the
+// soft keyboard appears — window.resize often doesn't cover these cases.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => calcUnits())
+}
+
+// Re-measure once fonts are ready. calcUnits() runs at module load and
+// inside init() before Orbitron has loaded (Google Fonts uses display=swap,
+// so the browser lays out with a fallback font first). When Orbitron swaps
+// in the HUD height changes, so we need a fresh measurement.
+document.fonts.ready.then(() => calcUnits())
+
+// Whenever the HUD or bar actually resize (font swap, content changes, etc.)
+// recalculate immediately so the game field never overlaps either element.
+// ResizeObserver is supported in all target browsers.
+if (typeof ResizeObserver !== 'undefined') {
+  const _layoutObserver = new ResizeObserver(() => calcUnits())
+  _layoutObserver.observe(hudEl)
+  _layoutObserver.observe(qbBar)
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
 function init() {
