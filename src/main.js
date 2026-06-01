@@ -260,6 +260,16 @@ const SPAWN_GROW_DURATION   = 220   // ms: scale 0 → 1.15 (overshoot)
 const SPAWN_SETTLE_DURATION = 160   // ms: scale 1.15 → 1.0
 
 // ─── Dynamic arena ────────────────────────────────────────────────────────
+/**
+ * Total ball count for arena-scale purposes: regular balls + special balls.
+ * Kept separate from totalBallsPurchased (which drives buy-order and cost curves).
+ */
+function effectiveBallCount(st) {
+  let n = st.totalBallsPurchased
+  for (const c of COLOR_ORDER) n += (st.colorBuckets[c]?.specialBalls?.length ?? 0)
+  return n
+}
+
 // World size scales with owned ball count so 1–2 balls get a tight arena
 // (chains are easy to discover) while 9+ balls gradually expand the space.
 function getArenaScale(n) {
@@ -905,7 +915,7 @@ function loop(ts) {
 
   // Lerp arena scale toward target (ball-count driven; intro uses INTRO_BALL_COUNT).
   {
-    const target = getArenaScale(introMode ? INTRO_BALL_COUNT : getState().totalBallsPurchased)
+    const target = getArenaScale(introMode ? INTRO_BALL_COUNT : effectiveBallCount(getState()))
     currentArenaScale += (target - currentArenaScale) * Math.min(1, dt * 0.004)
     if (introTweening && Math.abs(currentArenaScale - target) < 0.008) introTweening = false
   }
@@ -1722,7 +1732,7 @@ function finishIntro() {
   // Compute the target arena dims so the first ball is placed at the destination
   // centre (safely inside bounds as the world shrinks around it).
   const st = getState()
-  const targetScale  = getArenaScale(st.totalBallsPurchased)
+  const targetScale  = getArenaScale(effectiveBallCount(st))
   const targetArenaW = VIRTUAL_W * targetScale
   const targetArenaH = gamePlayH * targetScale
 
@@ -3050,7 +3060,7 @@ devResetBtn.addEventListener('click', () => {
   introTransTimer      = 0
   introTransScale      = 1
 
-  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.totalBallsPurchased)
+  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : effectiveBallCount(st))
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
 
@@ -3721,7 +3731,7 @@ function init() {
   introMode = !st.introComplete
 
   // Snap arena scale to the correct starting value (no lerp on fresh load)
-  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : st.totalBallsPurchased)
+  currentArenaScale = getArenaScale(introMode ? INTRO_BALL_COUNT : effectiveBallCount(st))
   arenaW = VIRTUAL_W * currentArenaScale
   arenaH = gamePlayH * currentArenaScale
 
