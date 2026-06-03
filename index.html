@@ -12,10 +12,7 @@
 <!-- ── Canvas (fullscreen backdrop, z-index 0) ─────────────────── -->
 <canvas id="c"></canvas>
 
-<!-- ── Canvas measurement cell (grid row 2 col 2, pointer-events none) ── -->
-<div id="canvas-cell"></div>
-
-<!-- ── Top bar (always visible, grid row 1 spans full width) ───── -->
+<!-- ── Top bar (always visible, fixed overlay) ─────────────────── -->
 <div id="top-bar">
 
   <!-- Left group: round + resources -->
@@ -51,9 +48,13 @@
     </div>
   </div>
 
-  <!-- Right group: end round action -->
+  <!-- Right group: end round action + upgrades toggle -->
   <div class="tb-group tb-right">
     <button id="btn-end-round" class="tb-end-btn hud-end-round-btn" aria-label="End round early" data-nav="true"></button>
+    <button id="tb-upgrades-btn" class="tb-btn tb-upgrades-btn" aria-label="Toggle upgrades panel" data-nav="true">
+      <span class="tb-stat-lbl">Upgrades</span>
+      <span class="tb-upgrades-icon">&#9650;</span>
+    </button>
   </div>
 
 </div>
@@ -98,8 +99,11 @@
 <!-- ── Left panel: quick-buy + shop (grid row 2 col 1, collapsible) ─── -->
 <div id="shop-panel" class="lp-collapsed">
 
-  <!-- Panel toggle (replaces the old "close" button) -->
-  <button id="shop-close" class="lp-toggle-btn" aria-label="Toggle panel">&#9654;</button>
+  <!-- Panel header / close button -->
+  <button id="shop-close" aria-label="Close upgrades panel">
+    <span class="shop-close-title">Upgrades</span>
+    <span class="shop-close-icon">&#215;</span>
+  </button>
 
   <!-- Quick-buy section (was the bottom quick-buy bar) -->
   <div id="quick-buy-bar" class="lp-qb-section">

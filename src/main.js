@@ -53,8 +53,7 @@ window.addEventListener('blur', cancelArmedHold)
 // ─── DOM refs ─────────────────────────────────────────────────────────────
 const canvas     = document.getElementById('c')
 const ctx        = canvas.getContext('2d')
-const topBarEl        = document.getElementById('top-bar')        // replaces hudEl
-const canvasCellEl    = document.getElementById('canvas-cell')    // measurement cell
+const topBarEl        = document.getElementById('top-bar')
 const hudEl           = topBarEl                                   // compat alias
 const hudCoins        = document.getElementById('hud-coins')
 const hudChain        = document.getElementById('hud-chain')
@@ -103,8 +102,9 @@ const hudClicksEl    = document.getElementById('hud-clicks')
 const hudRefreshesEl = document.getElementById('hud-refreshes')
 const hudGoalMaxEl   = document.getElementById('hud-goal-max')
 const hudRoundNumEl  = document.getElementById('hud-round-num')
-const btnRefresh     = document.getElementById('btn-refresh')
-const btnEndRound    = document.getElementById('btn-end-round')
+const btnRefresh      = document.getElementById('btn-refresh')
+const btnEndRound     = document.getElementById('btn-end-round')
+const tbUpgradesBtn   = document.getElementById('tb-upgrades-btn')
 
 // ── Round-end / store overlays ──
 const roundEndOverlay   = document.getElementById('round-end-overlay')
@@ -174,8 +174,11 @@ const qbBuyCostEl     = document.getElementById('qb-buy-cost')
 // qb-store button removed — panel toggle replaces it
 
 // ─── Virtual resolution ───────────────────────────────────────────────────
-const VIRTUAL_W = 100
-const VIRTUAL_H = 150   // 2:3 portrait — fits available space after HUD + quick-buy bar
+// 16:9 landscape arena. VIRTUAL_W is fixed (not dynamic) so the game always
+// uses the same coordinate space regardless of screen size — the arena
+// letterboxes/pillarboxes to maintain aspect ratio.
+const VIRTUAL_W = 267   // 16:9 with VIRTUAL_H=150 → 267/150 ≈ 1.78
+const VIRTUAL_H = 150
 
 // ─── Canvas / scale ───────────────────────────────────────────────────────
 const _isMobile = window.matchMedia('(pointer: coarse)').matches
@@ -191,7 +194,7 @@ function calcUnits() {
   H = window.innerHeight
   _dpr = Math.min(window.devicePixelRatio || 1, _isMobile ? 1.5 : 2)
 
-  // Size the canvas bitmap to physical pixels (canvas is always fullscreen).
+  // Size the canvas bitmap to full physical pixels.
   const cW = Math.round(W * _dpr)
   const cH = Math.round(H * _dpr)
   if (canvas.width  !== cW) canvas.width  = cW
@@ -199,20 +202,18 @@ function calcUnits() {
   canvas.style.width  = W + 'px'
   canvas.style.height = H + 'px'
 
-  // ── PC/console layout: arena is positioned within the canvas-cell area ──
-  // canvas-cell is a grid item that occupies the non-panel, non-topbar area.
-  // Its BoundingClientRect tells us the available play area precisely.
-  const cell = canvasCellEl.getBoundingClientRect()
+  // Available area: full screen minus the fixed top bar.
+  const topH   = topBarEl.getBoundingClientRect().height
+  const availW = W
+  const availH = H - topH
 
-  const GAP = Math.min(cell.width, cell.height) * 0.008   // ~0.8% clearance
-
-  const availW = cell.width  - GAP * 2
-  const availH = cell.height - GAP * 2
-
-  // Arena stays portrait 2:3 — letterboxed horizontally within the available area.
+  // Scale the 16:9 arena to fit the available area, maintaining aspect ratio.
+  // On a 16:9 screen the arena fills it almost completely; on other ratios it
+  // pillar/letterboxes with a small dark margin.
   gameScale   = Math.min(availW / VIRTUAL_W, availH / VIRTUAL_H)
-  gameOffsetX = cell.left + GAP + (availW - VIRTUAL_W * gameScale) / 2
-  gameOffsetY = cell.top  + GAP + (availH - VIRTUAL_H * gameScale) / 2
+  // Centre the arena horizontally and pin it to the top of the available band.
+  gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
+  gameOffsetY = topH + (availH - VIRTUAL_H * gameScale) / 2
   gamePlayH   = VIRTUAL_H
 
   // Sync shared render state.
@@ -1732,8 +1733,8 @@ function finishIntro() {
   setIntroComplete()
 
   // Restore UI — remove intro classes and expand the panel.
-  document.body.classList.remove('intro-active', 'intro-completing', 'panel-collapsed')
-  if (shopClose) shopClose.textContent = '◀'
+  document.body.classList.remove('intro-active', 'intro-completing')
+  // Panel stays closed at intro end — player opens it when ready
   calcUnits()
 
   // Let the loop lerp carry currentArenaScale from the intro value down to the
@@ -2232,7 +2233,8 @@ function updateQuickBuy() {
   }
 
   // Update panel toggle button icon (no-op if element not in DOM)
-  if (shopClose) shopClose.textContent = isShopOpen() ? '◀' : '▶'
+  // Update the top-bar upgrade toggle indicator
+  if (tbUpgradesBtn) tbUpgradesBtn.classList.toggle('panel-open-active', isShopOpen())
 }
 
 // ─── Stats mini panel ─────────────────────────────────────────────────────
@@ -2924,24 +2926,21 @@ canvas.addEventListener('pointerdown', e => {
 
 // ─── Shop / Dev panel events ──────────────────────────────────────────────
 
-// isShopOpen: panel is expanded (not collapsed). Replaces shopPanel.classList.contains('hidden').
-function isShopOpen() { return !document.body.classList.contains('panel-collapsed') }
+// isShopOpen: true when the slide-over panel is visible.
+function isShopOpen() { return shopPanel.classList.contains('panel-open') }
 
 function toggleShop() {
-  if (introMode) return   // shop is hidden during intro
-  const opening = document.body.classList.contains('panel-collapsed')
-  document.body.classList.toggle('panel-collapsed')
-  // Update toggle button icon
-  if (shopClose) shopClose.textContent = isShopOpen() ? '◀' : '▶'
+  if (introMode) return
+  const opening = !shopPanel.classList.contains('panel-open')
+  shopPanel.classList.toggle('panel-open')
+  // Update the top-bar toggle button indicator
+  if (tbUpgradesBtn) tbUpgradesBtn.classList.toggle('panel-open-active', isShopOpen())
   if (opening) {
-    // Panel just expanded — build/rebuild shop
     shopLastCoins = -1
     buildShop()
     closeStatsMini()
     statsScreen.classList.add('hidden')
   }
-  // Re-measure layout since panel width changed
-  calcUnits()
   updateQuickBuy()
 }
 
@@ -3072,14 +3071,13 @@ devResetBtn.addEventListener('click', () => {
   if (introMode) {
     for (let i = 0; i < INTRO_BALL_COUNT; i++) balls.push(makeIntroBall(i))
     document.body.classList.add('intro-active')
-    document.body.classList.add('panel-collapsed')   // hide panel during intro
+    // Panel stays closed during intro (it uses transform: translateX default)
   } else {
     for (const colorKey of COLOR_ORDER) {
       const bkt = st.colorBuckets[colorKey]
       for (let i = 0; i < (bkt?.ballsOwned ?? 0); i++) balls.push(makeBall(colorKey))
     }
-    document.body.classList.remove('intro-active', 'panel-collapsed')
-    if (shopClose) shopClose.textContent = '◀'
+    document.body.classList.remove('intro-active')
     if (isShopOpen()) buildShop()
   }
 
@@ -3726,11 +3724,11 @@ document.fonts.ready.then(() => calcUnits())
 // Whenever the HUD or bar actually resize (font swap, content changes, etc.)
 // recalculate immediately so the game field never overlaps either element.
 // ResizeObserver is supported in all target browsers.
+if (tbUpgradesBtn) tbUpgradesBtn.addEventListener('click', () => { toggleShop() })
+
 if (typeof ResizeObserver !== 'undefined') {
   const _layoutObserver = new ResizeObserver(() => calcUnits())
   _layoutObserver.observe(topBarEl)
-  _layoutObserver.observe(shopPanel)
-  _layoutObserver.observe(canvasCellEl)
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────

@@ -1,8 +1,7 @@
 :root {
   /* ── PC/Console layout ─────────────────────────────────────── */
-  --topbar-h:       clamp(3.5rem, 9vh, 6rem);
-  --panel-w:        clamp(260px, 22vw, 420px);
-  --panel-w-icon:   3.5rem;   /* collapsed icon-only strip */
+  --topbar-h:  clamp(3rem, 7vh, 5rem);
+  --panel-w:   clamp(260px, 22vw, 420px);
 
   /* ── Brand colours (semantic names) ─────────────────────────── */
   --color-highlight:         #ffe566;
@@ -161,18 +160,6 @@ body {
   touch-action: none;
   user-select: none;
 
-  /* ── PC/Console grid layout ─── */
-  display: grid;
-  grid-template-rows: var(--topbar-h) 1fr;
-  grid-template-columns: var(--panel-w) 1fr;
-  grid-template-areas:
-    "topbar topbar"
-    "panel  canvas";
-}
-
-/* Collapsed panel: shrink col 1 to icon-only width */
-body.panel-collapsed {
-  grid-template-columns: var(--panel-w-icon) 1fr;
 }
 
 /* Gamepad aim cursor: hide native mouse pointer while GP is driving */
@@ -186,7 +173,7 @@ body::after {
   z-index: 1000;
 }
 
-/* Canvas stays fullscreen — game draws everywhere, arena is offset by JS */
+/* Canvas is always fullscreen — the game arena is positioned inside it by JS */
 canvas {
   display: block;
   position: fixed;
@@ -196,29 +183,22 @@ canvas {
   z-index: 0;
 }
 
-/* Measurement cell: tells calcUnits() where the available play area is.
-   No visual content — canvas is behind everything anyway. */
-#canvas-cell {
-  grid-area: canvas;
-  pointer-events: none;
-  z-index: 1;
-}
-
 /* ─── Top bar — PC/console always-visible run stats ─────────── */
 
 #top-bar {
-  grid-area: topbar;
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: 0; right: 0;
+  height: var(--topbar-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 2vw;
   padding: 0 max(1.5vw, env(safe-area-inset-right, 0px));
-  padding-left: 0;  /* panel provides left edge */
-  background: rgba(7, 0, 20, 0.97);
+  background: rgba(7, 0, 20, 0.94);
   border-bottom: 1px solid var(--color-accent-25);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
   z-index: 90;
-  flex-shrink: 0;
 }
 
 .tb-group {
@@ -809,47 +789,77 @@ body.intro-active .tb-divider { opacity: 0.2; pointer-events: none; }
 body.intro-active #stats-mini,
 body.intro-active #stats-screen { display: none !important; }
 
-/* ─── Left panel — upgrades sidebar (PC/console layout) ─────── */
+/* ─── Left slide-over panel — upgrades overlay ──────────────── */
 
 #shop-panel {
-  grid-area: panel;
+  position: fixed;
+  left: 0;
+  top: var(--topbar-h);
+  bottom: 0;
+  width: var(--panel-w);
   display: flex;
   flex-direction: column;
-  background: rgba(7, 0, 20, 0.96);
-  border-right: 1px solid var(--color-accent-22);
-  z-index: 80;
+  background: rgba(5, 0, 14, 0.97);
+  border-right: 1px solid var(--color-accent-25);
+  backdrop-filter: blur(20px);
+  z-index: 95;
+  /* Closed by default — slides in from left */
+  transform: translateX(calc(-1 * var(--panel-w)));
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
-  /* width controlled by body grid-template-columns */
+  box-shadow: 4px 0 32px rgba(0,0,0,0.6), 4px 0 16px rgba(0,200,255,0.08);
 }
 
-/* Collapsed: hide text content, keep icons only.
-   The grid handles the actual width shrink. */
-body.panel-collapsed #shop-panel { overflow: hidden; }
+/* Open state */
+#shop-panel.panel-open {
+  transform: translateX(0);
+}
 
-/* Panel toggle button */
+/* Semi-transparent scrim behind the open panel (dims the game) */
+#shop-panel.panel-open::before {
+  content: '';
+  position: fixed;
+  inset: var(--topbar-h) 0 0 var(--panel-w);
+  background: rgba(0,0,0,0.35);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Panel close button at top */
 #shop-close {
   all: unset;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: var(--topbar-h);
+  justify-content: space-between;
+  padding: 0 1.2vw;
+  height: clamp(2.5rem, 5vh, 4rem);
   flex-shrink: 0;
-  border-bottom: 1px solid var(--color-accent-12);
-  font-size: clamp(0.9rem, 2.5vh, 1.8rem);
-  color: rgba(255,255,255,0.35);
+  border-bottom: 1px solid var(--color-accent-14);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
 }
-#shop-close:active { color: #fff; background: rgba(255,255,255,0.06); }
+#shop-close:active { background: rgba(0,200,255,0.06); }
+
+.shop-close-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.65rem, 1.6vh, 1.2rem);
+  letter-spacing: 0.28em;
+  color: var(--color-accent-88);
+  text-transform: uppercase;
+}
+
+.shop-close-icon {
+  font-size: clamp(0.8rem, 1.8vh, 1.4rem);
+  color: rgba(255,255,255,0.4);
+}
 
 /* Quick-buy section inside the panel */
 .lp-qb-section {
   display: flex;
   flex-direction: column;
   gap: 0.8vh;
-  padding: 1.2vh 0.8vw;
+  padding: 1.2vh 1vw;
   border-bottom: 1px solid var(--color-accent-12);
   flex-shrink: 0;
 }
@@ -866,39 +876,32 @@ body.panel-collapsed #shop-panel { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: 1vw;
-  padding: 1.2vh 1vw;
+  padding: 1vh 1.2vw;
   border-bottom: 1px solid var(--color-accent-10);
   flex-shrink: 0;
 }
 
 .shop-header-icon {
-  font-size: clamp(0.9rem, 2vh, 1.5rem);
+  font-size: clamp(0.85rem, 1.8vh, 1.4rem);
   color: var(--color-accent-50);
   flex-shrink: 0;
 }
 
 .shop-title {
-  font-size: clamp(0.7rem, 1.8vh, 1.4rem);
-  letter-spacing: 0.22em;
+  font-size: clamp(0.68rem, 1.6vh, 1.2rem);
+  letter-spacing: 0.24em;
   color: var(--color-accent-88);
   text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   text-shadow:
     0 0 0.15em rgba(0,200,255,0.8),
     0 0 0.6em rgba(0,200,255,0.5);
 }
 
-/* Hide header text when collapsed */
-body.panel-collapsed .lp-shop-header .shop-title,
-body.panel-collapsed .lp-shop-header .shop-header-icon { display: none; }
-
 #shop-body {
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
-  padding: 1.5vh 0.8vw 3vh;
+  padding: 1.2vh 1vw 3vh;
   display: flex;
   flex-direction: column;
   gap: 1.5vh;
@@ -906,10 +909,22 @@ body.panel-collapsed .lp-shop-header .shop-header-icon { display: none; }
   scrollbar-color: rgba(0,200,255,0.20) transparent;
 }
 
-/* Hide shop body when collapsed (icon-only strip shows nothing) */
-body.panel-collapsed #shop-body { display: none; }
-body.panel-collapsed .lp-qb-section .qb-btn-label,
-body.panel-collapsed .lp-qb-section .qb-btn-cost { display: none; }
+/* ── Upgrades toggle button in top bar ──────────────────── */
+.tb-upgrades-btn {
+  background: var(--color-accent-04) !important;
+  border-color: var(--color-accent-22) !important;
+  flex-direction: row !important;
+  gap: 0.6vw;
+  padding: 0.5vh 1.2vw !important;
+}
+
+.tb-upgrades-icon {
+  font-size: clamp(0.7rem, 1.8vh, 1.4rem);
+  color: var(--color-accent-88);
+  transition: transform 0.25s;
+}
+
+.panel-open-active .tb-upgrades-icon { transform: rotate(180deg); }
 
 /* ─── Reactor panel — new upgrades UI ─────────────────────── */
 
