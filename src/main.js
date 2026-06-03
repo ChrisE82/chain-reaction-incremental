@@ -29,6 +29,7 @@ import { onTapStart, onChainEnd, onBallPurchased, onColorUpgrade, onTapUpgrade,
          analyticsOptOut, analyticsOptIn, analyticsIsOptedOut,
          isLocalhost as analyticsIsLocalhost } from './telemetry.js'
 import { getBallSprite, setSpriteRes } from './gfxCache.js'
+import { initGamepad, updateGamepad, getAimCursor, setOverlayZone } from './gamepad.js'
 import * as PlayFab from './playfab.js'
 import { fmt, fmtMult, fmtBonus } from './ui/fmt.js'
 import { getAudio, playTrigger, playIntroBuildup, playRumble, playBirthPop } from './engine/audio.js'
@@ -52,7 +53,9 @@ window.addEventListener('blur', cancelArmedHold)
 // ─── DOM refs ─────────────────────────────────────────────────────────────
 const canvas     = document.getElementById('c')
 const ctx        = canvas.getContext('2d')
-const hudEl           = document.getElementById('hud')
+const topBarEl        = document.getElementById('top-bar')        // replaces hudEl
+const canvasCellEl    = document.getElementById('canvas-cell')    // measurement cell
+const hudEl           = topBarEl                                   // compat alias
 const hudCoins        = document.getElementById('hud-coins')
 const hudChain        = document.getElementById('hud-chain')
 const hudCoinsBtn     = document.getElementById('hud-coins-btn')
@@ -168,8 +171,7 @@ const qbBuyBallIconEl = document.getElementById('qb-buy-ball-icon')
 const qbBuyIconEl     = document.getElementById('qb-buy-icon')
 const qbBuyLabelEl    = document.getElementById('qb-buy-label')
 const qbBuyCostEl     = document.getElementById('qb-buy-cost')
-const qbStoreBtn    = document.getElementById('qb-store')
-const qbStoreArrow  = document.getElementById('qb-store-arrow')
+// qb-store button removed — panel toggle replaces it
 
 // ─── Virtual resolution ───────────────────────────────────────────────────
 const VIRTUAL_W = 100
@@ -187,49 +189,33 @@ let gamePlayH = VIRTUAL_H
 function calcUnits() {
   W = window.innerWidth
   H = window.innerHeight
-  // Cap DPR: high-density screens (3×, 4×) are expensive to fill each frame.
-  // Mobile cap 1.5 cuts fill cost ~75 % vs a native 3× screen; desktop cap 2 is standard.
   _dpr = Math.min(window.devicePixelRatio || 1, _isMobile ? 1.5 : 2)
 
-  // Size the canvas bitmap to physical pixels, CSS size to logical pixels.
-  // Only reassign when dimensions actually change — setting canvas.width resets the
-  // entire 2D context (clears save stack, transform, clip) even when unchanged,
-  // which was producing misaligned artifacts when calcUnits() ran mid-frame.
+  // Size the canvas bitmap to physical pixels (canvas is always fullscreen).
   const cW = Math.round(W * _dpr)
   const cH = Math.round(H * _dpr)
   if (canvas.width  !== cW) canvas.width  = cW
   if (canvas.height !== cH) canvas.height = cH
   canvas.style.width  = W + 'px'
   canvas.style.height = H + 'px'
-  // Measure actual rendered positions with getBoundingClientRect so the
-  // calculation stays correct even when dvh-based CSS and window.innerHeight
-  // disagree (common on mobile browsers).
-  const hudBottom = hudEl.getBoundingClientRect().bottom
-  // When the bar is hidden (intro mode) offsetHeight === 0; fall back to H
-  // so the field fills the full remaining height.
-  const barTop = qbBar.offsetHeight > 0 ? qbBar.getBoundingClientRect().top : H
 
-  // Explicit clearance gaps so the neon border is always visible and the field
-  // can never accidentally overlap either the HUD or the quick-buy bar — even
-  // when there's sub-pixel rounding or a font-swap causes a brief measurement
-  // lag.  Both values need to be >= shadowBlur / 5 to show a visible glow edge.
-  const TOP_GAP    = H * 0.003   // ~0.3vh — clears HUD sub-pixel rounding
-  const BOTTOM_GAP = H * 0.015   // ~1.5vh — room for the border glow above the bar
+  // ── PC/console layout: arena is positioned within the canvas-cell area ──
+  // canvas-cell is a grid item that occupies the non-panel, non-topbar area.
+  // Its BoundingClientRect tells us the available play area precisely.
+  const cell = canvasCellEl.getBoundingClientRect()
 
-  // Available height is the band between HUD and bar, minus the two gaps.
-  const availH = barTop - hudBottom - TOP_GAP - BOTTOM_GAP
-  // Scale so the virtual field fits inside the available band.
-  gameScale   = Math.min(W / VIRTUAL_W, availH / VIRTUAL_H)
-  gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
-  // Pin the field to the top of the available band (just below HUD + gap).
-  // Do NOT centre vertically: on wide or desktop viewports the field is
-  // width-limited and the centering term would shove the field far down,
-  // producing a large empty zone at the top and crowding the bar at the bottom.
-  gameOffsetY = hudBottom + TOP_GAP
-  // Full virtual height always fits — no virtual-unit reduction needed.
-  gamePlayH = VIRTUAL_H
+  const GAP = Math.min(cell.width, cell.height) * 0.008   // ~0.8% clearance
 
-  // Sync shared render state so particle/label modules read current values.
+  const availW = cell.width  - GAP * 2
+  const availH = cell.height - GAP * 2
+
+  // Arena stays portrait 2:3 — letterboxed horizontally within the available area.
+  gameScale   = Math.min(availW / VIRTUAL_W, availH / VIRTUAL_H)
+  gameOffsetX = cell.left + GAP + (availW - VIRTUAL_W * gameScale) / 2
+  gameOffsetY = cell.top  + GAP + (availH - VIRTUAL_H * gameScale) / 2
+  gamePlayH   = VIRTUAL_H
+
+  // Sync shared render state.
   rs.gameScale   = gameScale
   rs.gameOffsetX = gameOffsetX
   rs.gameOffsetY = gameOffsetY
@@ -238,8 +224,6 @@ function calcUnits() {
   rs.H           = H
   rs.dpr         = _dpr
 
-  // Keep sprite resolution matched to physical pixel density so sprites
-  // are never upscaled (which causes pixelation on larger/retina screens).
   setSpriteRes(gameScale * _dpr)
 }
 calcUnits()
@@ -403,7 +387,7 @@ function runAutoUpgrade(dt) {
 
   if (bestColor && tryPurchaseColorUpgrade(bestColor, bestType)) {
     syncColorBalls(bestColor)
-    if (!shopPanel.classList.contains('hidden')) buildShop()
+    if (isShopOpen()) buildShop()
     updateHUD()
   }
 }
@@ -913,6 +897,9 @@ function loop(ts) {
   const dt = Math.min(ts - lastTime, 50)
   lastTime = ts
 
+  // Gamepad navigation tick
+  updateGamepad(dt)
+
   // Lerp arena scale toward target (ball-count driven; intro uses INTRO_BALL_COUNT).
   {
     const target = getArenaScale(introMode ? INTRO_BALL_COUNT : effectiveBallCount(getState()))
@@ -1292,6 +1279,28 @@ function drawAll() {
     // falls back to baseRadius for non-active states, so skip it too.
     if (b.state === 'respawning' || b.state === 'done') continue
     drawBall(b)
+  }
+  // Gamepad aim cursor (shown only when a gamepad is steering)
+  const cur = getAimCursor()
+  if (cur.active && !introMode) {
+    ctx.save()
+    const cx = cur.x, cy = cur.y
+    const sz = 3.5   // virtual units
+    ctx.strokeStyle = 'rgba(255,229,0,0.85)'
+    ctx.lineWidth   = 0.5
+    ctx.shadowBlur  = 8
+    ctx.shadowColor = '#ffe500'
+    ctx.beginPath()
+    ctx.moveTo(cx - sz, cy); ctx.lineTo(cx + sz, cy)
+    ctx.moveTo(cx, cy - sz); ctx.lineTo(cx, cy + sz)
+    ctx.stroke()
+    ctx.shadowBlur = 0
+    ctx.beginPath()
+    ctx.arc(cx, cy, sz * 0.6, 0, Math.PI * 2)
+    ctx.strokeStyle = 'rgba(255,229,0,0.55)'
+    ctx.lineWidth   = 0.35
+    ctx.stroke()
+    ctx.restore()
   }
 }
 
@@ -1722,9 +1731,9 @@ function finishIntro() {
   // Persist the completion flag so the intro never replays
   setIntroComplete()
 
-  // Restore UI first — makes the quick-buy bar visible so calcUnits() can
-  // read its real height and give us the correct gamePlayH for ball spawning.
-  document.body.classList.remove('intro-active', 'intro-completing')
+  // Restore UI — remove intro classes and expand the panel.
+  document.body.classList.remove('intro-active', 'intro-completing', 'panel-collapsed')
+  if (shopClose) shopClose.textContent = '◀'
   calcUnits()
 
   // Let the loop lerp carry currentArenaScale from the intro value down to the
@@ -1763,7 +1772,7 @@ function finishIntro() {
 function checkFirstBallCue() {
   if (fbCueState !== 'idle') return
   if (introMode) return
-  if (!shopPanel.classList.contains('hidden')) return  // don't fire while store is open
+  if (isShopOpen()) return  // don't fire while store is open
   const st = getState()
   if (st.firstBallCueShown) return
   if (st.totalBallsPurchased !== 1) return   // only for the very first extra ball
@@ -2121,14 +2130,15 @@ function findSuggestedColorUpgrade(st) {
   return bestAffordable ?? bestAny
 }
 
-// Spawns a small toast just above the quick-buy bar.
+// Spawns a small toast to the right of the quick-buy section.
 function spawnQbToast(text) {
-  const rect = qbBar.getBoundingClientRect()
+  const rect = (qbBar ?? shopPanel).getBoundingClientRect()
   const el   = document.createElement('div')
   el.className   = 'qb-toast'
   el.textContent = text
-  el.style.left  = `${Math.round(rect.left + rect.width / 2)}px`
-  el.style.top   = `${Math.round(rect.top - 4)}px`
+  // Position: right edge of panel, mid-height of quick-buy section
+  el.style.left  = `${Math.round(rect.right + 16)}px`
+  el.style.top   = `${Math.round(rect.top + rect.height / 2)}px`
   document.body.appendChild(el)
   el.addEventListener('animationend', () => el.remove(), { once: true })
 }
@@ -2147,7 +2157,6 @@ let _qbPrevBallColor  = ''
 let _qbPrevBallCost   = ''
 let _qbPrevBuyKey     = ''   // replaces prevBuyKey for the BUY button identity
 let _qbPrevBuyCost    = ''
-let _qbPrevStoreArrow = ''
 
 // Refreshes labels, costs, and disabled states on the quick-buy bar.
 // Called from updateHUD() every frame — writes to DOM only when values change.
@@ -2222,12 +2231,8 @@ function updateQuickBuy() {
     qbBuyBtn.disabled = !devFreeUpgradesEnabled
   }
 
-  // ── Store arrow — only write when panel state flips ──
-  const arrowChar = shopPanel.classList.contains('hidden') ? '▲' : '▼'
-  if (arrowChar !== _qbPrevStoreArrow) {
-    qbStoreArrow.textContent = arrowChar
-    _qbPrevStoreArrow = arrowChar
-  }
+  // Update panel toggle button icon (no-op if element not in DOM)
+  if (shopClose) shopClose.textContent = isShopOpen() ? '◀' : '▶'
 }
 
 // ─── Stats mini panel ─────────────────────────────────────────────────────
@@ -2270,10 +2275,6 @@ function openStatsScreen(tab) {
   statsScreen.classList.remove('hidden')
   closeStatsMini()
   // Close shop if open
-  if (!shopPanel.classList.contains('hidden')) {
-    shopPanel.classList.add('hidden')
-    updateQuickBuy()
-  }
   buildStatsScreen()
 }
 
@@ -2923,18 +2924,25 @@ canvas.addEventListener('pointerdown', e => {
 
 // ─── Shop / Dev panel events ──────────────────────────────────────────────
 
+// isShopOpen: panel is expanded (not collapsed). Replaces shopPanel.classList.contains('hidden').
+function isShopOpen() { return !document.body.classList.contains('panel-collapsed') }
+
 function toggleShop() {
   if (introMode) return   // shop is hidden during intro
-  const opening = shopPanel.classList.contains('hidden')
-  shopPanel.classList.toggle('hidden')
+  const opening = document.body.classList.contains('panel-collapsed')
+  document.body.classList.toggle('panel-collapsed')
+  // Update toggle button icon
+  if (shopClose) shopClose.textContent = isShopOpen() ? '◀' : '▶'
   if (opening) {
-    shopLastCoins = -1   // reset so first render doesn't animate
+    // Panel just expanded — build/rebuild shop
+    shopLastCoins = -1
     buildShop()
-    // Close stats panels when opening shop
     closeStatsMini()
     statsScreen.classList.add('hidden')
   }
-  updateQuickBuy()   // flip the store arrow immediately
+  // Re-measure layout since panel width changed
+  calcUnits()
+  updateQuickBuy()
 }
 
 // ─── Stats panel events ───────────────────────────────────────────────────
@@ -2950,7 +2958,7 @@ statsScreen.querySelectorAll('.stats-tab').forEach(tab => {
   })
 })
 
-shopClose.addEventListener('click',  () => { shopPanel.classList.add('hidden'); cancelArmedHold(); updateQuickBuy() })
+shopClose.addEventListener('click', () => { toggleShop(); cancelArmedHold() })
 
 // Full-screen panel — no backdrop tap-to-close needed
 
@@ -2969,7 +2977,7 @@ attachArmedHold(
       cancelFirstBallCue()
       if (!devFreeUpgradesEnabled) { const st = getState(); onBallPurchased(st.totalBallsPurchased, balls.length, st.coins) }
       updateHUD()
-      if (!shopPanel.classList.contains('hidden')) buildShop()
+      if (isShopOpen()) buildShop()
       const n = colorKey.charAt(0).toUpperCase() + colorKey.slice(1)
       spawnQbToast(`${n} ball unlocked!`)
     }
@@ -2992,7 +3000,7 @@ attachArmedHold(
       if (up.upgradeType === 'diameter') spawnRadiusGhost(up.color, oldR)
       if (!devFreeUpgradesEnabled) { const st = getState(); onColorUpgrade(up.color, up.upgradeType, st.colorBuckets[up.color]?.[up.upgradeType + 'Level'] ?? 0, balls.length, st.coins) }
       updateHUD()
-      if (!shopPanel.classList.contains('hidden')) buildShop()
+      if (isShopOpen()) buildShop()
       spawnQbToast(`${COLOR_SHORT[up.color]} ${UPGRADE_TYPE_LABEL[up.upgradeType]} upgraded!`)
     }
   },
@@ -3004,10 +3012,7 @@ attachArmedHold(
   }
 )
 
-qbStoreBtn.addEventListener('click', e => {
-  e.stopPropagation()
-  toggleShop()
-})
+// (qb-store button removed — panel toggle is #shop-close)
 
 devToggle.addEventListener('click', () => {
   devPanel.classList.toggle('hidden')
@@ -3022,13 +3027,13 @@ devClose.addEventListener('click',  () => devPanel.classList.add('hidden'))
 devAddCoinsBtn.addEventListener('click', () => {
   devAddCoins(1000)
   updateHUD()
-  if (!shopPanel.classList.contains('hidden')) buildShop()
+  if (isShopOpen()) buildShop()
 })
 
 devPrestigeBtn.addEventListener('click', () => {
   devAddPrestige()
   updateHUD()
-  if (!shopPanel.classList.contains('hidden')) buildShop()
+  if (isShopOpen()) buildShop()
 })
 
 devFreeUpgradesBtn.addEventListener('click', () => {
@@ -3038,7 +3043,7 @@ devFreeUpgradesBtn.addEventListener('click', () => {
     ? '✦ Free Upgrades ON'
     : '✦ Free Upgrades'
   updateHUD()
-  if (!shopPanel.classList.contains('hidden')) buildShop()
+  if (isShopOpen()) buildShop()
 })
 
 devResetBtn.addEventListener('click', () => {
@@ -3067,14 +3072,15 @@ devResetBtn.addEventListener('click', () => {
   if (introMode) {
     for (let i = 0; i < INTRO_BALL_COUNT; i++) balls.push(makeIntroBall(i))
     document.body.classList.add('intro-active')
-    shopPanel.classList.add('hidden')
+    document.body.classList.add('panel-collapsed')   // hide panel during intro
   } else {
     for (const colorKey of COLOR_ORDER) {
       const bkt = st.colorBuckets[colorKey]
       for (let i = 0; i < (bkt?.ballsOwned ?? 0); i++) balls.push(makeBall(colorKey))
     }
-    document.body.classList.remove('intro-active')
-    if (!shopPanel.classList.contains('hidden')) buildShop()
+    document.body.classList.remove('intro-active', 'panel-collapsed')
+    if (shopClose) shopClose.textContent = '◀'
+    if (isShopOpen()) buildShop()
   }
 
   devPanel.classList.add('hidden')
@@ -3556,14 +3562,17 @@ function endRound() {
       // Boss: show reward screen, then store, then next round
       bossRewardBody.textContent = `Act ${rd.actNumber} complete! You carried ◆${fmt(carried)} into the store.`
       bossRewardOverlay.classList.remove('hidden')
+      setOverlayZone(bossRewardOverlay)
       bossRewardContinue.onclick = () => {
         bossRewardOverlay.classList.add('hidden')
         bstoreTitle.textContent = '★ Act Store'
         betweenStore.classList.remove('hidden')
+        setOverlayZone(betweenStore)
         buildBetweenStore()
         const goalAmt = rd.goal
         bstoreContinue.onclick = () => {
           betweenStore.classList.add('hidden')
+          setOverlayZone(null)
           advanceRound(Math.max(0, getState().coins - goalAmt))
           startRound()
         }
@@ -3583,15 +3592,18 @@ Carried forward: <strong>◆ ${fmt(carried)}</strong>`
         roundEndOverlay.classList.add('hidden')
         bstoreTitle.textContent = '★ Run Store'
         betweenStore.classList.remove('hidden')
+        setOverlayZone(betweenStore)
         buildBetweenStore()
         bstoreContinue.onclick = () => {
           betweenStore.classList.add('hidden')
+          setOverlayZone(null)
           advanceRound(Math.max(0, getState().coins - goalAmt))
           startRound()
         }
       }
       reoActions.appendChild(storeBtn)
       roundEndOverlay.classList.remove('hidden')
+      setOverlayZone(roundEndOverlay)
     }
   } else {
     // Failed run
@@ -3691,7 +3703,7 @@ window.addEventListener('keydown', e => {
     case ']':                               // add coins
       devAddCoins(500)
       updateHUD()
-      if (!shopPanel.classList.contains('hidden')) buildShop()
+      if (isShopOpen()) buildShop()
       break
   }
 })
@@ -3716,8 +3728,9 @@ document.fonts.ready.then(() => calcUnits())
 // ResizeObserver is supported in all target browsers.
 if (typeof ResizeObserver !== 'undefined') {
   const _layoutObserver = new ResizeObserver(() => calcUnits())
-  _layoutObserver.observe(hudEl)
-  _layoutObserver.observe(qbBar)
+  _layoutObserver.observe(topBarEl)
+  _layoutObserver.observe(shopPanel)
+  _layoutObserver.observe(canvasCellEl)
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
@@ -3757,6 +3770,22 @@ function init() {
   if (!introMode && getState().round?.runOver) {
     endRound()
   }
+
+  // ── Gamepad ────────────────────────────────────────────────────────────
+  initGamepad({
+    virtualW:       VIRTUAL_W,
+    virtualH:       VIRTUAL_H,
+    onTap:          (x, y) => triggerAtPoint(x, y),
+    onEndRound:     () => endRoundEarly(),
+    onTogglePanel:  () => toggleShop(),
+    onCloseOverlay: () => {
+      // Close whatever top-level overlay is open
+      if (!roundEndOverlay.classList.contains('hidden'))   roundEndOverlay.classList.add('hidden')
+      if (!statsScreen.classList.contains('hidden'))       statsScreen.classList.add('hidden')
+      if (!betweenStore.classList.contains('hidden'))      { /* handled by bstoreContinue click */ }
+      closeStatsMini()
+    },
+  })
 
   lastTime = performance.now()
   requestAnimationFrame(loop)

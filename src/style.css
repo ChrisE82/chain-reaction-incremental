@@ -1,6 +1,8 @@
 :root {
-  /* Total height consumed by the quick-buy bar (buttons + safe-area inset). */
-  --qb-h: calc(15dvh + env(safe-area-inset-bottom, 0px));
+  /* ── PC/Console layout ─────────────────────────────────────── */
+  --topbar-h:       clamp(3.5rem, 9vh, 6rem);
+  --panel-w:        clamp(260px, 22vw, 420px);
+  --panel-w-icon:   3.5rem;   /* collapsed icon-only strip */
 
   /* ── Brand colours (semantic names) ─────────────────────────── */
   --color-highlight:         #ffe566;
@@ -158,7 +160,23 @@ body {
   font-family: 'Orbitron', monospace;
   touch-action: none;
   user-select: none;
+
+  /* ── PC/Console grid layout ─── */
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr;
+  grid-template-columns: var(--panel-w) 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "panel  canvas";
 }
+
+/* Collapsed panel: shrink col 1 to icon-only width */
+body.panel-collapsed {
+  grid-template-columns: var(--panel-w-icon) 1fr;
+}
+
+/* Gamepad aim cursor: hide native mouse pointer while GP is driving */
+body.gp-active { cursor: none; }
 
 body::after {
   content: '';
@@ -168,54 +186,84 @@ body::after {
   z-index: 1000;
 }
 
+/* Canvas stays fullscreen — game draws everywhere, arena is offset by JS */
 canvas {
   display: block;
+  position: fixed;
+  top: 0; left: 0;
   width: 100dvw;
   height: 100dvh;
+  z-index: 0;
 }
 
-/* ─── Unified HUD (two rows: gameplay info + feedback) ──────── */
-
-#hud {
-  position: fixed;
-  top: max(1.5dvh, env(safe-area-inset-top, 0px));
-  left: 0; right: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5vmin;
-  padding: 0 4vw 1.5vmin;
+/* Measurement cell: tells calcUnits() where the available play area is.
+   No visual content — canvas is behind everything anyway. */
+#canvas-cell {
+  grid-area: canvas;
   pointer-events: none;
-  z-index: 90;
+  z-index: 1;
 }
 
-.hud-row {
+/* ─── Top bar — PC/console always-visible run stats ─────────── */
+
+#top-bar {
+  grid-area: topbar;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  gap: 2vw;
+  padding: 0 max(1.5vw, env(safe-area-inset-right, 0px));
+  padding-left: 0;  /* panel provides left edge */
+  background: rgba(7, 0, 20, 0.97);
+  border-bottom: 1px solid var(--color-accent-25);
+  backdrop-filter: blur(14px);
+  z-index: 90;
+  flex-shrink: 0;
 }
 
-/* ── Row 1: Clicks | Score+Goal button | Refresh ─────────── */
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 1.2vw;
+  height: 100%;
+}
 
-.hud-tile {
+.tb-left  { padding-left: 1.5vw; }
+.tb-right { padding-right: 1.5vw; }
+.tb-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.tb-divider {
+  width: 1px;
+  height: 55%;
+  background: var(--color-accent-22);
+  flex-shrink: 0;
+}
+
+/* Stat tile: label above, value below */
+.tb-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 0 0 28vw;   /* fixed, matches .hud-tile-btn so center is truly centred */
+  gap: 0.2vh;
+  padding: 0 1vw;
 }
 
-.hud-tile-lbl {
+.tb-stat-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.6rem, 2.2vmin, 1.75rem);
-  letter-spacing: 0.16em;
+  font-size: clamp(0.52rem, 1.5vh, 1rem);
+  letter-spacing: 0.18em;
   color: var(--color-accent-55);
   text-transform: uppercase;
   line-height: 1;
+  white-space: nowrap;
 }
 
-.hud-tile-val {
+.tb-stat-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.4rem, 6vmin, 5rem);
+  font-size: clamp(1.2rem, 4vh, 3rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -224,13 +272,12 @@ canvas {
   text-shadow:
     0 0 0.15em #00c8ff,
     0 0 0.6em #00c8ff,
-    0 0 2em rgba(0,200,255,0.65),
-    0 0 4em rgba(0,200,255,0.25);
+    0 0 2em rgba(0,200,255,0.65);
   line-height: 1;
 }
 
-/* Last-resource warning — turns the tile value red when only 1 remains */
-.hud-tile-val.last-one {
+/* Last-resource warning */
+.tb-stat-val.last-one {
   color: var(--color-danger);
   text-shadow:
     0 0 0.15em #ff4f6a,
@@ -238,69 +285,59 @@ canvas {
     0 0 2em rgba(255,79,106,0.4);
 }
 
-/* Refresh — interactive tile button */
-.hud-tile-btn {
+/* Refresh button */
+.tb-btn {
   all: unset;
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 0 0 28vw;   /* same as .hud-tile — both sides equal */
-  padding: 1.2vmin 2.5vmin;
-  border-radius: 2vmin;
+  gap: 0.2vh;
+  padding: 0.8vh 1.2vw;
+  border-radius: 1rem;
   border: 1px solid var(--color-accent-22);
   background: var(--color-accent-04);
-  box-shadow: 0 0 10px rgba(0,200,255,0.10), inset 0 0 0.8em rgba(0,200,255,0.05);
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, box-shadow 0.15s;
 }
-.hud-tile-btn:active {
+.tb-btn:active {
   background: var(--color-accent-14);
-  box-shadow: 0 0 24px rgba(0,200,255,0.35), inset 0 0 0.8em rgba(0,200,255,0.12);
+  box-shadow: 0 0 20px rgba(0,200,255,0.35);
 }
-.hud-tile-btn.disabled { opacity: 0.25; pointer-events: none; }
+.tb-btn.disabled { opacity: 0.25; pointer-events: none; }
 
-/* Center: Score + Goal — tappable, opens stats */
-.hud-score-btn {
+/* Score button (coins / goal) */
+.tb-score-btn {
   all: unset;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  flex: 1;
-  gap: 0.4vmin;
-  padding: 1vmin 3vmin;
-  border-radius: 2vmin;
+  gap: 0.8vw;
+  padding: 0.6vh 1.4vw;
+  border-radius: 1rem;
   border: 1px solid var(--color-highlight-30);
   background: var(--color-highlight-04);
-  box-shadow: 0 0 16px rgba(255,229,0,0.14), inset 0 0 0.8em rgba(255,229,0,0.06);
   cursor: pointer;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, box-shadow 0.15s;
 }
-.hud-score-btn:active {
+.tb-score-btn:active {
   background: var(--color-highlight-12);
-  box-shadow: 0 0 32px rgba(255,229,0,0.40), inset 0 0 0.8em rgba(255,229,0,0.12);
+  box-shadow: 0 0 28px rgba(255,229,0,0.40);
 }
 
-.hud-score-row {
-  display: flex;
-  align-items: center;
-  gap: 0.8vmin;
-}
-
-.hud-coin-icon {
-  font-size: clamp(0.9rem, 4vmin, 3.13rem);
+.tb-coin-icon {
+  font-size: clamp(1rem, 3.2vh, 2.5rem);
   color: var(--color-highlight);
-  filter: drop-shadow(0 0 8px rgba(255,229,0,0.90));
-  align-self: center;
+  filter: drop-shadow(0 0 6px rgba(255,229,0,0.90));
+  flex-shrink: 0;
   transition: color 0.25s, filter 0.25s;
 }
 
-.hud-score-val {
+.tb-score-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1.4rem, 6vmin, 5rem);
+  font-size: clamp(1.2rem, 4vh, 3rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -309,114 +346,67 @@ canvas {
   text-shadow:
     0 0 0.15em #ffe500,
     0 0 0.6em #ffe500,
-    0 0 2em rgba(255,229,0,0.7),
-    0 0 4em rgba(255,229,0,0.3);
+    0 0 2em rgba(255,229,0,0.7);
   line-height: 1;
   transition: color 0.25s, text-shadow 0.25s;
 }
 
-/* Goal met — score and icon both go green */
+.tb-goal-sep {
+  font-size: clamp(0.8rem, 2.5vh, 2rem);
+  color: var(--color-highlight-45);
+}
+
+.tb-goal-val {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.9rem, 2.8vh, 2.2rem);
+  font-weight: 700;
+  color: var(--color-highlight-72);
+  text-shadow: 0 0 0.4em rgba(255,229,0,0.55);
+  white-space: nowrap;
+}
+
+/* Goal met: score goes green */
 #hud-coins.goal-met {
   color: var(--color-success);
   text-shadow:
     0 0 0.15em #39ff14,
     0 0 0.6em #39ff14,
-    0 0 2em rgba(57,255,20,0.7),
-    0 0 4em rgba(57,255,20,0.3);
+    0 0 2em rgba(57,255,20,0.7);
 }
-.hud-score-btn:has(#hud-coins.goal-met) .hud-coin-icon {
+.tb-score-btn:has(#hud-coins.goal-met) .tb-coin-icon {
   color: var(--color-success);
   filter: drop-shadow(0 0 8px rgba(57,255,20,0.90));
 }
-.hud-score-btn:has(#hud-coins.goal-met) .hud-expand-arrow {
+.tb-score-btn:has(#hud-coins.goal-met) .hud-expand-arrow {
   color: var(--color-success-65);
-  text-shadow:
-    0 0 0.15em rgba(57,255,20,0.8),
-    0 0 0.6em rgba(57,255,20,0.5),
-    0 0 2em rgba(57,255,20,0.3);
 }
 
 .hud-expand-arrow {
-  font-size: clamp(0.7rem, 2.6vmin, 2.19rem);
+  font-size: clamp(0.6rem, 2vh, 1.5rem);
   color: var(--color-highlight-65);
-  text-shadow:
-    0 0 0.15em rgba(255,229,0,0.8),
-    0 0 0.6em rgba(255,229,0,0.5),
-    0 0 2em rgba(255,229,0,0.3);
   line-height: 1;
-  margin-top: 0.5vmin;
   transition: color 0.25s, transform 0.25s;
+  flex-shrink: 0;
 }
 .hud-expand-arrow.open {
   transform: rotate(180deg);
-  color: var(--color-highlight-65);
 }
 
-.hud-goal-row {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6vmin;
-}
-
-.hud-goal-lbl {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.6rem, 2.2vmin, 1.75rem);
-  letter-spacing: 0.16em;
-  color: var(--color-highlight-50);
-  text-transform: uppercase;
-  line-height: 1;
-}
-
-.hud-goal-val {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.85rem, 3.5vmin, 2.81rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--color-highlight-72);
-  text-shadow:
-    0 0 0.4em rgba(255,229,0,0.55),
-    0 0 1.2em rgba(255,229,0,0.25);
-  line-height: 1;
-}
-
-/* ── Row 2: Round | Chain | spacer ──────────────────────────── */
-
-.hud-round {
+/* Chain display */
+.tb-chain-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 20vw;
+  gap: 0.1vh;
 }
-.hud-round-lbl {
+
+.tb-chain-lbl {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.5rem, 1.6vmin, 1.38rem);
+  font-size: clamp(0.45rem, 1.4vh, 0.9rem);
   letter-spacing: 0.22em;
-  color: var(--color-secondary);
+  color: var(--color-success-70);
   text-transform: uppercase;
   line-height: 1;
-}
-.hud-round-val {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(1rem, 4.2vmin, 3.44rem);
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  color: var(--color-accent);
-  text-shadow:
-    0 0 0.15em #00c8ff,
-    0 0 0.6em #00c8ff,
-    0 0 2em rgba(0,200,255,0.7),
-    0 0 4em rgba(0,200,255,0.3);
-  line-height: 1.05;
-}
-
-.hud-chain-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 /* inline-block so the scale pulse transform works */
@@ -432,67 +422,51 @@ canvas {
 
 .hud-chain-val {
   font-family: 'Orbitron', monospace;
-  font-size: clamp(1rem, 4.2vmin, 3.44rem);
+  font-size: clamp(1.1rem, 3.5vh, 2.8rem);
   font-weight: 900;
   letter-spacing: 0.04em;
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--color-success);
   text-shadow:
     0 0 0.15em #39ff14,
     0 0 0.6em #39ff14,
-    0 0 2em rgba(57,255,20,0.7),
-    0 0 4em rgba(57,255,20,0.3);
-  line-height: 1.05;
-}
-.hud-chain-lbl {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.5rem, 1.6vmin, 1.38rem);
-  letter-spacing: 0.22em;
-  color: var(--color-success-70);
-  text-transform: uppercase;
+    0 0 2em rgba(57,255,20,0.7);
   line-height: 1;
 }
 
-/* Keeps Row 2 balanced; same min-width as .hud-round.
-   Invisible by default; turns into an "END ›" call-to-action when the
-   goal is met.  Uses the button element for native touch hit-testing. */
-.hud-end-round-btn {
+/* End Round button — invisible until goal met */
+.hud-end-round-btn, .tb-end-btn {
   all: unset;
-  min-width: 20vw;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: default;
-  -webkit-tap-highlight-color: transparent;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.5rem, 1.6vmin, 1.38rem);
+  font-size: clamp(0.7rem, 2vh, 1.4rem);
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  /* hidden state — no text, no pointer events */
+  padding: 0.8vh 1.2vw;
+  border-radius: 1rem;
   color: transparent;
   pointer-events: none;
-  transition: color 0.25s, text-shadow 0.25s;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.25s, text-shadow 0.25s, background 0.25s;
 }
-/* Goal met — show the label, enable taps */
-.hud-end-round-btn.goal-met {
+.hud-end-round-btn.goal-met, .tb-end-btn.goal-met {
   color: var(--color-success);
   cursor: pointer;
   pointer-events: auto;
-  text-shadow:
-    0 0 0.15em #39ff14,
-    0 0 0.6em rgba(57,255,20,0.55);
+  background: var(--color-success-05);
+  border: 1px solid var(--color-success-30);
+  text-shadow: 0 0 0.15em #39ff14, 0 0 0.6em rgba(57,255,20,0.55);
   animation: end-round-pulse 2s ease-in-out infinite;
 }
 @keyframes end-round-pulse {
-  0%, 100% { opacity: 0.6; }
+  0%, 100% { opacity: 0.7; }
   50%       { opacity: 1; }
 }
 
-/* Hide round-specific row-1 tiles and goal during the power-preview intro */
-body.intro-active .hud-tile,
-body.intro-active .hud-goal-row { display: none; }
+/* Hide certain top-bar items during intro */
+body.intro-active .tb-stat:not(.tb-chain-wrap),
+body.intro-active .tb-divider { opacity: 0.2; pointer-events: none; }
 
 /* ─── Stats mini panel ─────────────────────────────────────── */
 
@@ -606,8 +580,8 @@ body.intro-active .hud-goal-row { display: none; }
   position: fixed;
   top: 0;
   left: 0; right: 0;
-  bottom: var(--qb-h);
-  z-index: 110;  /* above #hud (90) and quick-buy bar (100); below overlays (200) */
+  bottom: 0;
+  z-index: 110;  /* above top bar (90) and left panel (80); below overlays (200) */
   display: flex;
   flex-direction: column;
   background: var(--bg-panel-deep);
@@ -835,101 +809,107 @@ body.intro-active .hud-goal-row { display: none; }
 body.intro-active #stats-mini,
 body.intro-active #stats-screen { display: none !important; }
 
-/* ─── Shop panel (full-screen) ─────────────────────────────── */
+/* ─── Left panel — upgrades sidebar (PC/console layout) ─────── */
 
 #shop-panel {
-  position: fixed;
-  inset: 0;
-  z-index: 95;  /* above #hud (90); below round-end overlays (200) */
+  grid-area: panel;
   display: flex;
   flex-direction: column;
-  background: var(--bg-panel-deep);
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: var(--qb-h);
-  opacity: 1;
-  pointer-events: auto;
-  transition: opacity 0.22s ease-out;
+  background: rgba(7, 0, 20, 0.96);
+  border-right: 1px solid var(--color-accent-22);
+  z-index: 80;
+  overflow: hidden;
+  /* width controlled by body grid-template-columns */
 }
 
-#shop-panel.hidden {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease-in;
-}
+/* Collapsed: hide text content, keep icons only.
+   The grid handles the actual width shrink. */
+body.panel-collapsed #shop-panel { overflow: hidden; }
 
-.shop-inner {
-  flex: 1;
+/* Panel toggle button */
+#shop-close {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  height: var(--topbar-h);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-accent-12);
+  font-size: clamp(0.9rem, 2.5vh, 1.8rem);
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+#shop-close:active { color: #fff; background: rgba(255,255,255,0.06); }
+
+/* Quick-buy section inside the panel */
+.lp-qb-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8vh;
+  padding: 1.2vh 0.8vw;
+  border-bottom: 1px solid var(--color-accent-12);
+  flex-shrink: 0;
+}
+
+/* Shop content area */
+.lp-shop-inner {
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transform: translateY(0);
-  transition: transform 0.22s ease-out;
 }
 
-#shop-panel.hidden .shop-inner {
-  transform: translateY(24px);
-  transition: transform 0.18s ease-in;
-}
-
-.shop-header {
+.lp-shop-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 3.5vmin 4.5vmin 3vmin;
+  gap: 1vw;
+  padding: 1.2vh 1vw;
   border-bottom: 1px solid var(--color-accent-10);
   flex-shrink: 0;
-  gap: 2.5vmin;
-}
-
-.shop-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 2vmin;
-  flex: 1;
 }
 
 .shop-header-icon {
-  font-size: 1.15rem;
+  font-size: clamp(0.9rem, 2vh, 1.5rem);
   color: var(--color-accent-50);
+  flex-shrink: 0;
 }
 
 .shop-title {
-  font-size: clamp(1.25rem, 4vmin, 2.5rem);
-  letter-spacing: 0.3em;
+  font-size: clamp(0.7rem, 1.8vh, 1.4rem);
+  letter-spacing: 0.22em;
   color: var(--color-accent-88);
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-shadow:
     0 0 0.15em rgba(0,200,255,0.8),
-    0 0 0.6em rgba(0,200,255,0.5),
-    0 0 2em rgba(0,200,255,0.25);
+    0 0 0.6em rgba(0,200,255,0.5);
 }
 
-#shop-close {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,0.35);
-  font-size: 2rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.15s;
-}
-
-#shop-close:active { color: rgba(255,255,255,0.9); }
+/* Hide header text when collapsed */
+body.panel-collapsed .lp-shop-header .shop-title,
+body.panel-collapsed .lp-shop-header .shop-header-icon { display: none; }
 
 #shop-body {
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
-  padding: 3vmin 3.5vmin 5vmin;
+  padding: 1.5vh 0.8vw 3vh;
   display: flex;
   flex-direction: column;
-  gap: 3vmin;
-  scrollbar-width: none;        /* Firefox */
-  -ms-overflow-style: none;     /* IE / Edge legacy */
+  gap: 1.5vh;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,200,255,0.20) transparent;
 }
 
-#shop-body::-webkit-scrollbar { display: none; } /* Chrome / Safari / WebKit */
+/* Hide shop body when collapsed (icon-only strip shows nothing) */
+body.panel-collapsed #shop-body { display: none; }
+body.panel-collapsed .lp-qb-section .qb-btn-label,
+body.panel-collapsed .lp-qb-section .qb-btn-cost { display: none; }
 
 /* ─── Reactor panel — new upgrades UI ─────────────────────── */
 
@@ -1843,37 +1823,24 @@ body.intro-completing #hud {
 /* When intro-completing is removed the HUD fades back in via the
    same transition (browser applies the reverse automatically). */
 
-/* ─── Quick-buy bar ────────────────────────────────────────────── */
+/* ─── Quick-buy section (inside left panel, vertical stack) ──── */
 
 #quick-buy-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0; right: 0;
-  height: var(--qb-h);
-  padding: 1.2dvh 2vw env(safe-area-inset-bottom, 0px);
-  display: flex;
-  gap: 1.5vw;
-  background: var(--bg-panel);
-  border-top: 1px solid var(--color-accent-35);
-  box-shadow: 0 -0.5em 2.5em rgba(0,200,255,0.12);
-  backdrop-filter: blur(14px);
-  z-index: 100;  /* above #hud (90) and shop panel (95) so it stays visible */
+  /* layout managed by .lp-qb-section parent */
 }
 
 .qb-btn {
-  flex: 1;
-  height: 12.5dvh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 1dvh;
+  gap: 0.8vw;
   background: var(--color-accent-02);
   border: 1px solid var(--color-accent-12);
-  border-radius: 2vw;
+  border-radius: 0.8rem;
   font-family: 'Orbitron', monospace;
   cursor: pointer;
-  padding: 0 2vw;
+  padding: 0.8vh 1vw;
+  width: 100%;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -1908,42 +1875,44 @@ body.intro-completing #hud {
 
 /* ── Button content: icon / label / cost ───────────────────────── */
 
-/* Icon — large emoji or symbol */
+/* Icon */
 .qb-btn-icon {
-  font-size: clamp(1.4rem, 4.5dvh, 2.81rem);
+  font-size: clamp(1rem, 2.2vh, 1.8rem);
   line-height: 1;
 }
 
-/* Dual-icon wrapper (ball ● + upgrade type) on the BUY button */
+/* Dual-icon wrapper */
 .qb-btn-icons {
   display: flex;
   align-items: center;
-  gap: 1.5vw;
+  gap: 0.4vw;
   line-height: 1;
+  flex-shrink: 0;
 }
 .qb-btn-icons .qb-btn-icon {
-  font-size: clamp(1.15rem, 3.5dvh, 2.19rem);
+  font-size: clamp(0.9rem, 2vh, 1.6rem);
 }
 
-/* Label — single uppercase word */
+/* Label */
 .qb-btn-label {
-  font-size: clamp(1rem, 3dvh, 1.88rem);
+  font-size: clamp(0.6rem, 1.6vh, 1.1rem);
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: var(--text-body);
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  flex: 1;
 }
 
-/* Cost badge */
+/* Cost badge — pushed to end */
 .qb-btn-cost {
-  font-size: clamp(0.74rem, 2.2dvh, 1.38rem);
+  font-size: clamp(0.58rem, 1.5vh, 1rem);
   letter-spacing: 0.04em;
   color: var(--color-highlight);
   white-space: nowrap;
+  margin-left: auto;
 }
 
 /* Flash when BUY target changes — uses the button's current --qb-color */
@@ -1965,14 +1934,7 @@ body.intro-completing #hud {
 #qb-buy:disabled .qb-btn-label { color: var(--color-warn); }
 #qb-buy:disabled .qb-btn-cost  { color: var(--color-warn); }
 
-/* Store button — green accent, never disabled */
-.qb-btn-store {
-  background: var(--color-success-05);
-  border-color: var(--color-success-22);
-}
-.qb-btn-store:active { background: rgba(57, 255, 20, 0.15); }
-.qb-btn-store .qb-btn-icon  { color: rgba(57, 255, 20, 0.88); font-size: clamp(1.5rem, 4.8dvh, 3rem); }
-.qb-btn-store .qb-btn-label { color: rgba(57, 255, 20, 0.88); }
+/* (qb-btn-store removed — panel toggle replaces the Upgrades button) */
 
 
 /* Stronger pulse applied while the first-ball cue is animating ──── */
@@ -2104,7 +2066,7 @@ body.intro-completing #hud {
   border: 1px solid var(--color-accent-25);
   border-radius: 3vmin;
   padding: 5vmin 6vmin;
-  width: min(88vw, 36rem);
+  width: min(70vw, 50rem);
   display: flex; flex-direction: column; gap: 3vmin;
   text-align: center;
   box-shadow: 0 0 2em rgba(0,200,255,0.12), inset 0 0 0.8em rgba(0,200,255,0.05);
@@ -2172,10 +2134,10 @@ body.intro-completing #hud {
   letter-spacing: 0.08em;
 }
 
-/* ── Store grid ──────────────────────────────────────────────────────────── */
+/* ── Store grid — 3 cols on widescreen, 2 on narrow ─────────────────────── */
 .bstore-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 45vw), 1fr));
   gap: 2.5vmin;
   padding: 1vmin 3vmin 2vmin;
 }
@@ -2301,3 +2263,43 @@ body.intro-completing #hud {
   margin: 2vmin 3vmin 0;
   width: calc(100% - 6vmin);
 }
+
+/* ── PC/Console: dev panel repositioned (no bottom bar) ──────────────── */
+#dev-toggle {
+  bottom: 2vmin;
+}
+#dev-panel {
+  bottom: calc(2vmin + 3rem + 2vmin);
+}
+
+/* ── Gamepad focus ring ────────────────────────────────────────────────── */
+
+/* Applied by gamepad.js to the currently focused navigable element */
+.gp-focused {
+  outline: 3px solid #ffe500 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(255,229,0,0.30), 0 0 20px rgba(255,229,0,0.25) !important;
+}
+
+/* Suppress default browser focus ring (gamepad system manages focus visually) */
+:focus-visible { outline: none; }
+
+/* Restore for pure keyboard navigation (no gamepad connected) */
+body.kb-nav :focus-visible {
+  outline: 3px solid #ffe500;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(255,229,0,0.25);
+}
+
+/* ── Gamepad aim cursor (drawn on canvas, no DOM element needed) ── */
+/* CSS cursor hidden when gamepad is driving */
+body.gp-active * { cursor: none !important; }
+
+/* ── Shop body: PC sizing overrides ─────────────────────────────────── */
+/* Scale up upgrade rows/chips in the sidebar for 10-foot viewing */
+.upg-chip { min-height: 8vh; }
+.next-ball-card { min-height: 10vh; }
+
+/* Upgrade row items in sidebar should be more compact */
+#shop-body .upg-row { min-height: 8vh; }
+
