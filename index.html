@@ -12,50 +12,53 @@
 <!-- ── Canvas (fullscreen backdrop, z-index 0) ─────────────────── -->
 <canvas id="c"></canvas>
 
-<!-- ── Top bar (always visible, fixed overlay) ─────────────────── -->
+<!-- ── HUD bar — PC horizontal info strip ────────────────────── -->
 <div id="top-bar">
 
-  <!-- Left group: round + resources -->
-  <div class="tb-group tb-left">
-    <div class="tb-stat">
-      <span class="tb-stat-lbl">Round</span>
-      <span class="tb-stat-val" id="hud-round-num">1</span>
-    </div>
-    <div class="tb-divider"></div>
-    <div class="tb-stat">
-      <span class="tb-stat-lbl">Clicks</span>
-      <span class="tb-stat-val" id="hud-clicks">5</span>
-    </div>
-    <button class="tb-stat tb-btn" id="btn-refresh" data-nav="true">
-      <span class="tb-stat-lbl">Refresh &#8635;</span>
-      <span class="tb-stat-val" id="hud-refreshes">5</span>
-    </button>
+  <!-- Round badge -->
+  <div class="hud-seg hud-round-seg">
+    <span class="hud-lbl">RND</span>
+    <span class="hud-num" id="hud-round-num">1</span>
   </div>
 
-  <!-- Center group: score + chain -->
-  <div class="tb-group tb-center">
-    <button class="tb-score-btn" id="hud-coins-btn" aria-label="Stats" data-nav="true">
-      <span class="tb-coin-icon">&#9670;</span>
-      <span class="tb-score-val" id="hud-coins">0</span>
-      <span class="tb-goal-sep">/</span>
-      <span class="tb-goal-val" id="hud-goal-max">200</span>
-      <span class="hud-expand-arrow" id="hud-expand-arrow">&#9662;</span>
-    </button>
-    <div class="tb-divider"></div>
-    <div class="tb-chain-wrap">
-      <span class="hud-chain-val" id="hud-chain">&#215;1.00</span>
-      <span class="tb-chain-lbl">Chain</span>
-    </div>
+  <span class="hud-rule"></span>
+
+  <!-- Clicks counter -->
+  <div class="hud-seg">
+    <span class="hud-lbl">CLICKS</span>
+    <span class="hud-num" id="hud-clicks">6</span>
   </div>
 
-  <!-- Right group: end round action + upgrades toggle -->
-  <div class="tb-group tb-right">
-    <button id="btn-end-round" class="tb-end-btn hud-end-round-btn" aria-label="End round early" data-nav="true"></button>
-    <button id="tb-upgrades-btn" class="tb-btn tb-upgrades-btn" aria-label="Toggle upgrades panel" data-nav="true">
-      <span class="tb-stat-lbl">Upgrades</span>
-      <span class="tb-upgrades-icon">&#9650;</span>
-    </button>
+  <!-- Refresh button -->
+  <button class="hud-seg hud-seg-btn" id="btn-refresh" data-nav="true">
+    <span class="hud-lbl">REFRESH &#8635;</span>
+    <span class="hud-num" id="hud-refreshes">3</span>
+  </button>
+
+  <span class="hud-fill"></span>
+
+  <!-- Score / goal — hero element -->
+  <button class="hud-score-btn" id="hud-coins-btn" aria-label="Stats" data-nav="true">
+    <span class="hud-coin-glyph">&#9670;</span>
+    <span class="hud-coins-val" id="hud-coins">0</span>
+    <span class="hud-slash">/</span>
+    <span class="hud-goal-val" id="hud-goal-max">75</span>
+    <span class="hud-expand-arrow" id="hud-expand-arrow">&#9662;</span>
+  </button>
+
+  <span class="hud-fill"></span>
+
+  <!-- Chain multiplier -->
+  <div class="hud-seg hud-chain-seg">
+    <span class="hud-chain-val" id="hud-chain">&#215;1.00</span>
+    <span class="hud-lbl">CHAIN</span>
   </div>
+
+  <span class="hud-rule"></span>
+
+  <!-- End-round CTA — invisible until goal met -->
+  <button id="btn-end-round" class="hud-end-btn hud-end-round-btn"
+          aria-label="End round early" data-nav="true"></button>
 
 </div>
 
@@ -96,42 +99,43 @@
   <div id="stats-tab-body"></div>
 </div>
 
-<!-- ── Left panel: quick-buy + shop (grid row 2 col 1, collapsible) ─── -->
-<div id="shop-panel" class="lp-collapsed">
+<!-- ── Upgrades slide-over panel ────────────────────────────────── -->
+<div id="shop-panel">
+  <button id="shop-close" class="sp-header" aria-label="Close panel">
+    <span class="sp-title">&#11042; UPGRADES</span>
+    <span class="sp-close">&#215;</span>
+  </button>
+  <div id="shop-body"><!-- built by JS --></div>
+</div>
 
-  <!-- Panel header / close button -->
-  <button id="shop-close" aria-label="Close upgrades panel">
-    <span class="shop-close-title">Upgrades</span>
-    <span class="shop-close-icon">&#215;</span>
+<!-- ── Action bar — PC bottom strip ─────────────────────────────── -->
+<div id="quick-buy-bar">
+
+  <!-- Buy next ball -->
+  <button id="qb-ball" class="qb-btn" data-nav="true">
+    <span class="qb-icon" id="qb-ball-icon">&#9670;</span>
+    <span class="qb-rule"></span>
+    <span class="qb-verb">BUY BALL</span>
+    <span class="qb-name" id="qb-ball-label">–</span>
+    <span class="qb-cost" id="qb-ball-cost">&#9670; –</span>
   </button>
 
-  <!-- Quick-buy section (was the bottom quick-buy bar) -->
-  <div id="quick-buy-bar" class="lp-qb-section">
-    <button id="qb-ball" class="qb-btn" data-nav="true">
-      <span class="qb-btn-icons">
-        <span class="qb-btn-icon" id="qb-ball-icon">&#9670;</span>
-      </span>
-      <span class="qb-btn-label" id="qb-ball-label">BALL</span>
-      <span class="qb-btn-cost" id="qb-ball-cost">&#9670; –</span>
-    </button>
-    <button id="qb-buy" class="qb-btn" data-nav="true">
-      <span class="qb-btn-icons">
-        <span class="qb-btn-icon" id="qb-buy-ball-icon">&#9670;</span>
-        <span class="qb-btn-icon" id="qb-buy-icon">&#9889;</span>
-      </span>
-      <span class="qb-btn-label" id="qb-buy-label">BUY</span>
-      <span class="qb-btn-cost" id="qb-buy-cost">&#9670; –</span>
-    </button>
-  </div>
+  <!-- Buy suggested upgrade -->
+  <button id="qb-buy" class="qb-btn" data-nav="true">
+    <span class="qb-icon-pair">
+      <span class="qb-icon" id="qb-buy-ball-icon">&#9670;</span>
+      <span class="qb-icon" id="qb-buy-icon">&#9889;</span>
+    </span>
+    <span class="qb-rule"></span>
+    <span class="qb-verb">UPGRADE</span>
+    <span class="qb-name" id="qb-buy-label">–</span>
+    <span class="qb-cost" id="qb-buy-cost">&#9670; –</span>
+  </button>
 
-  <!-- Shop content -->
-  <div class="lp-shop-inner">
-    <div class="lp-shop-header">
-      <span class="shop-header-icon">&#11042;</span>
-      <span class="shop-title">Upgrades</span>
-    </div>
-    <div id="shop-body" class="lp-shop-body"><!-- built by JS --></div>
-  </div>
+  <!-- Open upgrades panel -->
+  <button id="tb-upgrades-btn" class="qb-shop-btn" data-nav="true">
+    &#11042;&#8194;UPGRADES&#8194;<span id="tb-upgrades-arrow">&#9650;</span>
+  </button>
 
 </div>
 

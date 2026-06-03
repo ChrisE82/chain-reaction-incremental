@@ -202,16 +202,16 @@ function calcUnits() {
   canvas.style.width  = W + 'px'
   canvas.style.height = H + 'px'
 
-  // Available area: full screen minus the fixed top bar.
+  // Available area: full screen between the top HUD bar and bottom action bar.
   const topH   = topBarEl.getBoundingClientRect().height
+  const botH   = qbBar ? qbBar.getBoundingClientRect().height : 0
   const availW = W
-  const availH = H - topH
+  const availH = H - topH - botH
 
   // Scale the 16:9 arena to fit the available area, maintaining aspect ratio.
-  // On a 16:9 screen the arena fills it almost completely; on other ratios it
-  // pillar/letterboxes with a small dark margin.
+  // On a 16:9 screen this fills it almost completely.
   gameScale   = Math.min(availW / VIRTUAL_W, availH / VIRTUAL_H)
-  // Centre the arena horizontally and pin it to the top of the available band.
+  // Centre horizontally; centre vertically in the band between the two bars.
   gameOffsetX = (W - VIRTUAL_W * gameScale) / 2
   gameOffsetY = topH + (availH - VIRTUAL_H * gameScale) / 2
   gamePlayH   = VIRTUAL_H
@@ -3729,6 +3729,7 @@ if (tbUpgradesBtn) tbUpgradesBtn.addEventListener('click', () => { toggleShop() 
 if (typeof ResizeObserver !== 'undefined') {
   const _layoutObserver = new ResizeObserver(() => calcUnits())
   _layoutObserver.observe(topBarEl)
+  if (qbBar) _layoutObserver.observe(qbBar)
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────
