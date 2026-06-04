@@ -161,16 +161,20 @@
 
 <!-- ── Between-round store ───────────────────────────────────────── -->
 <div id="between-store" class="hidden">
-  <div class="bstore-inner">
-    <div class="bstore-header">
-      <span class="bstore-title" id="bstore-title">&#9733; Run Store</span>
+  <!-- Header bar — same visual language as HUD -->
+  <div class="bs-head">
+    <div class="bs-head-title">
+      <span class="bs-title-icon">&#11042;</span>
+      <span id="bstore-title">RUN STORE</span>
     </div>
-    <div class="bstore-body">
-      <div id="bstore-coins" class="bstore-coins">&#9670; <span id="bstore-coin-val">0</span></div>
-      <div id="bstore-grid" class="bstore-grid"><!-- built by JS --></div>
-      <button id="bstore-continue" class="reo-btn reo-btn-primary">Continue &#8250;</button>
+    <div class="bs-head-coins">
+      <span class="bs-coins-lbl">AVAILABLE TO SPEND</span>
+      <span class="bs-coins-val">&#9670; <span id="bstore-coin-val">0</span></span>
     </div>
+    <button id="bstore-continue" class="bs-continue">CONTINUE &#8250;</button>
   </div>
+  <!-- Item list (built by JS) -->
+  <div id="bstore-grid" class="bs-list"></div>
 </div>
 
 <!-- ── Dev panel ────────────────────────────────────────────────── -->

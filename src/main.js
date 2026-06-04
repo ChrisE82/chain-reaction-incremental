@@ -3376,174 +3376,150 @@ function buildBetweenStore() {
 
   // ── Render the store ──────────────────────────────────────────────────
   function renderStore() {
-    const coins    = getState().coins
-    const goalAmt  = getRoundState().goal
+    const coins     = getState().coins
+    const goalAmt   = getRoundState().goal
     const spendable = Math.max(0, coins - goalAmt)
     if (bstoreCoinVal) bstoreCoinVal.textContent = fmt(spendable)
     if (!bstoreGrid) return
     bstoreGrid.innerHTML = ''
 
-    // ── Ball offer cards ─────────────────────────────────────────────
+    // ── Ball offer rows ──────────────────────────────────────────────
     ballOffers.forEach((offer, idx) => {
       const { colorKey, ballType } = offer
-      const def    = SpecialBallDefs[ballType]
-      const hex    = COLOR_HEX[colorKey]
-      const isSold = purchasedBalls.has(idx)
+      const def     = SpecialBallDefs[ballType]
+      const hex     = COLOR_HEX[colorKey]
+      const isSold  = purchasedBalls.has(idx)
       const canAfford = spendable >= def.cost
 
-      const card = document.createElement('div')
-      card.className = 'bstore-card bstore-card-ball' + (isSold ? ' sold' : '')
-
-      // Build stat description
       const parts = []
       if (def.speedMult)    parts.push(`Speed ×${def.speedMult}`)
       if (def.radiusMult)   parts.push(`Radius ×${def.radiusMult}`)
       if (def.durationMult) parts.push(`Hold ×${def.durationMult}`)
       if (def.growMs)       parts.push(`Grow ${def.growMs}ms`)
 
-      card.innerHTML = `
-        <div class="bstore-card-header">
-          <span class="bstore-card-icon" style="color:${def.glowColor}">${def.icon}</span>
-          <span class="bstore-card-color" style="background:${hex};box-shadow:0 0 0.6em ${hex}"></span>
+      const row = document.createElement('div')
+      row.className = 'bs-row bs-row-ball' + (isSold ? ' bs-sold' : '')
+      row.style.setProperty('--bs-accent', hex + '55')
+
+      row.innerHTML = `
+        <span class="bs-icon" style="color:${def.glowColor}">${def.icon}</span>
+        <span class="bs-swatch" style="background:${hex};box-shadow:0 0 6px ${hex}"></span>
+        <div class="bs-body">
+          <span class="bs-name">${def.name.toUpperCase()} · ${colorKey.toUpperCase()}</span>
+          <span class="bs-desc">${parts.join(' · ')}</span>
         </div>
-        <div class="bstore-card-name">${def.name}</div>
-        <div class="bstore-card-color-lbl" style="color:${hex}">${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)}</div>
-        <div class="bstore-card-desc">${parts.join(' · ')}</div>
-        <div class="bstore-card-cost">&#9670; ${fmt(def.cost)}</div>
-        <button class="bstore-card-btn reo-btn reo-btn-primary"
-          ${isSold || !canAfford ? 'disabled' : ''}>
-          ${isSold ? 'Purchased' : canAfford ? 'Buy' : 'Need ◆' + fmt(def.cost - spendable)}
+        <span class="bs-cost">◆ ${fmt(def.cost)}</span>
+        <button class="bs-btn" ${isSold || !canAfford ? 'disabled' : ''}>
+          ${isSold ? 'PURCHASED' : canAfford ? 'BUY' : 'NEED ◆' + fmt(def.cost - spendable)}
         </button>`
 
       if (!isSold) {
-        card.querySelector('button').addEventListener('click', () => {
+        row.querySelector('button').addEventListener('click', () => {
           if (buySpecialBall(colorKey, ballType, def.cost)) {
-            purchasedBalls.add(idx)
-            _relicFx = null
-            renderStore()
+            purchasedBalls.add(idx); _relicFx = null; renderStore()
           }
         })
       }
-      bstoreGrid.appendChild(card)
+      bstoreGrid.appendChild(row)
     })
 
-    // ── Relic offer cards ─────────────────────────────────────────────
+    // ── Relic offer rows ─────────────────────────────────────────────
     relicOffers.forEach((relic, idx) => {
       const isSold    = purchasedRelics.has(idx)
       const canAfford = spendable >= relic.cost
       const stackCount = (getState().relics ?? []).filter(r => r === relic.id).length
-      const atMax   = relic.maxStack && stackCount >= relic.maxStack
+      const atMax     = !!(relic.maxStack && stackCount >= relic.maxStack)
 
-      // Description based on relic type
       let desc = ''
       if (relic.id.startsWith('amp_')) {
         const type = relic.id.replace('amp_', '')
         const pct  = Math.round(StoreConfig.ampPerPurchase * 100)
-        desc = `+${pct}% ${type} for all balls${stackCount > 0 ? ` (×${1 + (stackCount + 1) * StoreConfig.ampPerPurchase} total after)` : ''}`
-      } else if (relic.id === 'warm_fusion') {
-        desc = 'Red, Orange & Yellow share the highest upgrade level across the group'
-      } else if (relic.id === 'cool_fusion') {
-        desc = 'Violet, Blue & Green share the highest upgrade level across the group'
-      } else if (relic.id === 'chain_catalyst') {
-        desc = 'Chain multiplier ×1.5 (stacks additively)'
-        if (stackCount > 0) desc += ` (currently ×${1 + (stackCount + 1) * 0.5} total)`
-      } else if (relic.id === 'clear_surge') {
-        desc = 'Clear bonus base +1, cap +1 per stack'
-      }
+        desc = `+${pct}% ${type} for all balls` + (stackCount > 0 ? ` — ×${(1 + (stackCount + 1) * StoreConfig.ampPerPurchase).toFixed(2)} total after` : '')
+      } else if (relic.id === 'warm_fusion')    { desc = 'Red · Orange · Yellow share highest upgrade level' }
+      else if (relic.id === 'cool_fusion')      { desc = 'Violet · Blue · Green share highest upgrade level' }
+      else if (relic.id === 'chain_catalyst')   { desc = 'Chain multiplier ×1.5 per stack' + (stackCount > 0 ? ` — ×${1 + (stackCount + 1) * 0.5} total` : '') }
+      else if (relic.id === 'clear_surge')      { desc = 'Clear bonus base +1 and cap +1 per stack' }
 
-      const card = document.createElement('div')
-      card.className = 'bstore-card bstore-card-relic' + (isSold || atMax ? ' sold' : '')
+      const row = document.createElement('div')
+      row.className = 'bs-row bs-row-relic' + (isSold || atMax ? ' bs-sold' : '')
 
-      card.innerHTML = `
-        <div class="bstore-card-header">
-          <span class="bstore-card-icon bstore-relic-icon">&#11042;</span>
+      row.innerHTML = `
+        <span class="bs-icon" style="color:#ffe500">&#11042;</span>
+        <div class="bs-body">
+          <span class="bs-name">${relic.name.toUpperCase()}</span>
+          ${stackCount > 0 ? `<span class="bs-stack">OWNED: ${stackCount}${relic.maxStack ? ' / ' + relic.maxStack : ''}</span>` : ''}
+          <span class="bs-desc">${desc}</span>
         </div>
-        <div class="bstore-card-name">${relic.name}</div>
-        ${stackCount > 0 ? `<div class="bstore-card-stack">Owned: ${stackCount}</div>` : ''}
-        <div class="bstore-card-desc">${desc}</div>
-        <div class="bstore-card-cost">&#9670; ${fmt(relic.cost)}</div>
-        <button class="bstore-card-btn reo-btn reo-btn-primary"
-          ${isSold || atMax || !canAfford ? 'disabled' : ''}>
-          ${isSold ? 'Purchased' : atMax ? 'Max' : canAfford ? 'Buy' : 'Need ◆' + fmt(relic.cost - spendable)}
+        <span class="bs-cost">◆ ${fmt(relic.cost)}</span>
+        <button class="bs-btn" ${isSold || atMax || !canAfford ? 'disabled' : ''}>
+          ${isSold ? 'PURCHASED' : atMax ? 'MAX' : canAfford ? 'BUY' : 'NEED ◆' + fmt(relic.cost - spendable)}
         </button>`
 
       if (!isSold && !atMax) {
-        card.querySelector('button').addEventListener('click', () => {
+        row.querySelector('button').addEventListener('click', () => {
           if (buyRelic(relic.id, relic.cost)) {
-            purchasedRelics.add(idx)
-            _relicFx = null
-            renderStore()
+            purchasedRelics.add(idx); _relicFx = null; renderStore()
           }
         })
       }
-      bstoreGrid.appendChild(card)
+      bstoreGrid.appendChild(row)
     })
 
-    // ── Burn card ─────────────────────────────────────────────────────
+    // ── Burn row ─────────────────────────────────────────────────────
     {
-      const burnCost     = getBurnCost()
+      const burnCost      = getBurnCost()
       const canAffordBurn = spendable >= burnCost
-      const card = document.createElement('div')
-      card.className = 'bstore-card bstore-burn-card'
 
-      // Build burn target selector — all owned balls
       const burnTargets = []
       for (const colorKey of COLOR_ORDER) {
         const bkt = getState().colorBuckets[colorKey] ?? {}
-        if ((bkt.ballsOwned ?? 0) > 0) {
-          burnTargets.push({ colorKey, ballType: null, label: `${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} (regular)` })
-        }
-        for (const bt of (bkt.specialBalls ?? [])) {
-          const def = SpecialBallDefs[bt]
-          burnTargets.push({ colorKey, ballType: bt, label: `${colorKey.charAt(0).toUpperCase() + colorKey.slice(1)} ${def?.name ?? bt}` })
-        }
+        if ((bkt.ballsOwned ?? 0) > 0)
+          burnTargets.push({ colorKey, ballType: null })
+        for (const bt of (bkt.specialBalls ?? []))
+          burnTargets.push({ colorKey, ballType: bt })
       }
 
       let selectedBurnIdx = -1
 
-      const burnColorHtml = burnTargets.map((t, i) => {
-        const hex = COLOR_HEX[t.colorKey]
-        const icon = t.ballType ? (SpecialBallDefs[t.ballType]?.icon ?? '') : ''
-        return `<button class="bstore-burn-color" data-burn-idx="${i}"
-          style="border-color:${hex};color:${hex}">
-          ${icon || '◆'} ${t.label}
-        </button>`
+      const targetsHtml = burnTargets.map((t, i) => {
+        const hex  = COLOR_HEX[t.colorKey]
+        const icon = t.ballType ? (SpecialBallDefs[t.ballType]?.icon ?? '') : '◆'
+        const name = t.ballType
+          ? `${colorKey.charAt(0).toUpperCase() + t.colorKey.slice(1)} ${SpecialBallDefs[t.ballType]?.name ?? t.ballType}`
+          : t.colorKey.charAt(0).toUpperCase() + t.colorKey.slice(1)
+        return `<button class="bs-burn-target" data-burn-idx="${i}" style="border-color:${hex};color:${hex}">${icon} ${name.toUpperCase()}</button>`
       }).join('')
 
-      card.innerHTML = `
-        <div class="bstore-card-name">&#128293; Burn a Ball</div>
-        <div class="bstore-card-desc">Remove a ball from your roster. Tighter deck = more consistent chains.</div>
-        <div class="bstore-burn-colors">${burnColorHtml}</div>
-        <div class="bstore-card-cost">&#9670; ${fmt(burnCost)}</div>
-        <button class="bstore-card-btn reo-btn" id="bstore-burn-confirm" disabled>
-          Select a ball to burn
-        </button>`
+      const row = document.createElement('div')
+      row.className = 'bs-row bs-row-burn'
+      row.innerHTML = `
+        <span class="bs-icon" style="color:#ff4f6a">&#128293;</span>
+        <div class="bs-body">
+          <span class="bs-name">BURN A BALL</span>
+          <span class="bs-desc">Remove one ball — tighter roster, more consistent chains</span>
+          <div class="bs-burn-targets">${targetsHtml}</div>
+        </div>
+        <span class="bs-cost">◆ ${fmt(burnCost)}</span>
+        <button class="bs-btn" id="bstore-burn-confirm" disabled>SELECT TARGET</button>`
 
-      // Handle color selection
-      card.querySelectorAll('.bstore-burn-color').forEach(btn => {
+      row.querySelectorAll('.bs-burn-target').forEach(btn => {
         btn.addEventListener('click', () => {
-          card.querySelectorAll('.bstore-burn-color').forEach(b2 => b2.classList.remove('selected'))
+          row.querySelectorAll('.bs-burn-target').forEach(b => b.classList.remove('selected'))
           btn.classList.add('selected')
           selectedBurnIdx = parseInt(btn.dataset.burnIdx, 10)
-          const confirmBtn = card.querySelector('#bstore-burn-confirm')
-          confirmBtn.disabled = !canAffordBurn
-          confirmBtn.textContent = canAffordBurn
-            ? `Burn ◆${fmt(burnCost)}`
-            : `Need ◆${fmt(burnCost - spendable)}`
+          const confirm = row.querySelector('#bstore-burn-confirm')
+          confirm.disabled = !canAffordBurn
+          confirm.textContent = canAffordBurn ? `BURN ◆${fmt(burnCost)}` : `NEED ◆${fmt(burnCost - spendable)}`
         })
       })
 
-      // Handle burn confirm
-      card.querySelector('#bstore-burn-confirm').addEventListener('click', () => {
-        if (selectedBurnIdx < 0 || selectedBurnIdx >= burnTargets.length) return
+      row.querySelector('#bstore-burn-confirm').addEventListener('click', () => {
+        if (selectedBurnIdx < 0) return
         const { colorKey, ballType } = burnTargets[selectedBurnIdx]
-        if (burnBall(colorKey, ballType)) {
-          _relicFx = null
-          renderStore()
-        }
+        if (burnBall(colorKey, ballType)) { _relicFx = null; renderStore() }
       })
 
-      bstoreGrid.appendChild(card)
+      bstoreGrid.appendChild(row)
     }
   }
 

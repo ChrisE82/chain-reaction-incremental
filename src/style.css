@@ -2300,177 +2300,261 @@ body.intro-completing #hud {
 .reo-fail .reo-title { color: #ff6b6b; text-shadow: 0 0 0.15em #ff6b6b, 0 0 0.6em rgba(255,107,107,0.6), 0 0 2em rgba(255,107,107,0.3); }
 .reo-fail { border-color: rgba(255,107,107,0.30); box-shadow: 0 0 2em rgba(255,107,107,0.10), inset 0 0 0.8em rgba(255,107,107,0.05); }
 
-/* ── Between-round store placeholder ──────────────────────────────────── */
-#between-store { position: fixed; inset: 0; z-index: 200; }
+/* ══════════════════════════════════════════════════════════════════════════
+   BETWEEN-ROUND STORE  — PC row-list design
+   Design refs: Slay the Spire shop list, Dead Cells item shop
+   ══════════════════════════════════════════════════════════════════════════ */
+
+#between-store {
+  position: fixed; inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: rgba(2, 0, 7, 0.99);
+  font-family: 'Orbitron', monospace;
+}
 #between-store.hidden { display: none; }
-.bstore-inner {
-  background: #0e0018;
-  height: 100%;
-  display: flex; flex-direction: column;
-  overflow-x: hidden;
-}
-.bstore-header {
-  display: flex; align-items: center; justify-content: center;
-  padding: 4vmin;
-  border-bottom: 1px solid var(--color-accent-10);
-}
-.bstore-title {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(1.25rem, 5vmin, 3.13rem);
-  color: #fff;
-  text-shadow: 0 0 0.15em rgba(255,255,255,0.8), 0 0 0.6em rgba(255,255,255,0.4), 0 0 2em rgba(255,255,255,0.2);
-}
-.bstore-body {
-  flex: 1;
-  display: flex; flex-direction: column;
+
+/* ── Header bar — same visual language as #top-bar ── */
+.bs-head {
+  display: flex;
   align-items: stretch;
-  gap: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0,200,255,0.25) transparent;
-  padding-bottom: 3vmin;
+  height: var(--hud-h);
+  border-bottom: 1px solid var(--hud-border);
+  flex-shrink: 0;
 }
-.bstore-coins {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(1.1rem, 4.5vmin, 2.75rem);
+
+.bs-head-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 clamp(1.2rem, 2.5vw, 3rem);
+  border-right: 1px solid var(--hud-border);
+}
+
+.bs-title-icon {
+  font-size: clamp(1rem, 2.5vh, 2rem);
+  color: var(--color-accent-88);
+}
+
+#bstore-title {
+  font-size: clamp(0.72rem, 1.6vh, 1.28rem);
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: var(--color-accent-88);
+  text-shadow: 0 0 10px rgba(0,200,255,0.55);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bs-head-coins {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.bs-coins-lbl {
+  font-size: clamp(0.42rem, 0.85vh, 0.68rem);
+  letter-spacing: 0.2em;
+  color: rgba(255,229,0,0.45);
+  text-transform: uppercase;
+}
+
+.bs-coins-val {
+  font-size: clamp(1.4rem, 3.5vh, 2.8rem);
+  font-weight: 900;
+  color: var(--color-highlight);
+  text-shadow: 0 0 14px rgba(255,229,0,0.8);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bs-continue {
+  all: unset;
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(1.5rem, 3vw, 4rem);
+  border-left: 1px solid rgba(0,200,255,0.28);
+  background: rgba(0,200,255,0.04);
+  font-size: clamp(0.65rem, 1.45vh, 1.1rem);
   font-weight: 700;
-  color: #ffe500;
-  text-align: center;
-  padding: 3vmin 4vmin 1.5vmin;
-  text-shadow: 0 0 0.15em #ffe500, 0 0 0.6em rgba(255,229,0,0.7);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
+  color: var(--color-accent);
+  text-shadow: 0 0 8px rgba(0,200,255,0.65);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bs-continue:hover  { background: rgba(0,200,255,0.09); }
+.bs-continue:active { background: rgba(0,200,255,0.16); }
+
+/* ── Item list ── */
+.bs-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,200,255,0.18) transparent;
 }
 
-/* ── Store grid — 3 cols on widescreen, 2 on narrow ─────────────────────── */
-.bstore-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(240px, 45vw), 1fr));
-  gap: 2.5vmin;
-  padding: 1vmin 3vmin 2vmin;
+/* ── Individual item row ── */
+.bs-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.8rem, 1.8vw, 2.5rem);
+  padding: clamp(0.9rem, 2vh, 1.6rem) clamp(1.5rem, 3vw, 5rem);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-left: 3px solid var(--bs-accent, rgba(0,200,255,0.25));
+  transition: background 0.12s;
 }
-
-/* ── Individual card ─────────────────────────────────────────────────────── */
-.bstore-card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 2.5vmin;
-  padding: 3vmin 2.5vmin 2.5vmin;
-  display: flex; flex-direction: column;
-  gap: 1.5vmin;
-  transition: border-color 0.2s, background 0.2s;
-}
-.bstore-card:not(.sold):hover {
-  background: rgba(255,255,255,0.07);
-  border-color: rgba(255,255,255,0.22);
-}
-.bstore-card.sold {
-  opacity: 0.38;
+.bs-row:hover { background: rgba(255,255,255,0.02); }
+.bs-row.bs-sold {
+  opacity: 0.3;
   pointer-events: none;
 }
 
-/* Card header row: icon + color swatch */
-.bstore-card-header {
-  display: flex; align-items: center; gap: 2vmin;
-}
-.bstore-card-icon {
-  font-size: clamp(1.4rem, 5.5vmin, 3.2rem);
+/* Icon column — emoji/symbol */
+.bs-icon {
+  font-size: clamp(1.6rem, 4vh, 3.2rem);
   line-height: 1;
-  filter: drop-shadow(0 0 0.25em currentColor);
+  flex-shrink: 0;
+  width: clamp(2.5rem, 5vh, 4rem);
+  text-align: center;
+  filter: drop-shadow(0 0 6px currentColor);
 }
-.bstore-relic-icon {
-  color: #ffe500;
-  filter: drop-shadow(0 0 0.25em #ffe500);
-}
-.bstore-card-color {
-  display: inline-block;
-  width: 3.5vmin; height: 3.5vmin;
-  min-width: 1rem; min-height: 1rem;
+
+/* Color dot for ball rows */
+.bs-swatch {
+  width: clamp(0.55rem, 1.2vh, 0.9rem);
+  height: clamp(0.55rem, 1.2vh, 0.9rem);
   border-radius: 50%;
   flex-shrink: 0;
 }
-.bstore-card-color-lbl {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.6rem, 2.4vmin, 1.5rem);
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  text-transform: uppercase;
-  margin-top: -0.5vmin;
-}
-.bstore-card-name {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.65rem, 2.6vmin, 1.63rem);
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.06em;
-  line-height: 1.2;
-}
-.bstore-card-stack {
-  font-size: clamp(0.55rem, 2vmin, 1.25rem);
-  color: rgba(255,229,0,0.75);
-  font-family: 'Orbitron', monospace;
-  letter-spacing: 0.08em;
-}
-.bstore-card-desc {
-  font-size: clamp(0.6rem, 2.2vmin, 1.38rem);
-  color: rgba(255,255,255,0.5);
-  line-height: 1.5;
+
+/* Name + description column */
+.bs-body {
   flex: 1;
-}
-.bstore-card-cost {
-  font-family: 'Orbitron', monospace;
-  font-size: clamp(0.75rem, 2.8vmin, 1.75rem);
-  font-weight: 700;
-  color: #ffe500;
-  text-shadow: 0 0 0.15em #ffe500, 0 0 0.6em rgba(255,229,0,0.55);
-  letter-spacing: 0.05em;
-}
-.bstore-card-btn {
-  box-sizing: border-box;
-  width: 100%;
-  margin-top: auto;
-}
-.bstore-card-btn:disabled {
-  opacity: 0.28;
-  cursor: default;
-  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
-/* ── Burn card (spans full width) ────────────────────────────────────────── */
-.bstore-burn-card {
-  grid-column: 1 / -1;
+.bs-name {
+  font-size: clamp(0.78rem, 1.85vh, 1.48rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.9);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.bstore-burn-colors {
-  display: flex;
-  gap: 1.5vmin;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.bstore-burn-color {
-  all: unset;
-  cursor: pointer;
-  font-size: clamp(0.6rem, 2.2vmin, 1.38rem);
-  font-family: 'Orbitron', monospace;
+
+.bs-desc {
+  font-size: clamp(0.56rem, 1.25vh, 0.98rem);
+  color: rgba(255,255,255,0.38);
   letter-spacing: 0.06em;
-  border: 1px solid;
-  border-radius: 1.5vmin;
-  padding: 1.2vmin 2.2vmin;
-  transition: background 0.15s, box-shadow 0.15s;
-  -webkit-tap-highlight-color: transparent;
+  line-height: 1.4;
 }
-.bstore-burn-color:hover { background: rgba(255,255,255,0.08); }
-.bstore-burn-color.selected {
+
+.bs-stack {
+  font-size: clamp(0.52rem, 1.15vh, 0.88rem);
+  color: rgba(255,229,0,0.6);
+  letter-spacing: 0.1em;
+}
+
+/* Burn targets inline */
+.bs-burn-targets {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.bs-burn-target {
+  all: unset;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.52rem, 1.15vh, 0.9rem);
+  letter-spacing: 0.1em;
+  padding: 3px 10px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1.6;
+}
+.bs-burn-target:hover { background: rgba(255,255,255,0.06); }
+.bs-burn-target.selected {
   border-color: var(--color-danger) !important;
   color: var(--color-danger) !important;
-  box-shadow: 0 0 0.6em var(--color-danger), 0 0 2em rgba(255,79,106,0.3);
+  background: rgba(255,79,106,0.08);
 }
 
-/* Continue button row */
-#bstore-continue {
-  box-sizing: border-box;
-  margin: 2vmin 3vmin 0;
-  width: calc(100% - 6vmin);
+/* Cost column */
+.bs-cost {
+  font-size: clamp(0.85rem, 2vh, 1.6rem);
+  font-weight: 700;
+  color: var(--color-highlight);
+  text-shadow: 0 0 8px rgba(255,229,0,0.6);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
 }
+
+/* Action button — right column */
+.bs-btn {
+  all: unset;
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(0.58rem, 1.3vh, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: clamp(0.5rem, 1.1vh, 0.85rem) clamp(0.9rem, 2vw, 2.2rem);
+  border: 1px solid rgba(0,200,255,0.35);
+  color: var(--color-accent);
+  background: rgba(0,200,255,0.06);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  transition: background 0.12s, border-color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bs-btn:hover  { background: rgba(0,200,255,0.12); border-color: rgba(0,200,255,0.55); }
+.bs-btn:active { background: rgba(0,200,255,0.2); }
+.bs-btn:disabled { opacity: 0.22; cursor: default; pointer-events: none; }
+
+/* Relic accent: gold */
+.bs-row-relic { --bs-accent: rgba(255,229,0,0.35); }
+.bs-row-relic .bs-btn {
+  border-color: rgba(255,229,0,0.35);
+  color: var(--color-highlight);
+  background: rgba(255,229,0,0.05);
+  text-shadow: 0 0 6px rgba(255,229,0,0.6);
+}
+.bs-row-relic .bs-btn:hover {
+  background: rgba(255,229,0,0.1);
+  border-color: rgba(255,229,0,0.55);
+}
+
+/* Burn accent: danger red */
+.bs-row-burn {
+  --bs-accent: rgba(255,79,106,0.35);
+  background: rgba(255,79,106,0.02);
+}
+.bs-row-burn .bs-btn {
+  border-color: rgba(255,79,106,0.4);
+  color: var(--color-danger);
+  background: rgba(255,79,106,0.06);
+}
+.bs-row-burn .bs-btn:hover { background: rgba(255,79,106,0.12); }
 
 /* ── PC/Console: dev panel repositioned (no bottom bar) ──────────────── */
 #dev-toggle {
