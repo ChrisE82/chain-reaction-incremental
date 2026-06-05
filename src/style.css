@@ -2393,7 +2393,7 @@ body.intro-completing #hud {
 .bs-continue:hover  { background: rgba(0,200,255,0.09); }
 .bs-continue:active { background: rgba(0,200,255,0.16); }
 
-/* ── Item list ── */
+/* ── Item list — rows divide the full available height equally ── */
 .bs-list {
   flex: 1;
   overflow-y: auto;
@@ -2404,13 +2404,15 @@ body.intro-completing #hud {
   scrollbar-color: rgba(0,200,255,0.18) transparent;
 }
 
-/* ── Individual item row ── */
+/* ── Individual item row — stretch to fill screen ── */
 .bs-row {
+  flex: 1;           /* each row takes an equal share of the full height */
+  min-height: 10vh;  /* floor so rows never collapse on very wide screens */
   display: flex;
   align-items: center;
-  gap: clamp(0.8rem, 1.8vw, 2.5rem);
-  padding: clamp(0.9rem, 2vh, 1.6rem) clamp(1.5rem, 3vw, 5rem);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: clamp(1rem, 2.5vw, 4rem);
+  padding: 0 clamp(2rem, 5vw, 8rem);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
   border-left: 3px solid var(--bs-accent, rgba(0,200,255,0.25));
   transition: background 0.12s;
 }
@@ -2422,18 +2424,18 @@ body.intro-completing #hud {
 
 /* Icon column — emoji/symbol */
 .bs-icon {
-  font-size: clamp(1.6rem, 4vh, 3.2rem);
+  font-size: clamp(2rem, 5vh, 4rem);
   line-height: 1;
   flex-shrink: 0;
-  width: clamp(2.5rem, 5vh, 4rem);
+  width: clamp(3rem, 6vh, 5rem);
   text-align: center;
-  filter: drop-shadow(0 0 6px currentColor);
+  filter: drop-shadow(0 0 8px currentColor);
 }
 
 /* Color dot for ball rows */
 .bs-swatch {
-  width: clamp(0.55rem, 1.2vh, 0.9rem);
-  height: clamp(0.55rem, 1.2vh, 0.9rem);
+  width: clamp(0.7rem, 1.5vh, 1.1rem);
+  height: clamp(0.7rem, 1.5vh, 1.1rem);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -2443,15 +2445,15 @@ body.intro-completing #hud {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: clamp(4px, 0.6vh, 8px);
   min-width: 0;
 }
 
 .bs-name {
-  font-size: clamp(0.78rem, 1.85vh, 1.48rem);
+  font-size: clamp(1rem, 2.5vh, 2rem);
   font-weight: 900;
   letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255,255,255,0.92);
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -2459,15 +2461,15 @@ body.intro-completing #hud {
 }
 
 .bs-desc {
-  font-size: clamp(0.56rem, 1.25vh, 0.98rem);
-  color: rgba(255,255,255,0.38);
+  font-size: clamp(0.65rem, 1.5vh, 1.15rem);
+  color: rgba(255,255,255,0.4);
   letter-spacing: 0.06em;
   line-height: 1.4;
 }
 
 .bs-stack {
-  font-size: clamp(0.52rem, 1.15vh, 0.88rem);
-  color: rgba(255,229,0,0.6);
+  font-size: clamp(0.6rem, 1.3vh, 1rem);
+  color: rgba(255,229,0,0.65);
   letter-spacing: 0.1em;
 }
 
@@ -2482,9 +2484,9 @@ body.intro-completing #hud {
 .bs-burn-target {
   all: unset;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.52rem, 1.15vh, 0.9rem);
+  font-size: clamp(0.6rem, 1.4vh, 1.05rem);
   letter-spacing: 0.1em;
-  padding: 3px 10px;
+  padding: clamp(4px, 0.8vh, 8px) clamp(10px, 1.4vw, 18px);
   border: 1px solid;
   cursor: pointer;
   transition: background 0.12s;
@@ -2500,23 +2502,24 @@ body.intro-completing #hud {
 
 /* Cost column */
 .bs-cost {
-  font-size: clamp(0.85rem, 2vh, 1.6rem);
+  font-size: clamp(1.1rem, 2.8vh, 2.2rem);
   font-weight: 700;
   color: var(--color-highlight);
-  text-shadow: 0 0 8px rgba(255,229,0,0.6);
+  text-shadow: 0 0 10px rgba(255,229,0,0.65);
   white-space: nowrap;
   flex-shrink: 0;
   letter-spacing: 0.04em;
+  padding: 0 clamp(0.5rem, 1.5vw, 2rem);
 }
 
 /* Action button — right column */
 .bs-btn {
   all: unset;
   font-family: 'Orbitron', monospace;
-  font-size: clamp(0.58rem, 1.3vh, 1rem);
+  font-size: clamp(0.7rem, 1.6vh, 1.2rem);
   font-weight: 700;
-  letter-spacing: 0.14em;
-  padding: clamp(0.5rem, 1.1vh, 0.85rem) clamp(0.9rem, 2vw, 2.2rem);
+  letter-spacing: 0.16em;
+  padding: clamp(0.7rem, 1.5vh, 1.2rem) clamp(1.2rem, 3vw, 3rem);
   border: 1px solid rgba(0,200,255,0.35);
   color: var(--color-accent);
   background: rgba(0,200,255,0.06);
